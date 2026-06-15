@@ -1,0 +1,47 @@
+flowchart TD
+    A([Start]) --> B[User Login / Register]
+    B --> C[JWT Authentication]
+    C --> D[Dashboard]
+
+    D --> E[Create / Select Project]
+    E --> F[Add Target URL or IP]
+    F --> G{Scope Permission Check}
+
+    G -->|Out of Scope| X[Block Scan and Show Warning]
+    G -->|In Scope| H[Configure Scan]
+
+    H --> I[Create Scan Job]
+    I --> J[Scanner Engine]
+
+    J --> J1[Nmap Scan]
+    J --> J2[Nikto Scan]
+    J --> J3[SQLmap Scan]
+    J --> J4[Custom Web Checks]
+
+    J1 --> K[Collect Raw Tool Output]
+    J2 --> K
+    J3 --> K
+    J4 --> K
+
+    K --> L[Parse and Normalise Results]
+    L --> M[Map Vulnerabilities: CVE, CWE, OWASP Top 10]
+
+    M --> N[Store Findings in MySQL]
+    N --> O[AI Recommendation Engine]
+
+    O --> P[Generate Attack Suggestions]
+    O --> Q[Generate Risk Explanation]
+    O --> R[Generate Remediation Advice]
+
+    P --> S[Tester Review]
+    Q --> S
+    R --> S
+
+    S --> T{Accept Suggestion?}
+    T -->|No| U[Add Manual Notes]
+    T -->|Yes| V[Save Evidence]
+
+    U --> V
+    V --> W[Generate Report]
+    W --> Y[Export PDF, DOCX or HTML]
+    Y --> Z([End])
