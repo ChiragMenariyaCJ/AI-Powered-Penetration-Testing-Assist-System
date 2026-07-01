@@ -1,0 +1,28 @@
+flowchart TD
+    A[Client / Frontend] --> B[API Gateway / Backend Server]
+
+    B --> C{User Authenticated?}
+
+    C -- No --> D[Return 401 Unauthorized]
+    C -- Yes --> E[Validate Request Data]
+
+    E --> F{Valid Input?}
+
+    F -- No --> G[Return 400 Bad Request]
+    F -- Yes --> H[Route to Correct API Module]
+
+    H --> I{API Type}
+
+    I -- Auth API --> J[Login / Register / JWT]
+    I -- Project API --> K[Create / Select Project]
+    I -- Target API --> L[Add Target URL or IP]
+    I -- Scan API --> M[Start Scan Job]
+    I -- AI API --> N[Generate Attack Suggestions]
+    I -- Report API --> O[Generate PDF Report]
+
+    J --> P[Return Auth Result]
+    K --> Q[Return Project Result]
+    L --> R[Return Target Result]
+    M --> S[Return Scan Result]
+    N --> T[Return AI Recommendation Result]
+    O --> U[Return Report Download Link]

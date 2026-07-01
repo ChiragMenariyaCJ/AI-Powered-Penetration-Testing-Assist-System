@@ -1,0 +1,25 @@
+flowchart TD
+    A[POST /api/reports/generate] --> B[Receive Project ID]
+
+    B --> C[Check User Access]
+
+    C --> D{Access Allowed?}
+
+    D -- No --> E[Return 403 Forbidden]
+    D -- Yes --> F[Fetch Project Details]
+
+    F --> G[Fetch Targets]
+    G --> H[Fetch Scan Results]
+    H --> I[Fetch AI Recommendations]
+    I --> J[Fetch Evidence Files]
+
+    J --> K{Findings Available?}
+
+    K -- No --> L[Generate Empty Security Summary]
+    K -- Yes --> M[Generate Full Penetration Testing Report]
+
+    L --> N[Export PDF]
+    M --> N
+
+    N --> O[Save Report File]
+    O --> P[Return Report Download Link]

@@ -1,0 +1,23 @@
+flowchart TD
+
+A[POST /api/projects]
+
+A --> B[Validate JWT]
+
+B --> C{Authenticated?}
+
+C -- No --> D[Return 401 Unauthorized]
+
+C -- Yes --> E[Receive Project Details]
+
+E --> F[Validate Project Data]
+
+F --> G{Valid Data?}
+
+G -- No --> H[Return Validation Error]
+
+G -- Yes --> I[Save Project]
+
+I --> J[(MySQL)]
+
+J --> K[Return Project Created]

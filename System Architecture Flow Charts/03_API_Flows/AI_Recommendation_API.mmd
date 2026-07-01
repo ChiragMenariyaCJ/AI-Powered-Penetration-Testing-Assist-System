@@ -1,0 +1,29 @@
+flowchart TD
+    A[POST /api/ai/recommendations] --> B[Receive Finding ID]
+
+    B --> C[Fetch Finding from Database]
+
+    C --> D{Finding Exists?}
+
+    D -- No --> E[Return 404 Finding Not Found]
+    D -- Yes --> F[Prepare AI Prompt Context]
+
+    F --> G[Include Vulnerability Type]
+    F --> H[Include Severity]
+    F --> I[Include Tool Output]
+    F --> J[Include OWASP/CVE/CWE Mapping]
+
+    G --> K[AI Recommendation Engine]
+    H --> K
+    I --> K
+    J --> K
+
+    K --> L[Generate Attack Suggestion]
+    K --> M[Generate Risk Explanation]
+    K --> N[Generate Remediation Advice]
+
+    L --> O[Save AI Output]
+    M --> O
+    N --> O
+
+    O --> P[Return AI Recommendation Result]

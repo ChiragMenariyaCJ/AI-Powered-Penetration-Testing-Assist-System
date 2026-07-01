@@ -1,0 +1,23 @@
+flowchart TD
+
+A[POST /api/targets]
+
+A --> B[Validate JWT]
+
+B --> C{Authenticated?}
+
+C -- No --> D[Return Unauthorized]
+
+C -- Yes --> E[Receive URL/IP]
+
+E --> F[Validate Format]
+
+F --> G{Valid Target?}
+
+G -- No --> H[Return Invalid Target]
+
+G -- Yes --> I[Save Target]
+
+I --> J[(Database)]
+
+J --> K[Return Target Added]

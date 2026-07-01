@@ -1,0 +1,18 @@
+flowchart TD
+    A[GET /api/recommendations] --> B[Display AI Suggestions to Tester]
+
+    B --> C{Tester Decision}
+
+    C -- Reject --> D[Mark Suggestion as Rejected]
+    D --> E[Store Review Status]
+    E --> F[Return Rejected Result]
+
+    C -- Approve --> G[Mark Suggestion as Approved]
+    G --> H{Attack Execution Allowed?}
+
+    H -- No --> I[Return Execution Blocked]
+    H -- Yes --> J[Execute Approved Test Safely]
+
+    J --> K[Capture Evidence]
+    K --> L[Store Logs and Screenshots]
+    L --> M[Return Attack Execution Result]

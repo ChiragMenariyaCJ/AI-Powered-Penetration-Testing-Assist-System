@@ -1,0 +1,17 @@
+flowchart TD
+    A[POST /api/targets] --> B[Receive Target URL or IP]
+
+    B --> C[Validate Format]
+
+    C --> D{Valid URL/IP?}
+
+    D -- No --> E[Return 400 Invalid Target]
+    D -- Yes --> F[Check Project Scope Rules]
+
+    F --> G{Target In Scope?}
+
+    G -- No --> H[Block Target]
+    H --> I[Return 403 Out of Scope Warning]
+
+    G -- Yes --> J[Save Target in Database]
+    J --> K[Return 201 Target Added Successfully]

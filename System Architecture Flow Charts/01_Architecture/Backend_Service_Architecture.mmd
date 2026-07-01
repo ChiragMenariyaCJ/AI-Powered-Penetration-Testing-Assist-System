@@ -1,0 +1,31 @@
+flowchart LR
+
+A[Frontend Client]
+
+A --> B[Authentication Service]
+
+A --> C[Project Service]
+
+A --> D[Target Service]
+
+A --> E[Scan Service]
+
+A --> F[AI Recommendation Service]
+
+A --> G[Reporting Service]
+
+B --> H[(MySQL Database)]
+C --> H
+D --> H
+E --> H
+F --> H
+G --> H
+
+E --> I[Nmap]
+E --> J[Nikto]
+E --> K[SQLMap]
+E --> L[Custom Scanner]
+
+F --> M[AI Engine]
+
+G --> N[PDF Generator]

@@ -1,0 +1,26 @@
+flowchart TD
+    A[API Request] --> B[Backend Processing]
+
+    B --> C{Error Occurred?}
+
+    C -- No --> D[Return Success Response]
+
+    C -- Yes --> E{Error Type}
+
+    E -- Validation Error --> F[Return 400 Bad Request]
+    E -- Authentication Error --> G[Return 401 Unauthorized]
+    E -- Permission Error --> H[Return 403 Forbidden]
+    E -- Not Found Error --> I[Return 404 Not Found]
+    E -- Scanner Failure --> J[Return 500 Scanner Execution Failed]
+    E -- AI Failure --> K[Return 500 AI Recommendation Failed]
+    E -- Database Error --> L[Return 500 Database Error]
+
+    F --> M[Log Error]
+    G --> M
+    H --> M
+    I --> M
+    J --> M
+    K --> M
+    L --> M
+
+    M --> N[Send Error Response to Client]

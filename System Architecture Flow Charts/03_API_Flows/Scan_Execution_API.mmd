@@ -1,0 +1,32 @@
+flowchart TD
+    A[POST /api/scans/start] --> B[Receive Project ID and Target ID]
+
+    B --> C[Check User Permission]
+
+    C --> D{User Owns Project?}
+
+    D -- No --> E[Return 403 Forbidden]
+    D -- Yes --> F[Check Target Scope]
+
+    F --> G{Target In Scope?}
+
+    G -- No --> H[Return Scan Blocked]
+    G -- Yes --> I[Create Scan Job]
+
+    I --> J[Select Scanner Tools]
+
+    J --> K{Tool Selected}
+
+    K -- Nmap --> L[Run Nmap Scan]
+    K -- Nikto --> M[Run Nikto Scan]
+    K -- SQLmap --> N[Run SQLmap Scan]
+    K -- Custom Checks --> O[Run Custom Web Checks]
+
+    L --> P[Collect Raw Output]
+    M --> P
+    N --> P
+    O --> P
+
+    P --> Q[Parse and Normalise Results]
+    Q --> R[Store Findings in MySQL]
+    R --> S[Return Scan Completed Result]
