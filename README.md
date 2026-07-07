@@ -1,3 +1,4 @@
+
 # AI-Powered Penetration Testing Assist System
 
 AI-based vulnerability analysis, attack recommendation, and automated reporting framework.
@@ -9,6 +10,201 @@ AI-based vulnerability analysis, attack recommendation, and automated reporting 
 > All rights are reserved. The source code, documentation, diagrams, and associated materials may not be copied, modified, distributed, or used without explicit written permission from the author.
 >
 > This repository is made available solely for academic assessment and portfolio demonstration purposes.
+
+---
+
+# Quick Start
+
+## Clone the Repository
+
+```bash
+git clone https://github.com/<your-username>/AI-Powered-Penetration-Testing-Assist-System.git
+
+cd AI-Powered-Penetration-Testing-Assist-System
+````
+
+## Install Dependencies
+
+```bash
+pip install -r Backend/requirements.txt
+```
+
+## Run the Backend API
+
+```bash
+uvicorn Backend.main:app --reload
+```
+
+The backend will start on:
+
+```
+http://127.0.0.1:8000
+```
+
+---
+
+## API Documentation
+
+Swagger UI
+
+```
+http://127.0.0.1:8000/docs
+```
+
+ReDoc
+
+```
+http://127.0.0.1:8000/redoc
+```
+
+OpenAPI Specification
+
+```
+http://127.0.0.1:8000/openapi.json
+```
+
+---
+
+## Current API Endpoints
+
+### Authentication
+
+| Method | Endpoint             |
+| ------ | -------------------- |
+| POST   | `/api/auth/register` |
+| POST   | `/api/auth/login`    |
+
+### Users
+
+| Method | Endpoint               |
+| ------ | ---------------------- |
+| GET    | `/api/users`           |
+| GET    | `/api/users/{user_id}` |
+| DELETE | `/api/users/{user_id}` |
+
+---
+
+````
+
+### Development Roadmap section
+
+```md
+# Development Roadmap
+
+- [x] Project Architecture
+- [x] Database Design
+- [x] User Authentication
+- [x] User Management
+- [ ] Project Management
+- [ ] Target Management
+- [ ] Scope Validation
+- [ ] Nmap Integration
+- [ ] OWASP ZAP Integration
+- [ ] Burp Suite Integration
+- [ ] Vulnerability Parser
+- [ ] AI Recommendation Engine
+- [ ] Evidence Collection
+- [ ] PDF Report Generation
+- [ ] Dashboard
+- [ ] Unit Testing
+````
+
+# PTAS Folder Structure
+
+```
+Backend/
+│
+├── __init__.py
+├── main.py
+├── config.py
+├── database.py
+│
+├── controllers/
+│   ├── __init__.py
+│   ├── auth_controller.py
+│   ├── user_controller.py
+│   ├── project_controller.py
+│   ├── target_controller.py
+│   ├── scan_controller.py
+│   └── report_controller.py
+│
+├── routes/
+│   ├── __init__.py
+│   ├── auth_routes.py
+│   ├── user_routes.py
+│   ├── project_routes.py
+│   ├── target_routes.py
+│   ├── scan_routes.py
+│   └── report_routes.py
+│
+├── usecases/
+│   ├── __init__.py
+│   ├── auth_usecase.py
+│   ├── user_usecase.py
+│   ├── project_usecase.py
+│   ├── target_usecase.py
+│   ├── scan_usecase.py
+│   ├── ai_usecase.py
+│   └── report_usecase.py
+│
+├── repositories/
+│   ├── __init__.py
+│   ├── user_repository.py
+│   ├── project_repository.py
+│   ├── target_repository.py
+│   ├── scan_repository.py
+│   └── report_repository.py
+│
+├── models/
+│   ├── __init__.py
+│   ├── user_model.py
+│   ├── project_model.py
+│   ├── target_model.py
+│   ├── scan_model.py
+│   ├── vulnerability_model.py
+│   ├── recommendation_model.py
+│   └── report_model.py
+│
+├── schemas/
+│   ├── __init__.py
+│   ├── auth_schema.py
+│   ├── user_schema.py
+│   ├── project_schema.py
+│   ├── target_schema.py
+│   ├── scan_schema.py
+│   └── report_schema.py
+│
+├── services/
+│   ├── __init__.py
+│   ├── ai_service.py
+│   ├── nmap_service.py
+│   ├── zap_service.py
+│   ├── burp_service.py
+│   ├── report_service.py
+│   └── parser_service.py
+│
+├── middleware/
+│   ├── __init__.py
+│   ├── authentication.py
+│   ├── authorization.py
+│   └── exception_handler.py
+│
+├── utils/
+│   ├── __init__.py
+│   ├── jwt_utils.py
+│   ├── password_utils.py
+│   ├── validators.py
+│   ├── logger.py
+│   └── constants.py
+│
+├── tests/
+│   ├── test_auth.py
+│   ├── test_users.py
+│   ├── test_projects.py
+│   └── test_scans.py
+│
+└── requirements.txt
+```
 
 ## Project Overview
 
