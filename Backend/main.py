@@ -4,6 +4,7 @@ from Backend.database import Base, engine
 from Backend.models.user_model import User
 from Backend.routes.user_routes import router as user_router
 from Backend.routes.auth_routes import router as auth_router
+from Backend.routes.project_routes import router as project_router
 
 app = FastAPI(
     title="AI-Powered Penetration Testing Assist System API",
@@ -24,6 +25,11 @@ app.include_router(
     tags=["Users"],
 )
 
+app.include_router(
+    project_router,
+    prefix="/api/projects",
+    tags=["Projects"],
+)
 
 @app.get("/")
 def home():
