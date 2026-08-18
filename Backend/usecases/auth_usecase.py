@@ -25,7 +25,13 @@ class AuthUseCase:
                 detail="Email already exists."
             )
 
-        password_hash = hash_password(request.password)
+        try:
+            password_hash = hash_password(request.password)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=422,
+                detail=str(exc),
+            ) from exc
 
         user = self.user_repository.create_user(
             full_name=request.full_name,

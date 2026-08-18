@@ -1,20 +1,29 @@
 from datetime import datetime, timedelta
-from jose import jwt
+from jose import JWTError, jwt
 
-SECRET_KEY = "change_this_secret_key"
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_HOURS = 2
+from Backend.config import settings
 
 
 def create_access_token(data: dict) -> str:
     payload = data.copy()
 
     payload["exp"] = datetime.utcnow() + timedelta(
-        hours=ACCESS_TOKEN_EXPIRE_HOURS
+        hours=settings.access_token_expire_hours
     )
 
     return jwt.encode(
         payload,
-        SECRET_KEY,
-        algorithm=ALGORITHM
+        settings.secret_key,
+        algorithm=settings.algorithm,
     )
+
+
+def decode_access_token(token: str) -> dict | None:
+    try:
+        return jwt.decode(
+            token,
+            settings.secret_key,
+            algorithms=[settings.algorithm],
+        )
+    except JWTError:
+        return None

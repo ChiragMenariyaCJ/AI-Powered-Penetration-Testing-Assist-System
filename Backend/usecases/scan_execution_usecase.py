@@ -6,6 +6,8 @@ from Backend.repositories.target_repository import TargetRepository
 from Backend.repositories.scope_validation_repository import (
     ScopeValidationRepository,
 )
+from Backend.repositories.project_repository import ProjectRepository
+from Backend.repositories.vulnerability_repository import VulnerabilityRepository
 from Backend.usecases.scope_validation_usecase import ScopeValidationUseCase
 from Backend.services.nmap_service import NmapService
 from Backend.services.vulnerability_parser import VulnerabilityParser
@@ -19,13 +21,16 @@ class ScanExecutionUseCase:
         scan_repository: ScanRepository,
         target_repository: TargetRepository,
         scope_validation_repository: ScopeValidationRepository,
+        project_repository: ProjectRepository,
+        vulnerability_repository: VulnerabilityRepository,
     ):
         self.scan_repository = scan_repository
         self.target_repository = target_repository
         self.scope_validation_repository = scope_validation_repository
+        self.vulnerability_repository = vulnerability_repository
         self.scope_validation_usecase = ScopeValidationUseCase(
             scope_validation_repository,
-            None,
+            project_repository,
         )
         self.nmap_service = NmapService()
         self.vulnerability_parser = VulnerabilityParser()
@@ -49,12 +54,24 @@ class ScanExecutionUseCase:
                 detail="Scan not found",
             )
 
+        if scan.status in {"RUNNING", "COMPLETED"}:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Scan is already {scan.status.lower()}",
+            )
+
         # Get target details
         target = self.target_repository.get_target_by_id(scan.target_id)
         if not target:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Target not found",
+            )
+
+        if target.project_id != project_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="The target does not belong to the supplied project",
             )
 
         # Verify target is in scope
@@ -107,6 +124,31 @@ class ScanExecutionUseCase:
                 self.vulnerability_parser.parse_scan_results(nmap_result)
             )
 
+            formatted_vulnerabilities = []
+            for vulnerability in vulnerability_data.get("vulnerabilities", []):
+                cves = vulnerability.get("cves")
+                formatted_vulnerabilities.append(
+                    {
+                        "scan_id": scan_id,
+                        "host": vulnerability.get("host") or target.target_value,
+                        "port": vulnerability.get("port"),
+                        "service": vulnerability.get("service"),
+                        "vulnerability_type": vulnerability.get("type", "UNKNOWN"),
+                        "severity": vulnerability.get("severity", "MEDIUM"),
+                        "description": vulnerability.get(
+                            "description", "Observed scan finding"
+                        ),
+                        "version": vulnerability.get("version"),
+                        "cves": ", ".join(cves) if isinstance(cves, list) else cves,
+                        "remediation": vulnerability.get("remediation"),
+                        "status": "OPEN",
+                    }
+                )
+            if formatted_vulnerabilities:
+                self.vulnerability_repository.bulk_create_vulnerabilities(
+                    formatted_vulnerabilities
+                )
+
             # Update scan with results
             import json
 
@@ -126,6 +168,7 @@ class ScanExecutionUseCase:
                 "scan_id": scan_id,
                 "target": target.target_value,
                 "vulnerabilities_found": vulnerability_data.get("summary", {}),
+                "findings_persisted": len(formatted_vulnerabilities),
             }
 
         except Exception as e:

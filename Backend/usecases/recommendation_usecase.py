@@ -203,26 +203,28 @@ class RecommendationUseCase:
 
         return self.recommendation_repository.reject_recommendation(recommendation)
 
-    def get_recommendations_by_status(self, status: str):
+    def get_recommendations_by_status(self, status_filter: str):
         valid_statuses = [
             "PENDING_APPROVAL",
             "APPROVED",
             "REJECTED",
             "EXECUTED",
         ]
-        if status not in valid_statuses:
+        if status_filter not in valid_statuses:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Invalid status. Must be one of: {', '.join(valid_statuses)}",
             )
 
         recommendations = (
-            self.recommendation_repository.get_recommendations_by_status(status)
+            self.recommendation_repository.get_recommendations_by_status(
+                status_filter
+            )
         )
 
         return {
             "count": len(recommendations),
-            "status": status,
+            "status": status_filter,
             "recommendations": recommendations,
         }
 

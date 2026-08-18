@@ -8,8 +8,8 @@
 cd /path/to/project
 
 # Make setup script executable and run it
-sudo chmod +x kali-setup.sh
-sudo ./kali-setup.sh
+chmod +x kali-setup.sh
+./kali-setup.sh
 ```
 
 This will:
@@ -74,8 +74,7 @@ pip install -r Backend/requirements.txt
 
 ### 5. Run Application
 ```bash
-cd Backend
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
+uvicorn Backend.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 ---
@@ -163,14 +162,12 @@ deactivate
 
 ### Run in Development Mode
 ```bash
-cd Backend
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
+uvicorn Backend.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 ### Run in Production Mode
 ```bash
-cd Backend
-gunicorn -w 4 -k uvicorn.workers.UvicornWorker main:app --bind 0.0.0.0:8000
+gunicorn -w 4 -k uvicorn.workers.UvicornWorker Backend.main:app --bind 0.0.0.0:8000
 ```
 
 ### View Database
@@ -205,7 +202,7 @@ sudo lsof -i :8000
 sudo kill -9 <PID>
 
 # Or use different port
-uvicorn main:app --reload --host 0.0.0.0 --port 8001
+uvicorn Backend.main:app --reload --host 0.0.0.0 --port 8001
 ```
 
 ### MySQL Connection Error
@@ -336,16 +333,8 @@ Available variables:
 
 ### For High-Volume Scanning
 ```bash
-# Increase database connection pool
-# Edit Backend/database.py:
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URL,
-    pool_size=20,
-    max_overflow=40
-)
-
 # Use multiple Gunicorn workers
-gunicorn -w 8 -k uvicorn.workers.UvicornWorker main:app
+gunicorn -w 8 -k uvicorn.workers.UvicornWorker Backend.main:app
 ```
 
 ### Monitor System Resources

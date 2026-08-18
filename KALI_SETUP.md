@@ -16,8 +16,8 @@ cd /path/to/AI-Powered-Penetration-Testing-Assist-System
 # Make script executable
 chmod +x kali-setup.sh
 
-# Run setup script
-sudo ./kali-setup.sh
+# Run setup script (it requests sudo only for system operations)
+./kali-setup.sh
 ```
 
 ## Manual Setup (Step-by-Step)
@@ -88,34 +88,29 @@ You should see `(venv)` prefix in your terminal.
 
 ### Step 8: Install Python Dependencies
 ```bash
-cd Backend
 pip install --upgrade pip
-pip install -r requirements.txt
+pip install -r Backend/requirements-kali.txt
 ```
 
 ### Step 9: Configure Database Connection
-Edit `Backend/database.py` to match your MySQL setup:
+Copy the environment template and edit `.env`:
 
-```python
-# Default configuration (works if you created user as above)
-SQLALCHEMY_DATABASE_URL = "mysql+pymysql://ptas_user:ptas_password@localhost:3306/ptas_db"
-
-# Or if using root without password:
-SQLALCHEMY_DATABASE_URL = "mysql+pymysql://root:@localhost:3306/ptas_db"
+```bash
+cp .env.example .env
+nano .env
 ```
 
 ### Step 10: Run the Application
 
-**Option A: Direct Python Execution**
+**Option A: Project launcher**
 ```bash
-# From Backend directory
-python3 main.py
+./start.sh
 ```
 
 **Option B: Uvicorn with Auto-reload (Development)**
 ```bash
-# From Backend directory
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
+# From the repository root
+uvicorn Backend.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 **Option C: Production (Gunicorn + Uvicorn)**
@@ -159,7 +154,7 @@ sudo systemctl start mariadb
 ### Issue: Port 8000 Already in Use
 ```bash
 # Use a different port
-uvicorn main:app --reload --host 0.0.0.0 --port 8001
+uvicorn Backend.main:app --reload --host 0.0.0.0 --port 8001
 
 # Or kill the process using port 8000
 sudo lsof -i :8000
@@ -172,13 +167,13 @@ sudo kill -9 <PID>
 sudo apt install -y libmysqlclient-dev python3-dev
 
 # Then try pip install again
-pip install -r requirements.txt
+pip install -r Backend/requirements-kali.txt
 ```
 
 ### Issue: Permission Denied on setup script
 ```bash
 chmod +x kali-setup.sh
-sudo ./kali-setup.sh
+./kali-setup.sh
 ```
 
 ---
@@ -232,8 +227,7 @@ sudo mysql -u root ptas_db < ptas_backup.sql
 
 2. **Start development server**:
    ```bash
-   cd Backend
-   uvicorn main:app --reload --host 0.0.0.0 --port 8000
+   uvicorn Backend.main:app --reload --host 0.0.0.0 --port 8000
    ```
 
 3. **In another terminal, test endpoints**:
@@ -242,9 +236,9 @@ sudo mysql -u root ptas_db < ptas_backup.sql
    curl -X POST http://localhost:8000/api/projects \
      -H "Content-Type: application/json" \
      -d '{
-       "name": "Test Project",
+       "project_name": "Test Project",
        "description": "Testing PTAS on Kali",
-       "owner_id": 1
+       "user_id": 1
      }'
    ```
 
@@ -258,17 +252,7 @@ sudo mysql -u root ptas_db < ptas_backup.sql
 
 - **Disable live reload in production**:
   ```bash
-  uvicorn main:app --host 0.0.0.0 --port 8000 --workers 4
-  ```
-
-- **Increase database pool size for many scans**:
-  Edit `Backend/database.py`:
-  ```python
-  engine = create_engine(
-      SQLALCHEMY_DATABASE_URL,
-      pool_size=10,
-      max_overflow=20
-  )
+  uvicorn Backend.main:app --host 0.0.0.0 --port 8000 --workers 4
   ```
 
 - **Monitor Nmap resource usage**:

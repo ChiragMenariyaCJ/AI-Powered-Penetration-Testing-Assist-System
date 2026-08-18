@@ -1,17 +1,21 @@
 import subprocess
 import xml.etree.ElementTree as ET
 from datetime import datetime
+import ipaddress
 import os
+import re
 import tempfile
 from typing import Optional
+
+from Backend.config import settings
 
 
 class NmapService:
     """Service for executing Nmap scans and parsing results"""
 
     def __init__(self):
-        self.nmap_command = "nmap"
-        self.timeout = 300  # 5 minutes default timeout
+        self.nmap_command = settings.nmap_path
+        self.timeout = settings.nmap_timeout
 
     def is_nmap_installed(self) -> bool:
         """Check if Nmap is installed on the system"""
@@ -49,6 +53,8 @@ class NmapService:
                     "error": "Nmap not installed on system",
                 }
 
+            target = self._validate_target(target)
+
             # Create temporary file for XML output
             with tempfile.NamedTemporaryFile(
                 mode="w", suffix=".xml", delete=False
@@ -68,6 +74,13 @@ class NmapService:
                     timeout=self.timeout,
                     text=True,
                 )
+
+                if result.returncode != 0:
+                    error = result.stderr.strip() or result.stdout.strip()
+                    return {
+                        "status": "FAILED",
+                        "error": error or f"Nmap exited with code {result.returncode}",
+                    }
 
                 # Parse XML output
                 if os.path.exists(xml_output_path):
@@ -109,9 +122,8 @@ class NmapService:
         if scan_type == "QUICK":
             cmd.extend(["-F", "-sV"])  # Fast scan with version detection
         elif scan_type == "FULL":
-            cmd.extend(
-                ["-sV", "-sC", "-O", "-A"]
-            )  # Full scan with all options
+            # Keep the API service unprivileged; OS detection and SYN scans need root.
+            cmd.extend(["-sV", "-sC"])
         elif scan_type == "VULNERABILITY":
             cmd.extend(["-sV", "-sC"])  # Vulnerability detection
         elif scan_type == "PORT_SCAN":
@@ -121,6 +133,33 @@ class NmapService:
 
         cmd.append(target)
         return cmd
+
+    @staticmethod
+    def _validate_target(target: str) -> str:
+        candidate = target.strip().rstrip(".")
+        if (
+            not candidate
+            or candidate.startswith("-")
+            or any(character.isspace() for character in candidate)
+        ):
+            raise ValueError("Target must be a single IP address, CIDR, or hostname")
+
+        try:
+            if "/" in candidate:
+                ipaddress.ip_network(candidate, strict=False)
+            else:
+                ipaddress.ip_address(candidate)
+            return candidate
+        except ValueError:
+            pass
+
+        hostname_pattern = re.compile(
+            r"(?i)^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)*"
+            r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$"
+        )
+        if not hostname_pattern.fullmatch(candidate):
+            raise ValueError("Target must be a valid IP address, CIDR, or hostname")
+        return candidate
 
     def _parse_xml_output(self, xml_file_path: str) -> dict:
         """Parse Nmap XML output and extract relevant information"""

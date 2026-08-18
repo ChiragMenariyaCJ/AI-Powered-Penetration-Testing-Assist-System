@@ -41,6 +41,18 @@ The backend will start on:
 http://127.0.0.1:8000
 ```
 
+## Terminal Sidecar
+
+PTAS can also run beside an explicitly selected Kali terminal and provide
+scope-aware, read-only suggestions:
+
+```bash
+./ptas.sh watch --pane %0 --scope 10.10.10.0/24
+```
+
+See [TERMINAL_ASSISTANT.md](TERMINAL_ASSISTANT.md) for the complete two-pane
+tmux workflow, transcript mode, local Ollama integration, and safety controls.
+
 ---
 
 ## API Documentation

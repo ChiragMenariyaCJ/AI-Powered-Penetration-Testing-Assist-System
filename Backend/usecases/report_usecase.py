@@ -30,7 +30,7 @@ class ReportUseCase:
             dict with report ID and status
         """
         # Validate scan exists
-        scan = ScanRepository.get_scan_by_id(db, scan_id)
+        scan = ScanRepository(db).get_scan_by_id(scan_id)
         if not scan:
             return {"error": f"Scan {scan_id} not found"}
 
@@ -274,6 +274,15 @@ class ReportUseCase:
             "format_type": report.format_type,
             "generated_by": report.generated_by,
             "created_at": report.created_at,
+            "updated_at": report.updated_at,
+            "exported_at": report.exported_at,
+            "scan_metadata": {
+                "scan_id": report.scan_id,
+                "target_count": report.target_count,
+                "duration_seconds": report.scan_duration_seconds,
+                "start_time": report.scan_start_time,
+                "end_time": report.scan_end_time,
+            },
         }
 
     @staticmethod

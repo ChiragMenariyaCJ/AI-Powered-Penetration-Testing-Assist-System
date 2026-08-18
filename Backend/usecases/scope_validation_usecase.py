@@ -146,9 +146,9 @@ class ScopeValidationUseCase:
 
         if not scope_rules:
             return {
-                "is_in_scope": True,
+                "is_in_scope": False,
                 "matching_rules": [],
-                "blocked_by_rules": [],
+                "blocked_by_rules": ["No active scope rules configured"],
             }
 
         matching_inclusive_rules = []

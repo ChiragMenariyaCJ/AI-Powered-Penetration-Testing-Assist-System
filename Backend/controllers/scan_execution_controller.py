@@ -5,6 +5,8 @@ from Backend.repositories.target_repository import TargetRepository
 from Backend.repositories.scope_validation_repository import (
     ScopeValidationRepository,
 )
+from Backend.repositories.project_repository import ProjectRepository
+from Backend.repositories.vulnerability_repository import VulnerabilityRepository
 from Backend.usecases.scan_execution_usecase import ScanExecutionUseCase
 
 
@@ -15,11 +17,15 @@ class ScanExecutionController:
         scan_repository = ScanRepository(db)
         target_repository = TargetRepository(db)
         scope_validation_repository = ScopeValidationRepository(db)
+        project_repository = ProjectRepository(db)
+        vulnerability_repository = VulnerabilityRepository(db)
 
         self.scan_execution_usecase = ScanExecutionUseCase(
             scan_repository,
             target_repository,
             scope_validation_repository,
+            project_repository,
+            vulnerability_repository,
         )
 
     def execute_scan(self, scan_id: int, project_id: int):

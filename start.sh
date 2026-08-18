@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -euo pipefail
+
 # Quick start script for PTAS on Kali Linux
 # Run this to start the application with one command
 
@@ -60,24 +62,19 @@ source "$VENV_DIR/bin/activate"
 # Install/upgrade dependencies
 echo -e "${BLUE}📚 Installing Python dependencies...${NC}"
 pip install --quiet --upgrade pip
-pip install --quiet -r "$BACKEND_DIR/requirements.txt"
+pip install --quiet -r "$BACKEND_DIR/requirements-kali.txt"
 
-# Check database
-echo -e "${BLUE}🗄️  Checking database...${NC}"
-DB_EXISTS=$(mysql -u root -e "SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME='ptas_db'" 2>/dev/null | grep ptas_db)
-
-if [ -z "$DB_EXISTS" ]; then
-    echo -e "${YELLOW}⚠️  Database 'ptas_db' not found. Creating...${NC}"
-    sudo mysql -u root -e "CREATE DATABASE IF NOT EXISTS ptas_db;" 2>/dev/null
-    if [ $? -eq 0 ]; then
-        echo -e "${GREEN}✅ Database created successfully${NC}"
-    else
-        echo -e "${RED}⚠️  Could not create database with sudo${NC}"
-        echo -e "${YELLOW}   Try running as root or check MySQL permissions${NC}"
-    fi
-else
-    echo -e "${GREEN}✅ Database 'ptas_db' exists${NC}"
+# Check the configured application connection rather than assuming a root login.
+echo -e "${BLUE}🗄️  Checking database connection...${NC}"
+cd "$PROJECT_DIR"
+if ! python -c "from Backend.database import engine; c = engine.connect(); c.close()"; then
+    echo -e "${RED}❌ Could not connect using DATABASE_URL${NC}"
+    echo -e "${YELLOW}Run ./kali-setup.sh, or update DATABASE_URL in .env.${NC}"
+    exit 1
 fi
+echo -e "${GREEN}✅ Database connection succeeded${NC}"
+PTAS_API_HOST="$(python -c 'from Backend.config import settings; print(settings.api_host)')"
+PTAS_API_PORT="$(python -c 'from Backend.config import settings; print(settings.api_port)')"
 
 echo ""
 echo -e "${GREEN}╔════════════════════════════════════════╗${NC}"
@@ -85,13 +82,15 @@ echo -e "${GREEN}║   ✅ All checks passed! Starting API  ║${NC}"
 echo -e "${GREEN}╚════════════════════════════════════════╝${NC}"
 echo ""
 echo -e "${BLUE}📍 API Information:${NC}"
-echo -e "   Base URL:      ${YELLOW}http://localhost:8000${NC}"
-echo -e "   Swagger Docs:  ${YELLOW}http://localhost:8000/docs${NC}"
-echo -e "   ReDoc:         ${YELLOW}http://localhost:8000/redoc${NC}"
+echo -e "   Base URL:      ${YELLOW}http://${PTAS_API_HOST}:${PTAS_API_PORT}${NC}"
+echo -e "   Swagger Docs:  ${YELLOW}http://${PTAS_API_HOST}:${PTAS_API_PORT}/docs${NC}"
+echo -e "   ReDoc:         ${YELLOW}http://${PTAS_API_HOST}:${PTAS_API_PORT}/redoc${NC}"
 echo ""
 echo -e "${BLUE}⏹️  Press Ctrl+C to stop the server${NC}"
 echo ""
 
-# Start the application
-cd "$BACKEND_DIR"
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
+# Start from the repository root so Backend.* imports resolve correctly.
+cd "$PROJECT_DIR"
+exec uvicorn Backend.main:app --reload \
+    --host "$PTAS_API_HOST" \
+    --port "$PTAS_API_PORT"

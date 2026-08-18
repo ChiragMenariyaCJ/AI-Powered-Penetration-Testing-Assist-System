@@ -1,5 +1,9 @@
-from fastapi import FastAPI
+from contextlib import asynccontextmanager
 
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from Backend.config import settings
 from Backend.database import Base, engine
 from Backend.models.user_model import User
 from Backend.models.project_model import Project
@@ -20,12 +24,25 @@ from Backend.routes.recommendation_routes import router as recommendation_router
 from Backend.routes.report_routes import router as report_router
 from Backend.routes.scope_validation_routes import router as scope_validation_router
 
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    Base.metadata.create_all(bind=engine)
+    yield
+
+
 app = FastAPI(
     title="AI-Powered Penetration Testing Assist System API",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan,
 )
 
-Base.metadata.create_all(bind=engine)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=list(settings.cors_origins),
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 app.include_router(
     auth_router,
