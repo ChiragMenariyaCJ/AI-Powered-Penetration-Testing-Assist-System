@@ -1,0 +1,68 @@
+from sqlalchemy.orm import Session
+
+from Backend.models.target_model import Target
+
+
+class TargetRepository:
+
+    def __init__(self, db: Session):
+        self.db = db
+
+    def create_target(
+        self,
+        project_id: int,
+        target_name: str,
+        target_type: str,
+        target_value: str,
+        scope: str | None,
+        status: str,
+    ) -> Target:
+        target = Target(
+            project_id=project_id,
+            target_name=target_name,
+            target_type=target_type,
+            target_value=target_value,
+            scope=scope,
+            status=status,
+        )
+
+        self.db.add(target)
+        self.db.commit()
+        self.db.refresh(target)
+
+        return target
+
+    def get_all_targets(self) -> list[Target]:
+        return self.db.query(Target).order_by(Target.id.desc()).all()
+
+    def get_targets_by_project_id(self, project_id: int) -> list[Target]:
+        return (
+            self.db.query(Target)
+            .filter(Target.project_id == project_id)
+            .order_by(Target.id.desc())
+            .all()
+        )
+
+    def get_target_by_id(self, target_id: int) -> Target | None:
+        return (
+            self.db.query(Target)
+            .filter(Target.id == target_id)
+            .first()
+        )
+
+    def update_target(
+        self,
+        target: Target,
+        update_data: dict,
+    ) -> Target:
+        for field, value in update_data.items():
+            setattr(target, field, value)
+
+        self.db.commit()
+        self.db.refresh(target)
+
+        return target
+
+    def delete_target(self, target: Target) -> None:
+        self.db.delete(target)
+        self.db.commit()
