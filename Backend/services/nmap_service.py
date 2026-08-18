@@ -1,6 +1,6 @@
 import subprocess
 import xml.etree.ElementTree as ET
-from datetime import datetime
+from datetime import UTC, datetime
 import ipaddress
 import os
 import re
@@ -170,7 +170,7 @@ class NmapService:
             # Extract scan information
             scan_info = {
                 "status": "COMPLETED",
-                "started_at": datetime.utcnow().isoformat(),
+                "started_at": datetime.now(UTC).isoformat(),
                 "hosts": [],
             }
 

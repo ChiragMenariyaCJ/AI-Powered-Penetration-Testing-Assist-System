@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from Backend.config import settings
 from Backend.database import Base, engine
+from sqlalchemy import text
 from Backend.models.user_model import User
 from Backend.models.project_model import Project
 from Backend.models.target_model import Target
@@ -34,6 +35,8 @@ app = FastAPI(
     title="AI-Powered Penetration Testing Assist System API",
     version="1.0.0",
     lifespan=lifespan,
+    docs_url=None if settings.is_production else "/docs",
+    redoc_url=None if settings.is_production else "/redoc",
 )
 
 app.add_middleware(
@@ -109,3 +112,15 @@ def home():
     return {
         "message": "PTAS Backend API is running"
     }
+
+
+@app.get("/health/live", include_in_schema=False)
+def liveness():
+    return {"status": "ok"}
+
+
+@app.get("/health/ready", include_in_schema=False)
+def readiness():
+    with engine.connect() as connection:
+        connection.execute(text("SELECT 1"))
+    return {"status": "ready"}

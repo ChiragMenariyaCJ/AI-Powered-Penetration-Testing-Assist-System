@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class ReportCreateRequest(BaseModel):
@@ -43,6 +43,8 @@ class ScanMetadata(BaseModel):
 
 
 class ReportResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     scan_id: int
     title: str
@@ -56,10 +58,6 @@ class ReportResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     exported_at: Optional[datetime] = None
-
-    class Config:
-        from_attributes = True
-
 
 class ReportListResponse(BaseModel):
     reports: list[ReportResponse]

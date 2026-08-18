@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 from fastapi import HTTPException, status
 
 from Backend.repositories.scan_repository import ScanRepository
@@ -94,7 +94,7 @@ class ScanExecutionUseCase:
         # Update scan status to RUNNING
         update_data = {
             "status": "RUNNING",
-            "started_at": datetime.utcnow(),
+            "started_at": datetime.now(UTC),
         }
         self.scan_repository.update_scan(scan, update_data)
 
@@ -111,7 +111,7 @@ class ScanExecutionUseCase:
                     {
                         "status": "FAILED",
                         "scan_result": nmap_result.get("error"),
-                        "completed_at": datetime.utcnow(),
+                        "completed_at": datetime.now(UTC),
                     },
                 )
                 return {
@@ -159,7 +159,7 @@ class ScanExecutionUseCase:
                 {
                     "status": "COMPLETED",
                     "scan_result": scan_result_json,
-                    "completed_at": datetime.utcnow(),
+                    "completed_at": datetime.now(UTC),
                 },
             )
 
@@ -177,7 +177,7 @@ class ScanExecutionUseCase:
                 {
                     "status": "FAILED",
                     "scan_result": f"Scan execution error: {str(e)}",
-                    "completed_at": datetime.utcnow(),
+                    "completed_at": datetime.now(UTC),
                 },
             )
             raise HTTPException(

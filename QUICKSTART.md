@@ -98,7 +98,9 @@ newgrp docker
 ### Run with Docker Compose
 ```bash
 cd /path/to/project
-docker-compose up -d
+cp .env.production.example .env
+# Replace every placeholder in .env, then start the stack:
+docker compose up --build -d
 ```
 
 Database and API will start automatically:
@@ -107,13 +109,13 @@ Database and API will start automatically:
 
 ### Stop Services
 ```bash
-docker-compose down
+docker compose down
 ```
 
 ### View Logs
 ```bash
-docker-compose logs -f api
-docker-compose logs -f db
+docker compose logs -f api
+docker compose logs -f db
 ```
 
 ---

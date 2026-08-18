@@ -1,5 +1,5 @@
 import json
-from datetime import datetime
+from datetime import UTC, datetime
 from sqlalchemy.orm import Session
 
 from Backend.models.scan_model import Scan
@@ -230,7 +230,7 @@ class ReportUseCase:
             "report_metadata": {
                 "title": title,
                 "description": description,
-                "generated_at": datetime.utcnow().isoformat(),
+                "generated_at": datetime.now(UTC).isoformat(),
                 "scan_id": scan.id,
                 "scan_type": scan.scan_type,
                 "scan_status": scan.status,
@@ -316,7 +316,7 @@ class ReportUseCase:
         # Update report with export info
         update_data = {
             "format_type": format_type,
-            "exported_at": datetime.utcnow(),
+            "exported_at": datetime.now(UTC),
         }
         ReportRepository.update_report(db, report_id, update_data)
 
@@ -325,7 +325,7 @@ class ReportUseCase:
             "status": "exported",
             "format_type": format_type,
             "message": f"Report {report_id} exported as {format_type}",
-            "exported_at": datetime.utcnow(),
+            "exported_at": datetime.now(UTC),
         }
 
     @staticmethod

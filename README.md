@@ -21,7 +21,7 @@ AI-based vulnerability analysis, attack recommendation, and automated reporting 
 git clone https://github.com/<your-username>/AI-Powered-Penetration-Testing-Assist-System.git
 
 cd AI-Powered-Penetration-Testing-Assist-System
-````
+```
 
 ## Install Dependencies
 
@@ -96,12 +96,7 @@ http://127.0.0.1:8000/openapi.json
 
 ---
 
-````
-
-### Development Roadmap section
-
-```md
-# Development Roadmap
+## Development Roadmap
 
 - [x] Project Architecture
 - [x] Database Design
@@ -119,9 +114,7 @@ http://127.0.0.1:8000/openapi.json
 - [ ] PDF Report Generation
 - [ ] Dashboard
 - [ ] Unit Testing
-````
-
-# PTAS Folder Structure
+## PTAS Folder Structure
 
 ```
 Backend/

@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from jose import JWTError, jwt
 
 from Backend.config import settings
@@ -7,7 +7,7 @@ from Backend.config import settings
 def create_access_token(data: dict) -> str:
     payload = data.copy()
 
-    payload["exp"] = datetime.utcnow() + timedelta(
+    payload["exp"] = datetime.now(UTC) + timedelta(
         hours=settings.access_token_expire_hours
     )
 
