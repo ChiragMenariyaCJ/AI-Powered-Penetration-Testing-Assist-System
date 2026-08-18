@@ -1,0 +1,12 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+pymysql
+python-jose[cryptography]
+passlib[bcrypt]
+python-multipart
+pydantic[email]
+# Additional dependencies for Kali Linux deployment
+gunicorn
+python-dotenv
+pydantic-settings
