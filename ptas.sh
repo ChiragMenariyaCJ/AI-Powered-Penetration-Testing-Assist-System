@@ -4,12 +4,11 @@ set -euo pipefail
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")"; pwd)"
 
-if [ -x "$PROJECT_DIR/venv/bin/python" ]; then
-    PYTHON="$PROJECT_DIR/venv/bin/python"
-elif command -v python3 >/dev/null 2>&1; then
-    PYTHON="$(command -v python3)"
+if [ -x "$PROJECT_DIR/.venv/bin/python" ]; then
+    PYTHON="$PROJECT_DIR/.venv/bin/python"
 else
-    echo "Python 3 is required." >&2
+    echo "PTAS virtual environment not found at $PROJECT_DIR/.venv" >&2
+    echo "Run ./kali-setup.sh first, or create it with: python3 -m venv .venv" >&2
     exit 1
 fi
 

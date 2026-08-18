@@ -66,8 +66,8 @@ EOF
 ### 4. Setup Python Environment
 ```bash
 cd /path/to/project
-python3 -m venv venv
-source venv/bin/activate
+python3 -m venv .venv
+source .venv/bin/activate
 pip install --upgrade pip
 pip install -r Backend/requirements.txt
 ```
@@ -154,7 +154,7 @@ python3
 ### Activate Virtual Environment
 ```bash
 cd /path/to/project
-source venv/bin/activate
+source .venv/bin/activate
 ```
 
 ### Deactivate Virtual Environment
@@ -232,7 +232,7 @@ nmap -V
 ### Python Module Errors
 ```bash
 # Ensure virtual environment is activated
-source venv/bin/activate
+source .venv/bin/activate
 
 # Reinstall dependencies
 pip install --upgrade pip

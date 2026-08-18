@@ -7,7 +7,7 @@ set -euo pipefail
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")"; pwd)"
 BACKEND_DIR="$PROJECT_DIR/Backend"
-VENV_DIR="$PROJECT_DIR/venv"
+VENV_DIR="$PROJECT_DIR/.venv"
 
 # Color codes
 RED='\033[0;31m'
@@ -55,26 +55,26 @@ if [ ! -d "$VENV_DIR" ]; then
     python3 -m venv "$VENV_DIR"
 fi
 
-# Activate virtual environment
-echo -e "${BLUE}🔧 Activating virtual environment...${NC}"
-source "$VENV_DIR/bin/activate"
+# Use the project interpreter explicitly. This avoids accidentally installing
+# dependencies with, or launching Uvicorn from, the system Python.
+PYTHON="$VENV_DIR/bin/python"
 
 # Install/upgrade dependencies
 echo -e "${BLUE}📚 Installing Python dependencies...${NC}"
-pip install --quiet --upgrade pip
-pip install --quiet -r "$BACKEND_DIR/requirements-kali.txt"
+"$PYTHON" -m pip install --quiet --upgrade pip
+"$PYTHON" -m pip install --quiet -r "$BACKEND_DIR/requirements-kali.txt"
 
 # Check the configured application connection rather than assuming a root login.
 echo -e "${BLUE}🗄️  Checking database connection...${NC}"
 cd "$PROJECT_DIR"
-if ! python -c "from Backend.database import engine; c = engine.connect(); c.close()"; then
+if ! "$PYTHON" -c "from Backend.database import engine; c = engine.connect(); c.close()"; then
     echo -e "${RED}❌ Could not connect using DATABASE_URL${NC}"
     echo -e "${YELLOW}Run ./kali-setup.sh, or update DATABASE_URL in .env.${NC}"
     exit 1
 fi
 echo -e "${GREEN}✅ Database connection succeeded${NC}"
-PTAS_API_HOST="$(python -c 'from Backend.config import settings; print(settings.api_host)')"
-PTAS_API_PORT="$(python -c 'from Backend.config import settings; print(settings.api_port)')"
+PTAS_API_HOST="$("$PYTHON" -c 'from Backend.config import settings; print(settings.api_host)')"
+PTAS_API_PORT="$("$PYTHON" -c 'from Backend.config import settings; print(settings.api_port)')"
 
 echo ""
 echo -e "${GREEN}╔════════════════════════════════════════╗${NC}"
@@ -91,6 +91,6 @@ echo ""
 
 # Start from the repository root so Backend.* imports resolve correctly.
 cd "$PROJECT_DIR"
-exec uvicorn Backend.main:app --reload \
+exec "$PYTHON" -m uvicorn Backend.main:app --reload \
     --host "$PTAS_API_HOST" \
     --port "$PTAS_API_PORT"

@@ -46,15 +46,15 @@ $SUDO systemctl enable mariadb
 # Step 6: Create Python virtual environment
 echo -e "${BLUE}[6/7] Creating Python virtual environment...${NC}"
 cd "$PROJECT_DIR"
-if [ ! -d venv ]; then
-    python3 -m venv venv
+if [ ! -d .venv ]; then
+    python3 -m venv .venv
 fi
-source venv/bin/activate
+PYTHON="$PROJECT_DIR/.venv/bin/python"
 
 # Step 7: Install Python dependencies
 echo -e "${BLUE}[7/7] Installing Python dependencies...${NC}"
-pip install --upgrade pip
-pip install -r Backend/requirements-kali.txt
+"$PYTHON" -m pip install --upgrade pip
+"$PYTHON" -m pip install -r Backend/requirements-kali.txt
 
 # Create a local development database and least-privilege application user.
 echo -e "${BLUE}Configuring PTAS database...${NC}"
@@ -78,7 +78,7 @@ echo -e "${YELLOW}Next steps:${NC}"
 echo "1. Review DATABASE_URL and SECRET_KEY in .env"
 echo ""
 echo "2. Activate virtual environment:"
-echo "   source venv/bin/activate"
+echo "   source .venv/bin/activate"
 echo ""
 echo "3. Run the application from the repository root:"
 echo "   ./start.sh"

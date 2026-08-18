@@ -80,8 +80,8 @@ cd /path/to/AI-Powered-Penetration-Testing-Assist-System
 
 ### Step 7: Create Virtual Environment
 ```bash
-python3 -m venv venv
-source venv/bin/activate
+python3 -m venv .venv
+source .venv/bin/activate
 ```
 
 You should see `(venv)` prefix in your terminal.
@@ -222,7 +222,7 @@ sudo mysql -u root ptas_db < ptas_backup.sql
 
 1. **Activate environment each session**:
    ```bash
-   source venv/bin/activate
+   source .venv/bin/activate
    ```
 
 2. **Start development server**:
@@ -277,7 +277,7 @@ After=network.target mariadb.service
 Type=simple
 User=root
 WorkingDirectory=/path/to/AI-Powered-Penetration-Testing-Assist-System
-ExecStart=/path/to/AI-Powered-Penetration-Testing-Assist-System/venv/bin/uvicorn Backend.main:app --host 0.0.0.0 --port 8000
+ExecStart=/path/to/AI-Powered-Penetration-Testing-Assist-System/.venv/bin/uvicorn Backend.main:app --host 0.0.0.0 --port 8000
 Restart=always
 
 [Install]
