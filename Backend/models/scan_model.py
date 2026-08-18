@@ -31,3 +31,8 @@ class Scan(Base):
     )
 
     target = relationship("Target", back_populates="scans")
+    vulnerabilities = relationship(
+        "Vulnerability",
+        back_populates="scan",
+        cascade="all, delete-orphan",
+    )
