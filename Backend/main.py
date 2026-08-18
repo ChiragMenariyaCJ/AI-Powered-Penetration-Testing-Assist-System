@@ -4,10 +4,12 @@ from Backend.database import Base, engine
 from Backend.models.user_model import User
 from Backend.models.project_model import Project
 from Backend.models.target_model import Target
+from Backend.models.scan_model import Scan
 from Backend.routes.user_routes import router as user_router
 from Backend.routes.auth_routes import router as auth_router
 from Backend.routes.project_routes import router as project_router
 from Backend.routes.target_routes import router as target_router
+from Backend.routes.scan_routes import router as scan_router
 
 app = FastAPI(
     title="AI-Powered Penetration Testing Assist System API",
@@ -38,6 +40,12 @@ app.include_router(
     target_router,
     prefix="/api/targets",
     tags=["Targets"],
+)
+
+app.include_router(
+    scan_router,
+    prefix="/api/scans",
+    tags=["Scans"],
 )
 
 @app.get("/")

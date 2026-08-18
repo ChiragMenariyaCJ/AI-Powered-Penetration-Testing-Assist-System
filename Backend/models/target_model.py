@@ -30,3 +30,8 @@ class Target(Base):
     )
 
     project = relationship("Project", back_populates="targets")
+    scans = relationship(
+        "Scan",
+        back_populates="target",
+        cascade="all, delete-orphan",
+    )
