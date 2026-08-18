@@ -7,6 +7,7 @@ from Backend.models.target_model import Target
 from Backend.models.scan_model import Scan
 from Backend.models.vulnerability_model import Vulnerability
 from Backend.models.recommendation_model import Recommendation
+from Backend.models.report_model import Report
 from Backend.models.scope_validation_model import ScopeValidation
 from Backend.routes.user_routes import router as user_router
 from Backend.routes.auth_routes import router as auth_router
@@ -16,6 +17,7 @@ from Backend.routes.scan_routes import router as scan_router
 from Backend.routes.scan_execution_routes import router as scan_execution_router
 from Backend.routes.vulnerability_routes import router as vulnerability_router
 from Backend.routes.recommendation_routes import router as recommendation_router
+from Backend.routes.report_routes import router as report_router
 from Backend.routes.scope_validation_routes import router as scope_validation_router
 
 app = FastAPI(
@@ -65,6 +67,12 @@ app.include_router(
     recommendation_router,
     prefix="/api/recommendations",
     tags=["Recommendations"],
+)
+
+app.include_router(
+    report_router,
+    prefix="/api/reports",
+    tags=["Reports"],
 )
 
 app.include_router(

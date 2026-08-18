@@ -36,3 +36,8 @@ class Scan(Base):
         back_populates="scan",
         cascade="all, delete-orphan",
     )
+    reports = relationship(
+        "Report",
+        back_populates="scan",
+        cascade="all, delete-orphan",
+    )
