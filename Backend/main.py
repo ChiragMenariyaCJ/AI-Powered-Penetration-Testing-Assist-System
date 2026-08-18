@@ -11,6 +11,7 @@ from Backend.routes.auth_routes import router as auth_router
 from Backend.routes.project_routes import router as project_router
 from Backend.routes.target_routes import router as target_router
 from Backend.routes.scan_routes import router as scan_router
+from Backend.routes.scan_execution_routes import router as scan_execution_router
 from Backend.routes.scope_validation_routes import router as scope_validation_router
 
 app = FastAPI(
@@ -54,6 +55,12 @@ app.include_router(
     scope_validation_router,
     prefix="/api/scope-validation",
     tags=["Scope Validation"],
+)
+
+app.include_router(
+    scan_execution_router,
+    prefix="/api/scan-execution",
+    tags=["Scan Execution"],
 )
 
 @app.get("/")
