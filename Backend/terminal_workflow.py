@@ -12,6 +12,7 @@ from getpass import getpass
 import json
 import os
 from pathlib import Path
+import re
 import shlex
 import shutil
 import subprocess
@@ -34,6 +35,8 @@ from Backend.repositories.user_repository import UserRepository
 from Backend.repositories.vulnerability_repository import VulnerabilityRepository
 from Backend.services.nmap_service import NmapService
 from Backend.services.exploitdb_service import ExploitDbService
+from Backend.services.service_scan_service import ServiceScanService
+from Backend.services.html_report_renderer import HtmlReportRenderer
 from Backend.terminal_assistant.scope_guard import ScopeGuard
 from Backend.terminal_assistant.analyzer import TerminalAnalyzer
 from Backend.terminal_assistant.sanitizer import sanitize_terminal_text
@@ -51,6 +54,7 @@ CVE_SCAN_STAGE = (
     "VULNERABILITY",
     "Safe CVE checks and external Vulners correlation",
 )
+SHELL_READY_PATTERN = re.compile(r"(?m)(?:\$|#|❯)\s*$")
 
 
 def _say(message: str) -> None:
@@ -338,6 +342,50 @@ def persist_exploitdb_references(db, scan_id: int, target: str) -> int:
     return len(pending)
 
 
+def run_service_aware_checks(
+    db,
+    scan_id: int,
+    target: str,
+    event_log: Path | None,
+) -> int:
+    repository = VulnerabilityRepository(db)
+    base_findings = repository.get_vulnerabilities_by_scan_id(scan_id)
+    scanner = ServiceScanService()
+    checks = scanner.build_checks(target, base_findings)
+    if not checks:
+        _say("No additional installed service-specific tool applies to the detected services.")
+        _event(event_log, "tool_scan", "No additional service-specific checks selected")
+        return 0
+
+    persisted = 0
+    _say(f"Running {len(checks)} service-specific checks with installed Kali tools.")
+    for index, check in enumerate(checks, start=1):
+        _say(f"Tool check {index}/{len(checks)}: {check.tool} — {check.purpose}")
+        _event(
+            event_log,
+            "tool_started",
+            f"{check.tool}: {check.purpose}",
+            tool=check.tool,
+            port=check.port,
+        )
+        results = scanner.execute([check])
+        tool_findings = scanner.as_findings(scan_id, target, results)
+        if tool_findings:
+            repository.bulk_create_vulnerabilities(tool_findings)
+            persisted += len(tool_findings)
+        status = results[0].status if results else "FAILED"
+        _event(
+            event_log,
+            "tool_completed",
+            f"{check.tool} finished with status {status}",
+            tool=check.tool,
+            status=status,
+            observations=len(tool_findings),
+        )
+    _say(f"Service-specific checks completed; {persisted} observations stored.")
+    return persisted
+
+
 def run_student_session(event_log: Path | None = None) -> int:
     _say("Terminal-first student workflow")
     _say("Only explicitly authorized training targets may be scanned.")
@@ -430,6 +478,12 @@ def run_student_session(event_log: Path | None = None) -> int:
 
             if completed_scan is None:
                 raise RuntimeError("No scan stage completed")
+            tool_observations = run_service_aware_checks(
+                db,
+                completed_scan.id,
+                target.target_value,
+                event_log,
+            )
             exploitdb_count = persist_exploitdb_references(
                 db, completed_scan.id, target.target_value
             )
@@ -439,6 +493,7 @@ def run_student_session(event_log: Path | None = None) -> int:
                 f"Exploit-DB enrichment added {exploitdb_count} version-specific CVE reference(s)",
                 scan_id=completed_scan.id,
                 references=exploitdb_count,
+                tool_observations=tool_observations,
             )
             findings = VulnerabilityRepository(db).get_vulnerabilities_by_scan_id(
                 completed_scan.id
@@ -453,6 +508,11 @@ def run_student_session(event_log: Path | None = None) -> int:
                 target=target.target_value,
                 recommendations=saved_suggestions,
             )
+            output = Path("reports") / f"ptas-scan-{completed_scan.id}.json"
+            report_command = (
+                f"./ptas.sh report --scan-id {completed_scan.id} "
+                f"--output {shlex.quote(str(output))}"
+            )
             for number, suggestion in enumerate(suggestions, start=1):
                 _event(
                     event_log,
@@ -460,6 +520,7 @@ def run_student_session(event_log: Path | None = None) -> int:
                     suggestion["purpose"],
                     number=number,
                     command=suggestion["command"],
+                    report_command=report_command,
                 )
             if event_log is None:
                 print("\nValidation suggestions:")
@@ -468,11 +529,16 @@ def run_student_session(event_log: Path | None = None) -> int:
                 for number, suggestion in enumerate(suggestions, start=1):
                     print(f"  {number}. {suggestion['purpose']}")
                     print(f"     {suggestion['command']}")
-
-            output = Path("reports") / f"ptas-scan-{completed_scan.id}.json"
-            report_command = (
-                f"./ptas.sh report --scan-id {completed_scan.id} "
-                f"--output {shlex.quote(str(output))}"
+                    print(f"     Report: {report_command}")
+            recommendation_command = (
+                f"./ptas.sh recommend --scan-id {completed_scan.id}"
+            )
+            _event(
+                event_log,
+                "recommendation_ready",
+                "Request one validation recommendation at a time",
+                command=recommendation_command,
+                scan_id=completed_scan.id,
             )
             _event(
                 event_log,
@@ -480,11 +546,14 @@ def run_student_session(event_log: Path | None = None) -> int:
                 "A report can now be generated",
                 command=report_command,
                 output=str(output),
+                scan_id=completed_scan.id,
             )
             print("\nAssessment complete.")
             print("Suggestions are displayed in the PTAS monitor pane.")
             print("To generate and save the report, run:")
             print(f"  {report_command}")
+            print("To display the next validation recommendation, run:")
+            print(f"  {recommendation_command}")
             print("PTAS setup is complete. Your left terminal remains open for the")
             print("displayed validation and report commands; use Ctrl+b then d to detach.")
             return 0
@@ -511,6 +580,10 @@ def run_dashboard(
     scope_value: str | None = None
     assessment_completed = False
     seen_observations: set[str] = set()
+    observation_chunks: list[str] = []
+    last_executed_command: str | None = None
+    current_report_command: str | None = None
+    current_scan_id: int | None = None
     try:
         while True:
             pane_chunk = pane_source.read_new() if pane_source else ""
@@ -527,20 +600,36 @@ def run_dashboard(
                             scope_value = event.get("scope")
                         elif kind == "ASSESSMENT_COMPLETED":
                             assessment_completed = True
+                            current_scan_id = event.get("scan_id")
+                        elif kind == "REPORT_READY":
+                            current_report_command = event.get("command")
+                            current_scan_id = event.get("scan_id") or current_scan_id
                         print(f"\n[{kind}] {event.get('message', '')}")
                         if event.get("command"):
                             print(f"  Command: {event['command']}")
                         if kind == "SUGGESTION":
                             print("  Copy this command to the left pane only if you want to run it.")
+                            if event.get("report_command"):
+                                print(f"  Report: {event['report_command']}")
                     position = handle.tell()
             if pane_chunk and assessment_completed and scope_value:
                 clean = sanitize_terminal_text(pane_chunk)
                 analyzer = TerminalAnalyzer(ScopeGuard([scope_value]))
-                detected_command = analyzer.extract_latest_command(clean)
-                if not detected_command:
+                detected_command = analyzer.extract_latest_prompt_command(clean)
+                if detected_command:
+                    last_executed_command = detected_command
+                    observation_chunks = [clean]
+                elif last_executed_command:
+                    observation_chunks.append(clean)
+                    observation_chunks = observation_chunks[-8:]
+                else:
                     time.sleep(interval)
                     continue
-                result = analyzer.analyze(clean, context_command=detected_command)
+                context = "\n".join(observation_chunks)
+                result = analyzer.analyze(
+                    context,
+                    context_command=last_executed_command,
+                )
                 fingerprint = result.fingerprint()
                 if (result.command or result.findings) and fingerprint not in seen_observations:
                     seen_observations.add(fingerprint)
@@ -555,6 +644,18 @@ def run_dashboard(
                         print(f"  [{finding.severity}] {finding.summary}: {finding.evidence}")
                     for suggestion in result.suggestions[:5]:
                         print(f"  Suggestion: {suggestion}")
+                    if current_report_command:
+                        print(f"  Report: {current_report_command}")
+                command_finished = bool(SHELL_READY_PATTERN.search(clean))
+                if (
+                    command_finished
+                    and current_scan_id is not None
+                    and last_executed_command
+                ):
+                    print("\n[NEXT RECOMMENDATION]")
+                    next_recommendation(current_scan_id)
+                    last_executed_command = None
+                    observation_chunks = []
             time.sleep(interval)
     except KeyboardInterrupt:
         _say("Monitor stopped.")
@@ -615,6 +716,18 @@ def save_report(scan_id: int, output: Path) -> int:
         if not scan:
             _say(f"Scan {scan_id} was not found.")
             return 1
+        newer_scan = (
+            db.query(type(scan))
+            .filter(type(scan).target_id == scan.target_id)
+            .filter(type(scan).id > scan.id)
+            .order_by(type(scan).id.desc())
+            .first()
+        )
+        if newer_scan:
+            _say(
+                f"Note: scan {newer_scan.id} is newer for this target; "
+                f"you requested historical scan {scan_id}."
+            )
         findings = VulnerabilityRepository(db).get_vulnerabilities_by_scan_id(scan_id)
         persist_exploitdb_references(db, scan_id, scan.target.target_value)
         findings = VulnerabilityRepository(db).get_vulnerabilities_by_scan_id(scan_id)
@@ -635,8 +748,144 @@ def save_report(scan_id: int, output: Path) -> int:
             _say("The report record could not be loaded.")
             return 1
         output = output.expanduser().resolve()
-        output.parent.mkdir(parents=True, exist_ok=True)
+        if output.suffix.lower() == ".html":
+            html_output = output
+            json_output = output.with_suffix(".json")
+        else:
+            json_output = output if output.suffix else output.with_suffix(".json")
+            html_output = json_output.with_suffix(".html")
+        json_output.parent.mkdir(parents=True, exist_ok=True)
+        html_output.parent.mkdir(parents=True, exist_ok=True)
         parsed = json.loads(report.report_content or "{}")
-        output.write_text(json.dumps(parsed, indent=2, default=str) + "\n", encoding="utf-8")
-        _say(f"Report {report.id} saved to {output}")
+        json_output.write_text(
+            json.dumps(parsed, indent=2, default=str) + "\n",
+            encoding="utf-8",
+        )
+        html_output.write_text(
+            HtmlReportRenderer.render(parsed),
+            encoding="utf-8",
+        )
+        _say(f"Structured JSON report saved to {json_output}")
+        _say(f"Formatted HTML report saved to {html_output}")
         return 0
+
+
+def select_next_recommendation(recommendations: list, shown_ids: set[int]):
+    """Select the first recommendation not already presented."""
+    return next((item for item in recommendations if item.id not in shown_ids), None)
+
+
+def next_recommendation(scan_id: int, reset: bool = False) -> int:
+    """Present one safe stored recommendation and remember progress locally."""
+    Base.metadata.create_all(bind=engine)
+    project_dir = Path(__file__).resolve().parents[1]
+    state_path = project_dir / ".ptas" / "recommendation-state.json"
+    try:
+        state = json.loads(state_path.read_text(encoding="utf-8")) if state_path.exists() else {}
+    except (OSError, json.JSONDecodeError):
+        state = {}
+    scan_key = str(scan_id)
+    if reset:
+        state.pop(scan_key, None)
+
+    with SessionLocal() as db:
+        scan = ScanRepository(db).get_scan_by_id(scan_id)
+        if not scan:
+            _say(f"Scan {scan_id} was not found.")
+            return 1
+        newer_scan = (
+            db.query(type(scan))
+            .filter(type(scan).target_id == scan.target_id)
+            .filter(type(scan).id > scan.id)
+            .order_by(type(scan).id.desc())
+            .first()
+        )
+        if newer_scan:
+            _say(
+                f"Note: scan {newer_scan.id} is newer for this target; "
+                f"you requested historical scan {scan_id}."
+            )
+        vulnerability_ids = [
+            item.id
+            for item in VulnerabilityRepository(db).get_vulnerabilities_by_scan_id(scan_id)
+        ]
+        recommendations = []
+        if vulnerability_ids:
+            recommendations = (
+                db.query(Recommendation)
+                .filter(Recommendation.vulnerability_id.in_(vulnerability_ids))
+                .filter(Recommendation.attack_technique == "Guided service validation")
+                .order_by(Recommendation.priority.desc(), Recommendation.id.asc())
+                .all()
+            )
+        shown_ids = {int(value) for value in state.get(scan_key, [])}
+        selected = select_next_recommendation(recommendations, shown_ids)
+        report_output = f"reports/ptas-scan-{scan_id}.json"
+        report_command = (
+            f"./ptas.sh report --scan-id {scan_id} --output {report_output}"
+        )
+        if selected is None:
+            if recommendations:
+                _say("All validation recommendations for this scan have been shown.")
+                print("Restart from the first recommendation with:")
+                print(f"  ./ptas.sh recommend --scan-id {scan_id} --reset")
+            else:
+                _say("No guided validation recommendations are stored for this scan.")
+                print("Run a new terminal assessment to generate recommendations.")
+            print("Generate or refresh the report with:")
+            print(f"  {report_command}")
+            return 0
+
+        finding = db.query(Vulnerability).filter(Vulnerability.id == selected.vulnerability_id).first()
+        position = len(shown_ids) + 1
+        print(f"\nPTAS recommendation {position}/{len(recommendations)}")
+        if finding:
+            print(
+                f"Finding: [{finding.severity}] {finding.host}"
+                + (f":{finding.port}" if finding.port is not None else "")
+                + f" {finding.service or ''}"
+            )
+            if finding.cves:
+                print(f"CVE references: {finding.cves}")
+        print(f"Purpose: {selected.exploitation_method}")
+        print("Suggested command (review it; PTAS will not execute it):")
+        print(f"  {selected.execution_steps}")
+        print("\nAfter reviewing or running it, request the next recommendation with:")
+        print(f"  ./ptas.sh recommend --scan-id {scan_id}")
+        print("Generate or refresh the report at any time with:")
+        print(f"  {report_command}")
+
+        shown_ids.add(selected.id)
+        state[scan_key] = sorted(shown_ids)
+        state_path.parent.mkdir(parents=True, exist_ok=True)
+        temporary = state_path.with_suffix(".tmp")
+        temporary.write_text(json.dumps(state, indent=2) + "\n", encoding="utf-8")
+        temporary.replace(state_path)
+        return 0
+
+
+def render_existing_report(json_report: Path, output: Path | None = None) -> int:
+    """Render an existing JSON report without requiring database access."""
+    json_report = json_report.expanduser().resolve()
+    if not json_report.is_file():
+        _say(f"JSON report not found: {json_report}")
+        return 1
+    try:
+        payload = json.loads(json_report.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        _say(f"Could not read JSON report: {exc}")
+        return 1
+    if not isinstance(payload, dict) or "report_metadata" not in payload:
+        _say("The input is not a recognized PTAS JSON report.")
+        return 1
+    html_output = (
+        output.expanduser().resolve()
+        if output
+        else json_report.with_suffix(".html")
+    )
+    if html_output.suffix.lower() != ".html":
+        html_output = html_output.with_suffix(".html")
+    html_output.parent.mkdir(parents=True, exist_ok=True)
+    html_output.write_text(HtmlReportRenderer.render(payload), encoding="utf-8")
+    _say(f"Formatted HTML report saved to {html_output}")
+    return 0

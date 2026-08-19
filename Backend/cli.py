@@ -148,6 +148,16 @@ def _doctor_command(_: argparse.Namespace) -> int:
         "nmap": shutil.which("nmap"),
         "mariadb/mysql": shutil.which("mariadb") or shutil.which("mysql"),
         "ollama (optional)": shutil.which("ollama"),
+        "whatweb (optional)": shutil.which("whatweb"),
+        "nikto (optional)": shutil.which("nikto"),
+        "gobuster (optional)": shutil.which("gobuster"),
+        "sslscan (optional)": shutil.which("sslscan"),
+        "enum4linux-ng (optional)": shutil.which("enum4linux-ng"),
+        "dig (optional)": shutil.which("dig"),
+        "searchsploit (optional)": shutil.which("searchsploit"),
+        "mysqladmin (optional)": shutil.which("mysqladmin"),
+        "pg_isready (optional)": shutil.which("pg_isready"),
+        "redis-cli (optional)": shutil.which("redis-cli"),
     }
     required_ok = True
     for name, path in commands.items():
@@ -181,6 +191,21 @@ def _report_command(args: argparse.Namespace) -> int:
     from Backend.terminal_workflow import save_report
 
     return save_report(args.scan_id, Path(args.output))
+
+
+def _recommend_command(args: argparse.Namespace) -> int:
+    from Backend.terminal_workflow import next_recommendation
+
+    return next_recommendation(args.scan_id, reset=args.reset)
+
+
+def _render_report_command(args: argparse.Namespace) -> int:
+    from Backend.terminal_workflow import render_existing_report
+
+    return render_existing_report(
+        Path(args.json_report),
+        Path(args.output) if args.output else None,
+    )
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -224,6 +249,26 @@ def build_parser() -> argparse.ArgumentParser:
     report_parser.add_argument("--scan-id", type=int, required=True)
     report_parser.add_argument("--output", required=True)
     report_parser.set_defaults(func=_report_command)
+
+    recommend_parser = subparsers.add_parser(
+        "recommend",
+        help="Show the next stored validation recommendation for a scan",
+    )
+    recommend_parser.add_argument("--scan-id", type=int, required=True)
+    recommend_parser.add_argument(
+        "--reset",
+        action="store_true",
+        help="Restart the recommendation sequence from the first item",
+    )
+    recommend_parser.set_defaults(func=_recommend_command)
+
+    render_parser = subparsers.add_parser(
+        "render-report",
+        help="Convert an existing PTAS JSON report into standalone HTML",
+    )
+    render_parser.add_argument("json_report")
+    render_parser.add_argument("--output", help="HTML output path")
+    render_parser.set_defaults(func=_render_report_command)
 
     doctor_parser = subparsers.add_parser("doctor", help="Check local tools")
     doctor_parser.set_defaults(func=_doctor_command)

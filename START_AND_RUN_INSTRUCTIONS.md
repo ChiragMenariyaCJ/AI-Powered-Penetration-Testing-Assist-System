@@ -301,9 +301,11 @@ these stages:
 1. A quick port and service discovery scan.
 2. A detailed default-script and service-version scan.
 3. An optional CVE stage using only NSE scripts tagged `vuln` and `safe`.
-4. Finding persistence and completion checks.
-5. Hard-coded, non-destructive validation suggestions in the right pane.
-6. A scan-specific report command and output path.
+4. Service-aware checks using applicable installed tools such as WhatWeb,
+   curl, Nikto, Gobuster, SSLScan, enum4linux-ng, and dig.
+5. Finding persistence and completion checks.
+6. Hard-coded, non-destructive validation suggestions in the right pane.
+7. A scan-specific report command and output path.
 
 The optional stage asks for consent because the bundled Vulners script sends
 detected product/version or CPE information to the external Vulners service.
@@ -339,6 +341,26 @@ The completed session displays a command similar to:
 Run the displayed command from the repository root. PTAS generates the report,
 creates the `reports/` directory if necessary, and prints the absolute saved
 file path.
+
+Request stored validation recommendations one at a time:
+
+```bash
+./ptas.sh recommend --scan-id 12
+```
+
+Repeat that command for the next recommendation. PTAS records presentation
+progress locally and does not execute suggestions. Restart the sequence with:
+
+```bash
+./ptas.sh recommend --scan-id 12 --reset
+```
+
+Report generation saves JSON and a styled HTML file with the same base name.
+Existing JSON reports can be formatted without database access:
+
+```bash
+./ptas.sh render-report reports/ptas-scan-12.json
+```
 
 ### Check prerequisites
 

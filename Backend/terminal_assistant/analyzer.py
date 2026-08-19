@@ -61,6 +61,16 @@ class TerminalAnalyzer:
         return None
 
     @staticmethod
+    def extract_latest_prompt_command(text: str) -> str | None:
+        """Return only a command visibly entered at a shell prompt.
+
+        Pane monitoring uses this stricter form so commands printed in PTAS
+        recommendations are not mistaken for commands executed by the student.
+        """
+        matches = list(PROMPT_COMMAND.finditer(text))
+        return matches[-1].group("command").strip() if matches else None
+
+    @staticmethod
     def command_tool(command: str | None) -> str | None:
         if not command:
             return None

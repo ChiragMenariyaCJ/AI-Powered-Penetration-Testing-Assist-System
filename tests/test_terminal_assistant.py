@@ -52,6 +52,16 @@ class ScopeGuardTests(unittest.TestCase):
 
 
 class AnalyzerTests(unittest.TestCase):
+    def test_prompt_only_extraction_ignores_printed_recommendation_commands(self):
+        printed = "Suggested command:\n  nmap -sV 10.10.10.20\n"
+        executed = "kali@kali:~$ nmap -sV 10.10.10.20\n"
+
+        self.assertIsNone(TerminalAnalyzer.extract_latest_prompt_command(printed))
+        self.assertEqual(
+            "nmap -sV 10.10.10.20",
+            TerminalAnalyzer.extract_latest_prompt_command(executed),
+        )
+
     def test_parses_authorized_nmap_output(self):
         transcript = """kali@kali:~$ nmap -sV 10.10.10.20
 22/tcp open ssh OpenSSH 8.4

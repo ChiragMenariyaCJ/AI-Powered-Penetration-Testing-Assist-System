@@ -1,6 +1,8 @@
 import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -16,11 +18,16 @@ from Backend.models.user_model import User
 from Backend.models.vulnerability_model import Vulnerability
 from Backend.services.nmap_service import NmapService
 from Backend.services.exploitdb_service import ExploitDbService
+from Backend.services.service_scan_service import ServiceScanService
+from Backend.services.html_report_renderer import HtmlReportRenderer
 from Backend.services.vulnerability_parser import VulnerabilityParser
 from Backend.terminal_workflow import (
     CVE_SCAN_STAGE,
+    SHELL_READY_PATTERN,
     SCAN_STAGES,
     persist_validation_suggestions,
+    select_next_recommendation,
+    render_existing_report,
     validation_suggestions,
 )
 
@@ -37,6 +44,29 @@ class TerminalWorkflowTests(unittest.TestCase):
         self.assertTrue(start.no_tmux)
         self.assertEqual(7, report.scan_id)
         self.assertEqual("reports/test.json", report.output)
+
+        recommend = parser.parse_args(["recommend", "--scan-id", "7"])
+        self.assertEqual(7, recommend.scan_id)
+        self.assertFalse(recommend.reset)
+
+        render = parser.parse_args(["render-report", "reports/example.json"])
+        self.assertEqual("reports/example.json", render.json_report)
+
+    def test_recommendation_sequence_skips_previously_shown_items(self):
+        recommendations = [SimpleNamespace(id=10), SimpleNamespace(id=11)]
+
+        selected = select_next_recommendation(recommendations, {10})
+        exhausted = select_next_recommendation(recommendations, {10, 11})
+
+        self.assertEqual(11, selected.id)
+        self.assertIsNone(exhausted)
+
+    def test_shell_ready_detection_waits_for_command_completion_prompt(self):
+        running = "kali@kali:~$ nmap -sV 10.10.10.20\nStarting Nmap"
+        completed = running + "\nNmap done\n└─$ "
+
+        self.assertIsNone(SHELL_READY_PATTERN.search(running))
+        self.assertIsNotNone(SHELL_READY_PATTERN.search(completed))
 
     def test_scan_stages_progress_from_quick_to_detailed(self):
         self.assertEqual(("QUICK", "FULL"), tuple(stage[0] for stage in SCAN_STAGES))
@@ -133,6 +163,113 @@ class TerminalWorkflowTests(unittest.TestCase):
             self.assertEqual([], service.search("mysql", None))
 
         run.assert_not_called()
+
+    def test_service_scanner_selects_tools_by_detected_service(self):
+        findings = [
+            SimpleNamespace(
+                port=443,
+                service="https",
+                vulnerability_type="EXPOSED_SERVICE",
+            ),
+            SimpleNamespace(
+                port=445,
+                service="microsoft-ds",
+                vulnerability_type="EXPOSED_SERVICE",
+            ),
+            SimpleNamespace(
+                port=3306,
+                service="mysql",
+                vulnerability_type="EXPOSED_SERVICE",
+            ),
+            SimpleNamespace(
+                port=5432,
+                service="postgresql",
+                vulnerability_type="EXPOSED_SERVICE",
+            ),
+            SimpleNamespace(
+                port=6379,
+                service="redis",
+                vulnerability_type="EXPOSED_SERVICE",
+            ),
+        ]
+        scanner = ServiceScanService()
+
+        with patch.object(scanner, "_available", side_effect=lambda tool: f"/tools/{tool}"):
+            checks = scanner.build_checks("10.10.10.20", findings)
+
+        selected = {check.tool for check in checks}
+        self.assertTrue({"whatweb", "curl", "nikto", "sslscan"}.issubset(selected))
+        self.assertIn("enum4linux-ng", selected)
+        self.assertTrue({"mysqladmin", "pg_isready", "redis-cli"}.issubset(selected))
+        self.assertNotIn("nuclei", selected)
+        self.assertNotIn("ffuf", selected)
+
+    def test_service_scanner_does_not_guess_from_unrelated_findings(self):
+        findings = [
+            SimpleNamespace(
+                port=None,
+                service="OS",
+                vulnerability_type="OS_DETECTION",
+            )
+        ]
+        scanner = ServiceScanService()
+
+        with patch.object(scanner, "_available", return_value="/tools/example"):
+            checks = scanner.build_checks("10.10.10.20", findings)
+
+        self.assertEqual([], checks)
+
+    def test_html_report_is_standalone_escaped_and_print_friendly(self):
+        report = {
+            "report_metadata": {
+                "title": "Lab <Assessment>",
+                "description": "Authorized training report",
+                "scan_id": 22,
+                "scan_type": "FULL",
+                "scan_status": "COMPLETED",
+                "generated_at": "2026-08-19T00:00:00Z",
+            },
+            "vulnerabilities": [
+                {
+                    "host": "10.10.10.20",
+                    "port": 443,
+                    "service": "https",
+                    "type": "CVE_CANDIDATE",
+                    "severity": "HIGH",
+                    "description": "Candidate <script>",
+                    "version": "Example 1.2.3",
+                    "cves": "CVE-2024-12345",
+                    "remediation": "Verify vendor advisory",
+                    "status": "OPEN",
+                    "recommendations": [
+                        {
+                            "attack_technique": "Guided validation",
+                            "exploitation_method": "Review configuration",
+                            "risk_level": "LOW",
+                            "priority": 3,
+                            "status": "PENDING_APPROVAL",
+                            "execution_steps": "curl -I https://10.10.10.20/",
+                        }
+                    ],
+                }
+            ],
+        }
+
+        rendered = HtmlReportRenderer.render(report)
+
+        self.assertIn("<!doctype html>", rendered.lower())
+        self.assertIn("Lab &lt;Assessment&gt;", rendered)
+        self.assertNotIn("Candidate <script>", rendered)
+        self.assertIn("CVE-2024-12345", rendered)
+        self.assertIn("@media print", rendered)
+        self.assertIn("curl -I", rendered)
+
+        with TemporaryDirectory() as directory:
+            json_path = Path(directory) / "report.json"
+            json_path.write_text(__import__("json").dumps(report), encoding="utf-8")
+
+            self.assertEqual(0, render_existing_report(json_path))
+            self.assertTrue(json_path.with_suffix(".html").is_file())
 
     def test_hard_coded_suggestions_are_non_destructive_and_deduplicated(self):
         findings = [

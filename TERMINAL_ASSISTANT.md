@@ -51,6 +51,34 @@ would return unrelated results and create false CVEs. Exploit-DB enrichment is
 local and read-only; keep Kali's `exploitdb` package/database updated through
 the normal trusted package-management process.
 
+## Service-aware scanning tools
+
+Nmap remains the discovery source, but it is no longer the only assessment
+tool. After discovery, PTAS selects applicable installed tools from the
+observed service type:
+
+| Service | Automatic bounded tools |
+| --- | --- |
+| HTTP/HTTPS | WhatWeb, curl headers, Nikto, and Gobuster with Kali's small common-path wordlist |
+| HTTPS/TLS | SSLScan in addition to the HTTP checks |
+| SMB/NetBIOS | enum4linux-ng |
+| DNS hostname resolution | dig |
+| MySQL/MariaDB | mysqladmin availability and authentication-boundary check |
+| PostgreSQL | pg_isready availability check |
+| Redis | redis-cli PING authentication-boundary check |
+| Version/CVE research | safe NSE checks, Vulners with consent, and local Searchsploit |
+
+Every tool is launched as an argument list without a shell, has a timeout, and
+has its sanitized output size limited before persistence. Missing tools are
+skipped. Results are stored as `TOOL_OBSERVATION` or `TOOL_CVE_CANDIDATE`
+findings and appear in the report.
+
+PTAS intentionally does not automatically run Nuclei, unrestricted FFUF,
+arbitrary wordlists, password attacks, exploitation frameworks, or every Kali
+tool. Those behaviors cannot be safely inferred from an open port and may be
+intrusive. Run `./ptas.sh doctor` to see which bounded integrations are
+available locally.
+
 The scope and target are separate prompts. For one VM, both may be the same:
 
 ```text
@@ -81,6 +109,56 @@ At the end, PTAS prints a scan-specific command similar to:
 
 Run that command from the repository root to generate the database report and
 save its JSON content at the displayed location.
+
+### One recommendation at a time
+
+After an assessment, request the first stored validation recommendation with:
+
+```bash
+./ptas.sh recommend --scan-id 12
+```
+
+PTAS shows the associated finding, CVE references when present, purpose, and
+one reviewable command. It never executes the command. Run the same command
+again to receive the next recommendation:
+
+```bash
+./ptas.sh recommend --scan-id 12
+```
+
+In the two-pane workflow, after the student executes the displayed validation
+command and the left shell prompt returns, the monitor automatically advances
+and displays the next stored recommendation. Manual `recommend` commands remain
+available when a command is skipped or when using single-terminal mode.
+
+Progress is stored locally in `.ptas/recommendation-state.json`. Restart the
+sequence with:
+
+```bash
+./ptas.sh recommend --scan-id 12 --reset
+```
+
+Every recommendation response, automatically emitted suggestion, and
+post-command left-pane observation also prints the exact report-generation
+command for the current scan.
+
+The `report` command now saves both structured JSON and a formatted standalone
+HTML report. For example, this command creates `ptas-scan-12.json` and
+`ptas-scan-12.html`:
+
+```bash
+./ptas.sh report --scan-id 12 --output reports/ptas-scan-12.json
+```
+
+Convert an existing JSON report without starting MariaDB:
+
+```bash
+./ptas.sh render-report reports/ptas-scan-12.json
+```
+
+The HTML file contains summary cards, severity breakdowns, finding evidence,
+CVE links, recommendations, commands, and print styling. Open it in a browser
+and use the browser's Print dialog to save a PDF when needed.
 
 After the guided scan completes, the left pane intentionally returns to a
 normal shell so the student can run the displayed validation and report
