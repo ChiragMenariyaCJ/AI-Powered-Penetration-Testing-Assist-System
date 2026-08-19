@@ -74,7 +74,7 @@ class AnalyzerTests(unittest.TestCase):
         self.assertEqual("nmap -sV 10.10.10.20", result.command)
         self.assertTrue(result.scope_allowed)
         self.assertEqual(2, len(result.findings))
-        self.assertTrue(any("HTTP headers" in item for item in result.suggestions))
+        self.assertTrue(any("open-service evidence" in item for item in result.suggestions))
 
     def test_blocks_out_of_scope_target_without_scan_advice(self):
         transcript = """kali@kali:~$ nmap -sV 192.0.2.10

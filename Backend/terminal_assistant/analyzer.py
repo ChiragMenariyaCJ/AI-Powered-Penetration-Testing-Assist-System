@@ -219,44 +219,16 @@ class TerminalAnalyzer:
             items.append(value)
 
     def _build_suggestions(self, text: str, result: AnalysisResult) -> None:
-        services = {
-            finding.evidence.lower()
+        open_services = [
+            finding.evidence
             for finding in result.findings
             if finding.kind == "open_port"
-        }
-
-        if any("http" in service for service in services):
+        ]
+        if open_services:
+            summary = ", ".join(open_services[:6])
             self._append_unique(
                 result.suggestions,
-                "Review HTTP headers, redirects, authentication boundaries, and exposed routes.",
-            )
-        if any("ssh" in service for service in services):
-            self._append_unique(
-                result.suggestions,
-                "Verify the SSH version and configuration against the assessment baseline; avoid credential attacks unless separately approved.",
-            )
-        if any(
-            marker in service
-            for service in services
-            for marker in ("microsoft-ds", "netbios", "smb")
-        ):
-            self._append_unique(
-                result.suggestions,
-                "Confirm SMB dialect, signing requirements, and authorized share exposure.",
-            )
-        if any(
-            marker in service
-            for service in services
-            for marker in ("mysql", "postgres", "redis", "mongodb")
-        ):
-            self._append_unique(
-                result.suggestions,
-                "Confirm whether the data service should be network-exposed and test authentication only with approved credentials.",
-            )
-        if any("rdp" in service or "ms-wbt-server" in service for service in services):
-            self._append_unique(
-                result.suggestions,
-                "Review RDP encryption, Network Level Authentication, and access-control policy.",
+                f"Use the current open-service evidence ({summary}) to choose the next non-destructive validation step.",
             )
 
         if any(finding.kind == "web_path" for finding in result.findings):

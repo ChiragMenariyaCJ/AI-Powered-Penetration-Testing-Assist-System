@@ -27,6 +27,8 @@ class LabManifest:
     expected_mac: str
     network_mode: str
     created_at: str
+    interface: str | None = None
+    kali_source: str | None = None
 
 
 @dataclass(frozen=True)
@@ -75,6 +77,20 @@ class Metasploitable2LabService:
     def _machine_values(output: str) -> dict[str, str]:
         values = {}
         for line in output.splitlines():
+            if "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            values[key.strip()] = value.strip().strip('"')
+        return values
+
+    @staticmethod
+    def _vmx_values(path: Path) -> dict[str, str]:
+        try:
+            lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+        except OSError as exc:
+            raise LabVerificationError(f"Could not read VMware .vmx file: {exc}") from exc
+        values = {}
+        for line in lines:
             if "=" not in line:
                 continue
             key, value = line.split("=", 1)
@@ -149,6 +165,87 @@ class Metasploitable2LabService:
         temporary.replace(path)
         return manifest
 
+    def _route_to_target(self, target: str) -> tuple[str | None, str | None]:
+        executable = shutil.which("ip")
+        if not executable:
+            raise LabVerificationError("The ip command is required for route verification")
+        output = self._run([executable, "route", "get", target])
+        dev_match = re.search(r"\bdev\s+(\S+)", output)
+        src_match = re.search(r"\bsrc\s+(\S+)", output)
+        return (
+            dev_match.group(1) if dev_match else None,
+            src_match.group(1) if src_match else None,
+        )
+
+    def register_vmware(
+        self,
+        name: str,
+        target: str,
+        vm_identifier: str,
+        interface: str = "vmnet1",
+        kali_source: str | None = None,
+    ) -> LabManifest:
+        target = self._private_host(target)
+        vmx_path = Path(vm_identifier).expanduser().resolve()
+        if vmx_path.suffix.lower() != ".vmx" or not vmx_path.is_file():
+            raise LabVerificationError("VMware registration requires the Metasploitable 2 .vmx path")
+        values = self._vmx_values(vmx_path)
+        hostonly_nics = [
+            key.removesuffix(".connectionType").removeprefix("ethernet")
+            for key, value in values.items()
+            if key.startswith("ethernet")
+            and key.endswith(".connectionType")
+            and value.lower() == "hostonly"
+        ]
+        if not hostonly_nics:
+            raise LabVerificationError("The VM must have a VMware host-only network adapter")
+        non_isolated_nics = [
+            value
+            for key, value in values.items()
+            if key.startswith("ethernet")
+            and key.endswith(".connectionType")
+            and value.lower() not in {"hostonly"}
+        ]
+        if non_isolated_nics:
+            raise LabVerificationError(
+                "Disable NAT, bridged, and other non-host-only VMware adapters before registration"
+            )
+        nic_number = hostonly_nics[0]
+        expected_mac = values.get(f"ethernet{nic_number}.generatedAddress") or values.get(
+            f"ethernet{nic_number}.address", ""
+        )
+        route_interface, route_source = self._route_to_target(target)
+        if route_interface != interface:
+            raise LabVerificationError(
+                f"Target route uses {route_interface or 'unknown'}, expected {interface}"
+            )
+        if kali_source and route_source != kali_source:
+            raise LabVerificationError(
+                f"Target route source is {route_source or 'unknown'}, expected {kali_source}"
+            )
+        manifest = LabManifest(
+            name=name,
+            profile=self.PROFILE,
+            provider="vmware",
+            vm_identifier=str(vmx_path),
+            vm_uuid=values.get("uuid.bios") or values.get("uuid.location", ""),
+            target=target,
+            expected_mac=self._normalize_mac(expected_mac),
+            network_mode="hostonly",
+            created_at=datetime.now(UTC).isoformat(),
+            interface=interface,
+            kali_source=kali_source or route_source,
+        )
+        if not manifest.vm_uuid:
+            raise LabVerificationError("VMware .vmx did not contain a VM UUID")
+        self.verify_neighbor(manifest)
+        path = self.manifest_path(name)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        temporary = path.with_suffix(".tmp")
+        temporary.write_text(json.dumps(asdict(manifest), indent=2) + "\n", encoding="utf-8")
+        temporary.replace(path)
+        return manifest
+
     def load(self, name: str) -> LabManifest:
         path = self.manifest_path(name)
         if not path.is_file():
@@ -198,6 +295,69 @@ class Metasploitable2LabService:
             raise LabVerificationError("Create a clean VirtualBox snapshot before access testing")
         return snapshots
 
+    def verify_vmware(self, manifest: LabManifest) -> list[str]:
+        vmx_path = Path(manifest.vm_identifier).expanduser().resolve()
+        values = self._vmx_values(vmx_path)
+        vm_uuid = values.get("uuid.bios") or values.get("uuid.location", "")
+        if vm_uuid != manifest.vm_uuid:
+            raise LabVerificationError("VMware VM UUID does not match the registered lab")
+        non_isolated_nics = [
+            value
+            for key, value in values.items()
+            if key.startswith("ethernet")
+            and key.endswith(".connectionType")
+            and value.lower() not in {"hostonly"}
+        ]
+        if non_isolated_nics:
+            raise LabVerificationError(
+                "The registered VM has a non-host-only network adapter enabled"
+            )
+        matching_nic = False
+        for key, value in values.items():
+            if not key.startswith("ethernet") or not key.endswith(".connectionType"):
+                continue
+            if value.lower() != "hostonly":
+                continue
+            number = key.removesuffix(".connectionType").removeprefix("ethernet")
+            current_mac = values.get(f"ethernet{number}.generatedAddress") or values.get(
+                f"ethernet{number}.address", ""
+            )
+            if self._normalize_mac(current_mac) == manifest.expected_mac:
+                matching_nic = True
+        if not matching_nic:
+            raise LabVerificationError("Registered VMware host-only adapter/MAC no longer matches")
+        route_interface, route_source = self._route_to_target(manifest.target)
+        if manifest.interface and route_interface != manifest.interface:
+            raise LabVerificationError(
+                f"Target route uses {route_interface or 'unknown'}, expected {manifest.interface}"
+            )
+        if manifest.kali_source and route_source != manifest.kali_source:
+            raise LabVerificationError(
+                f"Target route source is {route_source or 'unknown'}, expected {manifest.kali_source}"
+            )
+        executable = shutil.which("vmrun")
+        if not executable:
+            raise LabVerificationError("vmrun is required for VMware runtime verification")
+        running = self._run([executable, "list"])
+        if str(vmx_path) not in running:
+            raise LabVerificationError("The registered Metasploitable 2 VMware VM is not running")
+        snapshot_output = self._run([executable, "listSnapshots", str(vmx_path)])
+        snapshots = [
+            line.strip()
+            for line in snapshot_output.splitlines()[1:]
+            if line.strip()
+        ]
+        if not snapshots:
+            raise LabVerificationError("Create a clean VMware snapshot before access testing")
+        return snapshots
+
+    def verify_runtime(self, manifest: LabManifest) -> list[str]:
+        if manifest.provider == "virtualbox":
+            return self.verify_virtualbox(manifest)
+        if manifest.provider == "vmware":
+            return self.verify_vmware(manifest)
+        raise LabVerificationError("Only registered VirtualBox or VMware Metasploitable 2 labs are allowed")
+
     def verify_neighbor(self, manifest: LabManifest) -> None:
         executable = shutil.which("ip")
         if not executable:
@@ -210,8 +370,8 @@ class Metasploitable2LabService:
             raise LabVerificationError("Target IP resolves to a different MAC than the registered VM")
 
     def verify_scan(self, manifest: LabManifest, scan, findings: list) -> set[int]:
-        if manifest.profile != self.PROFILE or manifest.provider != "virtualbox":
-            raise LabVerificationError("Only the registered Metasploitable 2 VirtualBox profile is allowed")
+        if manifest.profile != self.PROFILE or manifest.provider not in {"virtualbox", "vmware"}:
+            raise LabVerificationError("Only the registered Metasploitable 2 lab profile is allowed")
         if scan.target.target_value != manifest.target:
             raise LabVerificationError("Scan target does not match the registered lab IP")
         ports = {int(item.port) for item in findings if item.port is not None}

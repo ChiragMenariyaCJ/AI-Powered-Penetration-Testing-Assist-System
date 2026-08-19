@@ -1,8 +1,8 @@
 """Interactive, terminal-first PTAS student workflow.
 
 The workflow deliberately limits automated activity to scoped Nmap assessment.
-Suggested follow-up commands are hard-coded, non-destructive validation steps and
-are never executed by PTAS.
+Realtime recommendations are generated from current evidence, filtered through
+PTAS guardrails, and never executed by PTAS.
 """
 
 from __future__ import annotations
@@ -44,7 +44,9 @@ from Backend.services.lab_profile_service import (
 )
 from Backend.terminal_assistant.scope_guard import ScopeGuard
 from Backend.terminal_assistant.analyzer import TerminalAnalyzer
+from Backend.terminal_assistant.advisor import AdvisorError, OllamaAdvisor
 from Backend.terminal_assistant.sanitizer import sanitize_terminal_text
+from Backend.terminal_assistant.safety import filter_safe_recommendations
 from Backend.terminal_assistant.sources import TmuxPaneSource
 from Backend.usecases.report_usecase import ReportUseCase
 from Backend.usecases.scan_execution_usecase import ScanExecutionUseCase
@@ -60,6 +62,13 @@ CVE_SCAN_STAGE = (
     "Safe CVE checks and external Vulners correlation",
 )
 SHELL_READY_PATTERN = re.compile(r"(?m)(?:\$|#|❯)\s*$")
+SEVERITY_PRIORITY = {
+    "CRITICAL": 0,
+    "HIGH": 1,
+    "MEDIUM": 2,
+    "LOW": 3,
+    "INFO": 4,
+}
 
 
 def _say(message: str) -> None:
@@ -78,6 +87,66 @@ def _event(path: Path | None, kind: str, message: str, **data) -> None:
     }
     with path.open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(payload, sort_keys=True, default=str) + "\n")
+
+
+def configure_realtime_advisor_env(
+    provider: str | None = None,
+    model: str | None = None,
+    ollama_url: str | None = None,
+    allow_remote_llm: bool = False,
+) -> None:
+    if provider:
+        os.environ["PTAS_LLM_PROVIDER"] = provider
+    if model:
+        os.environ["PTAS_LLM_MODEL"] = model
+    if ollama_url:
+        os.environ["OLLAMA_BASE_URL"] = ollama_url
+    if allow_remote_llm:
+        os.environ["PTAS_ALLOW_REMOTE_LLM"] = "1"
+
+
+def _realtime_env_prefix(
+    provider: str | None = None,
+    model: str | None = None,
+    ollama_url: str | None = None,
+    allow_remote_llm: bool = False,
+) -> str:
+    values: dict[str, str] = {}
+    if provider:
+        values["PTAS_LLM_PROVIDER"] = provider
+    if model:
+        values["PTAS_LLM_MODEL"] = model
+    if ollama_url:
+        values["OLLAMA_BASE_URL"] = ollama_url
+    if allow_remote_llm:
+        values["PTAS_ALLOW_REMOTE_LLM"] = "1"
+    if not values:
+        return ""
+    assignments = " ".join(f"{key}={shlex.quote(value)}" for key, value in values.items())
+    return f"env {assignments} "
+
+
+def _build_realtime_advisor() -> OllamaAdvisor | None:
+    provider = os.getenv("PTAS_LLM_PROVIDER", "rules").lower()
+    if provider != "ollama":
+        return None
+    model = os.getenv("PTAS_LLM_MODEL") or os.getenv("OLLAMA_MODEL")
+    if not model:
+        raise ValueError("Set --model or OLLAMA_MODEL when using --provider ollama")
+    allow_remote = os.getenv("PTAS_ALLOW_REMOTE_LLM", "").lower() in {"1", "true", "yes"}
+    return OllamaAdvisor(
+        model=model,
+        base_url=os.getenv("OLLAMA_BASE_URL"),
+        allow_remote=allow_remote,
+    )
+
+
+def _optional_realtime_advisor() -> OllamaAdvisor | None:
+    try:
+        return _build_realtime_advisor()
+    except ValueError as exc:
+        _say(f"Realtime advisor disabled: {exc}")
+        return None
 
 
 def _required(prompt: str, *, secret: bool = False) -> str:
@@ -223,42 +292,116 @@ def _configure_target(db, project):
     return target, scope_value
 
 
-def validation_suggestions(vulnerabilities: list[Vulnerability], target: str) -> list[dict]:
-    """Return deduplicated, non-destructive follow-up commands."""
-    quoted = shlex.quote(target)
-    suggestions: list[dict] = []
+def _finding_sort_key(finding: Vulnerability) -> tuple[int, int, int]:
+    severity = (getattr(finding, "severity", None) or "INFO").upper()
+    return (
+        SEVERITY_PRIORITY.get(severity, 5),
+        0 if finding.port is not None else 1,
+        int(finding.port or 0),
+    )
+
+
+def _finding_evidence(finding: Vulnerability, target: str) -> str:
+    endpoint = target
+    if finding.port is not None:
+        endpoint = f"{target}:{finding.port}"
+    service = getattr(finding, "service", None) or "unknown"
+    details = getattr(finding, "description", None) or "observed service"
+    version = getattr(finding, "version", None)
+    if version:
+        details = f"{details} ({version})"
+    return f"{endpoint} {service} - {details}"
+
+
+def _scan_recommendation_prompt(
+    findings: list[Vulnerability],
+    target: str,
+    scan_id: int | None = None,
+    lab_name: str | None = None,
+) -> str:
+    evidence = "\n".join(
+        f"- [{getattr(finding, 'severity', None) or 'INFO'}] {_finding_evidence(finding, target)}"
+        for finding in sorted(findings, key=_finding_sort_key)[:20]
+    ) or "- No stored findings"
+    access_command = (
+        f"./ptas.sh access-test --scan-id {scan_id} --lab {lab_name}"
+        if scan_id is not None and lab_name
+        else "./ptas.sh access-test --scan-id <scan-id> --lab <registered-lab>"
+    )
+    return f"""You are a real-time classroom penetration-testing coach.
+Use only the current scan evidence. Return up to five concise next-step recommendations, one per line. Keep every recommendation scoped to {target}. Prefer evidence collection, configuration review, and non-destructive validation. Do not suggest credential guessing, destructive actions, evasion, service stress, automatic access, or access chaining.
+If the next useful teaching step would require access, say only: STOP: use `{access_command}` and wait for instructor confirmation.
+
+Authorized target: {target}
+Current scan id: {scan_id or "unknown"}
+Current evidence:
+{evidence}
+"""
+
+
+def _fallback_realtime_suggestions(
+    vulnerabilities: list[Vulnerability],
+    target: str,
+) -> list[str]:
+    suggestions: list[str] = []
     seen: set[tuple[int | None, str]] = set()
-    for finding in vulnerabilities:
-        service = (finding.service or "unknown").lower()
-        key = (finding.port, service)
-        if key in seen or finding.port is None:
+    for finding in sorted(vulnerabilities, key=_finding_sort_key):
+        if finding.port is None:
+            continue
+        service = getattr(finding, "service", None) or "unknown service"
+        key = (finding.port, service.lower())
+        if key in seen:
             continue
         seen.add(key)
-        port = int(finding.port)
-        if service in {"http", "https", "http-alt", "https-alt"} or port in {80, 443, 8080, 8443}:
-            scheme = "https" if "https" in service or port in {443, 8443} else "http"
-            command = f"curl -k -I {scheme}://{quoted}:{port}/"
-            purpose = "Review HTTP response headers and server exposure"
-        elif service in {"ssh"} or port == 22:
-            command = f"nmap -sV -p {port} --script ssh2-enum-algos {quoted}"
-            purpose = "Review supported SSH algorithms without attempting login"
-        elif service in {"smb", "microsoft-ds", "netbios-ssn"} or port in {139, 445}:
-            command = f"nmap -p {port} --script smb-protocols,smb2-security-mode {quoted}"
-            purpose = "Review SMB protocol and signing configuration"
-        elif service in {"ftp"} or port == 21:
-            command = f"nmap -p {port} --script ftp-syst {quoted}"
-            purpose = "Collect the FTP system banner without authentication attacks"
-        elif service in {"mysql"} or port == 3306:
-            command = f"nmap -p {port} --script mysql-info {quoted}"
-            purpose = "Collect exposed MySQL service metadata"
-        elif service in {"rdp", "ms-wbt-server"} or port == 3389:
-            command = f"nmap -p {port} --script rdp-enum-encryption {quoted}"
-            purpose = "Review RDP encryption configuration"
-        else:
-            command = f"nmap -sV -p {port} {quoted}"
-            purpose = f"Confirm the observed {service} service and version"
-        suggestions.append({"finding_id": finding.id, "purpose": purpose, "command": command})
-    return suggestions[:12]
+        endpoint = f"{target}:{finding.port}"
+        suggestions.append(
+            f"Review the current evidence for {service} on {endpoint}, collect one "
+            "non-destructive validation detail, document it, and stop before any "
+            "access activity."
+        )
+        if len(suggestions) == 5:
+            break
+    return suggestions
+
+
+def validation_suggestions(
+    vulnerabilities: list[Vulnerability],
+    target: str,
+    advisor: OllamaAdvisor | None = None,
+    scan_id: int | None = None,
+    lab_name: str | None = None,
+) -> list[dict]:
+    """Return real-time recommendations from current scan evidence."""
+    findings = [item for item in vulnerabilities if getattr(item, "id", None) is not None]
+    if not findings:
+        return []
+    primary_finding = sorted(findings, key=_finding_sort_key)[0]
+    generated: list[str] = []
+    source = "evidence-fallback"
+    if advisor:
+        try:
+            generated = advisor.advise_prompt(
+                _scan_recommendation_prompt(findings, target, scan_id, lab_name),
+                authorized_targets=[target],
+                limit=5,
+            )
+            generated = filter_safe_recommendations(generated, [target], 5)
+            source = "realtime-ollama"
+        except AdvisorError as exc:
+            _say(f"Realtime advisor unavailable; using evidence fallback: {exc}")
+    if not generated:
+        generated = _fallback_realtime_suggestions(findings, target)
+    return [
+        {
+            "finding_id": primary_finding.id,
+            "purpose": suggestion,
+            "command": None,
+            "tool": source,
+            "source": source,
+            "attack_technique": "Realtime guided validation",
+        }
+        for suggestion in generated[:5]
+    ]
 
 
 def persist_validation_suggestions(db, suggestions: list[dict]) -> int:
@@ -269,12 +412,16 @@ def persist_validation_suggestions(db, suggestions: list[dict]) -> int:
         existing = repository.get_recommendations_by_vulnerability_id(
             suggestion["finding_id"]
         )
-        if any(item.execution_steps == suggestion["command"] for item in existing):
+        execution_step = suggestion.get("command") or suggestion["purpose"]
+        if any(item.execution_steps == execution_step for item in existing):
             continue
-        tool = suggestion["command"].split(maxsplit=1)[0]
+        tool = suggestion.get("tool")
+        if not tool and suggestion.get("command"):
+            tool = suggestion["command"].split(maxsplit=1)[0]
+        tool = tool or "realtime-advisor"
         repository.create_recommendation(
             vulnerability_id=suggestion["finding_id"],
-            attack_technique="Guided service validation",
+            attack_technique=suggestion.get("attack_technique", "Realtime guided validation"),
             mitre_technique_id="T1046",
             exploitation_method=suggestion["purpose"],
             risk_level="LOW",
@@ -283,7 +430,7 @@ def persist_validation_suggestions(db, suggestions: list[dict]) -> int:
             impact=20,
             prerequisites="Explicit authorization and network access to the training target",
             tools_required=tool,
-            execution_steps=suggestion["command"],
+            execution_steps=execution_step,
             post_exploitation="Record the evidence; do not proceed beyond the authorized validation step",
             confidence_score=80,
             status="PENDING_APPROVAL",
@@ -394,8 +541,13 @@ def run_service_aware_checks(
 def run_student_session(event_log: Path | None = None) -> int:
     _say("Terminal-first student workflow")
     _say("Only explicitly authorized training targets may be scanned.")
-    _say("PTAS runs scoped Nmap stages; follow-up commands are never auto-executed.")
+    _say("PTAS runs scoped Nmap stages; realtime recommendations are never auto-executed.")
     try:
+        advisor = _optional_realtime_advisor()
+        if advisor:
+            _say(f"Realtime recommendations enabled with local Ollama model '{advisor.model}'.")
+        else:
+            _say("Realtime model not configured; using evidence-only fallback recommendations.")
         Base.metadata.create_all(bind=engine)
         with SessionLocal() as db:
             user = _authenticate(db)
@@ -503,7 +655,12 @@ def run_student_session(event_log: Path | None = None) -> int:
             findings = VulnerabilityRepository(db).get_vulnerabilities_by_scan_id(
                 completed_scan.id
             )
-            suggestions = validation_suggestions(findings, target.target_value)
+            suggestions = validation_suggestions(
+                findings,
+                target.target_value,
+                advisor=advisor,
+                scan_id=completed_scan.id,
+            )
             saved_suggestions = persist_validation_suggestions(db, suggestions)
             _event(
                 event_log,
@@ -528,12 +685,13 @@ def run_student_session(event_log: Path | None = None) -> int:
                     report_command=report_command,
                 )
             if event_log is None:
-                print("\nValidation suggestions:")
+                print("\nRealtime recommendations:")
                 if not suggestions:
-                    print("  No service-specific validation command is available.")
+                    print("  No realtime recommendation is available for the stored findings.")
                 for number, suggestion in enumerate(suggestions, start=1):
                     print(f"  {number}. {suggestion['purpose']}")
-                    print(f"     {suggestion['command']}")
+                    if suggestion.get("command"):
+                        print(f"     {suggestion['command']}")
                     print(f"     Report: {report_command}")
             recommendation_command = (
                 f"./ptas.sh recommend --scan-id {completed_scan.id}"
@@ -582,6 +740,9 @@ def run_dashboard(
     _say("Waiting for login, scope, scan, finding, and report events...")
     position = 0
     pane_source = TmuxPaneSource(pane) if pane else None
+    advisor = _optional_realtime_advisor()
+    if advisor:
+        _say(f"Realtime monitor recommendations enabled with local Ollama model '{advisor.model}'.")
     scope_value: str | None = None
     assessment_completed = False
     seen_observations: set[str] = set()
@@ -635,6 +796,13 @@ def run_dashboard(
                     context,
                     context_command=last_executed_command,
                 )
+                if advisor and result.scope_allowed is not False:
+                    try:
+                        for suggestion in advisor.advise(result, context):
+                            if suggestion not in result.suggestions:
+                                result.suggestions.append(suggestion)
+                    except AdvisorError as exc:
+                        print(f"  Realtime advisor warning: {exc}")
                 fingerprint = result.fingerprint()
                 if (result.command or result.findings) and fingerprint not in seen_observations:
                     seen_observations.add(fingerprint)
@@ -667,7 +835,14 @@ def run_dashboard(
         return 0
 
 
-def start_terminal_workflow(no_tmux: bool = False) -> int:
+def start_terminal_workflow(
+    no_tmux: bool = False,
+    provider: str | None = None,
+    model: str | None = None,
+    ollama_url: str | None = None,
+    allow_remote_llm: bool = False,
+) -> int:
+    configure_realtime_advisor_env(provider, model, ollama_url, allow_remote_llm)
     if no_tmux or not shutil.which("tmux") or not sys.stdout.isatty():
         if not no_tmux and not shutil.which("tmux"):
             _say("tmux is unavailable; continuing in one terminal.")
@@ -683,8 +858,10 @@ def start_terminal_workflow(no_tmux: bool = False) -> int:
     event_log = project_dir / ".ptas" / f"student-{timestamp}.jsonl"
     session = f"ptas-{timestamp}"
     login_shell = os.environ.get("SHELL", "/bin/bash")
+    realtime_prefix = _realtime_env_prefix(provider, model, ollama_url, allow_remote_llm)
     left = (
-        f"{shlex.quote(str(launcher))} student --event-log {shlex.quote(str(event_log))}; "
+        f"{realtime_prefix}{shlex.quote(str(launcher))} student "
+        f"--event-log {shlex.quote(str(event_log))}; "
         f"exec {shlex.quote(login_shell)}"
     )
     try:
@@ -700,7 +877,7 @@ def start_terminal_workflow(no_tmux: bool = False) -> int:
         )
         left_pane = pane_result.stdout.strip().splitlines()[0]
         right = (
-            f"{shlex.quote(str(launcher))} dashboard "
+            f"{realtime_prefix}{shlex.quote(str(launcher))} dashboard "
             f"--event-log {shlex.quote(str(event_log))} --pane {shlex.quote(left_pane)}"
         )
         subprocess.run(
@@ -736,7 +913,12 @@ def save_report(scan_id: int, output: Path) -> int:
         findings = VulnerabilityRepository(db).get_vulnerabilities_by_scan_id(scan_id)
         persist_exploitdb_references(db, scan_id, scan.target.target_value)
         findings = VulnerabilityRepository(db).get_vulnerabilities_by_scan_id(scan_id)
-        suggestions = validation_suggestions(findings, scan.target.target_value)
+        suggestions = validation_suggestions(
+            findings,
+            scan.target.target_value,
+            advisor=_optional_realtime_advisor(),
+            scan_id=scan_id,
+        )
         persist_validation_suggestions(db, suggestions)
         result = ReportUseCase.generate_report(
             db,
@@ -780,8 +962,17 @@ def select_next_recommendation(recommendations: list, shown_ids: set[int]):
     return next((item for item in recommendations if item.id not in shown_ids), None)
 
 
-def next_recommendation(scan_id: int, reset: bool = False) -> int:
-    """Present one safe stored recommendation and remember progress locally."""
+def next_recommendation(
+    scan_id: int,
+    reset: bool = False,
+    provider: str | None = None,
+    model: str | None = None,
+    ollama_url: str | None = None,
+    allow_remote_llm: bool = False,
+    lab_name: str | None = None,
+) -> int:
+    """Refresh and present one realtime recommendation, remembering progress locally."""
+    configure_realtime_advisor_env(provider, model, ollama_url, allow_remote_llm)
     Base.metadata.create_all(bind=engine)
     project_dir = Path(__file__).resolve().parents[1]
     state_path = project_dir / ".ptas" / "recommendation-state.json"
@@ -814,12 +1005,27 @@ def next_recommendation(scan_id: int, reset: bool = False) -> int:
             item.id
             for item in VulnerabilityRepository(db).get_vulnerabilities_by_scan_id(scan_id)
         ]
+        findings = VulnerabilityRepository(db).get_vulnerabilities_by_scan_id(scan_id)
+        new_suggestions = validation_suggestions(
+            findings,
+            scan.target.target_value,
+            advisor=_optional_realtime_advisor(),
+            scan_id=scan_id,
+            lab_name=lab_name,
+        )
+        created = persist_validation_suggestions(db, new_suggestions)
+        if created:
+            _say(f"Stored {created} refreshed realtime recommendation(s).")
         recommendations = []
         if vulnerability_ids:
             recommendations = (
                 db.query(Recommendation)
                 .filter(Recommendation.vulnerability_id.in_(vulnerability_ids))
-                .filter(Recommendation.attack_technique == "Guided service validation")
+                .filter(
+                    Recommendation.attack_technique.in_(
+                        ["Realtime guided validation", "Guided service validation"]
+                    )
+                )
                 .order_by(Recommendation.priority.desc(), Recommendation.id.asc())
                 .all()
             )
@@ -831,12 +1037,12 @@ def next_recommendation(scan_id: int, reset: bool = False) -> int:
         )
         if selected is None:
             if recommendations:
-                _say("All validation recommendations for this scan have been shown.")
+                _say("All realtime recommendations for this scan have been shown.")
                 print("Restart from the first recommendation with:")
                 print(f"  ./ptas.sh recommend --scan-id {scan_id} --reset")
             else:
-                _say("No guided validation recommendations are stored for this scan.")
-                print("Run a new terminal assessment to generate recommendations.")
+                _say("No realtime recommendations are stored for this scan.")
+                print("Run a new assessment, or enable the local model with --provider ollama --model MODEL.")
             print("Generate or refresh the report with:")
             print(f"  {report_command}")
             return 0
@@ -853,7 +1059,7 @@ def next_recommendation(scan_id: int, reset: bool = False) -> int:
             if finding.cves:
                 print(f"CVE references: {finding.cves}")
         print(f"Purpose: {selected.exploitation_method}")
-        print("Suggested command (review it; PTAS will not execute it):")
+        print("Suggested next step (review it; PTAS will not execute it):")
         print(f"  {selected.execution_steps}")
         print("\nAfter reviewing or running it, request the next recommendation with:")
         print(f"  ./ptas.sh recommend --scan-id {scan_id}")
@@ -896,17 +1102,34 @@ def render_existing_report(json_report: Path, output: Path | None = None) -> int
     return 0
 
 
-def register_metasploitable2_lab(name: str, target: str, vm: str) -> int:
+def register_metasploitable2_lab(
+    name: str,
+    target: str,
+    vm: str,
+    provider: str = "virtualbox",
+    interface: str = "vmnet1",
+    kali_source: str | None = None,
+) -> int:
     project_dir = Path(__file__).resolve().parents[1]
     service = Metasploitable2LabService(project_dir)
     try:
-        manifest = service.register_virtualbox(name, target, vm)
+        if provider == "virtualbox":
+            manifest = service.register_virtualbox(name, target, vm)
+        elif provider == "vmware":
+            manifest = service.register_vmware(name, target, vm, interface, kali_source)
+        else:
+            raise LabVerificationError("Provider must be virtualbox or vmware")
     except LabVerificationError as exc:
         _say(f"Lab registration failed: {exc}")
         return 1
     _say(f"Registered Metasploitable 2 lab '{manifest.name}'.")
+    print(f"  Provider: {manifest.provider}")
     print(f"  VM UUID: {manifest.vm_uuid}")
     print(f"  Target: {manifest.target}")
+    if manifest.interface:
+        print(f"  Interface: {manifest.interface}")
+    if manifest.kali_source:
+        print(f"  Kali source: {manifest.kali_source}")
     print(f"  Host-only MAC: {manifest.expected_mac}")
     print(f"  Manifest: {service.manifest_path(name)}")
     return 0
@@ -917,7 +1140,7 @@ def check_metasploitable2_lab(name: str) -> int:
     service = Metasploitable2LabService(project_dir)
     try:
         manifest = service.load(name)
-        snapshots = service.verify_virtualbox(manifest)
+        snapshots = service.verify_runtime(manifest)
         service.verify_neighbor(manifest)
     except LabVerificationError as exc:
         _say(f"Lab verification failed: {exc}")
@@ -938,7 +1161,7 @@ def next_access_exercise(scan_id: int, lab_name: str, reset: bool = False) -> in
     state_path = project_dir / ".ptas" / "access-state.json"
     try:
         manifest = service.load(lab_name)
-        snapshots = service.verify_virtualbox(manifest)
+        snapshots = service.verify_runtime(manifest)
         service.verify_neighbor(manifest)
         Base.metadata.create_all(bind=engine)
         with SessionLocal() as db:
@@ -953,8 +1176,13 @@ def next_access_exercise(scan_id: int, lab_name: str, reset: bool = False) -> in
 
             print("\nRestricted access-testing gate")
             print(f"  Profile: {manifest.profile}")
+            print(f"  Provider: {manifest.provider}")
             print(f"  VM UUID: {manifest.vm_uuid}")
             print(f"  Target: {manifest.target}/32")
+            if manifest.interface:
+                print(f"  Interface: {manifest.interface}")
+            if manifest.kali_source:
+                print(f"  Kali source: {manifest.kali_source}")
             print(f"  Snapshot: {snapshots[-1]}")
             confirmation = input("Type ENABLE ACCESS TESTING to continue: ").strip()
             if confirmation != "ENABLE ACCESS TESTING":

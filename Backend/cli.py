@@ -34,6 +34,22 @@ def _add_scope_arguments(parser: argparse.ArgumentParser) -> None:
     )
 
 
+def _add_realtime_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--provider",
+        choices=("rules", "ollama"),
+        default=os.getenv("PTAS_LLM_PROVIDER", "rules"),
+        help="Realtime recommendation provider",
+    )
+    parser.add_argument("--model", help="Ollama model name for realtime recommendations")
+    parser.add_argument("--ollama-url", help="Ollama base URL")
+    parser.add_argument(
+        "--allow-remote-llm",
+        action="store_true",
+        help="Allow sanitized evidence to leave localhost",
+    )
+
+
 def _build_advisor(args: argparse.Namespace):
     if args.provider == "rules":
         return None
@@ -159,6 +175,7 @@ def _doctor_command(_: argparse.Namespace) -> int:
         "pg_isready (optional)": shutil.which("pg_isready"),
         "redis-cli (optional)": shutil.which("redis-cli"),
         "VBoxManage (access-lab optional)": shutil.which("VBoxManage"),
+        "vmrun (VMware access-lab optional)": shutil.which("vmrun"),
     }
     required_ok = True
     for name, path in commands.items():
@@ -173,18 +190,36 @@ def _doctor_command(_: argparse.Namespace) -> int:
 def _start_command(args: argparse.Namespace) -> int:
     from Backend.terminal_workflow import start_terminal_workflow
 
-    return start_terminal_workflow(no_tmux=args.no_tmux)
+    return start_terminal_workflow(
+        no_tmux=args.no_tmux,
+        provider=args.provider,
+        model=args.model,
+        ollama_url=args.ollama_url,
+        allow_remote_llm=args.allow_remote_llm,
+    )
 
 
 def _student_command(args: argparse.Namespace) -> int:
-    from Backend.terminal_workflow import run_student_session
+    from Backend.terminal_workflow import configure_realtime_advisor_env, run_student_session
 
+    configure_realtime_advisor_env(
+        args.provider,
+        args.model,
+        args.ollama_url,
+        args.allow_remote_llm,
+    )
     return run_student_session(Path(args.event_log) if args.event_log else None)
 
 
 def _dashboard_command(args: argparse.Namespace) -> int:
-    from Backend.terminal_workflow import run_dashboard
+    from Backend.terminal_workflow import configure_realtime_advisor_env, run_dashboard
 
+    configure_realtime_advisor_env(
+        args.provider,
+        args.model,
+        args.ollama_url,
+        args.allow_remote_llm,
+    )
     return run_dashboard(Path(args.event_log), interval=args.interval, pane=args.pane)
 
 
@@ -197,7 +232,15 @@ def _report_command(args: argparse.Namespace) -> int:
 def _recommend_command(args: argparse.Namespace) -> int:
     from Backend.terminal_workflow import next_recommendation
 
-    return next_recommendation(args.scan_id, reset=args.reset)
+    return next_recommendation(
+        args.scan_id,
+        reset=args.reset,
+        provider=args.provider,
+        model=args.model,
+        ollama_url=args.ollama_url,
+        allow_remote_llm=args.allow_remote_llm,
+        lab_name=args.lab,
+    )
 
 
 def _render_report_command(args: argparse.Namespace) -> int:
@@ -212,7 +255,14 @@ def _render_report_command(args: argparse.Namespace) -> int:
 def _lab_register_command(args: argparse.Namespace) -> int:
     from Backend.terminal_workflow import register_metasploitable2_lab
 
-    return register_metasploitable2_lab(args.name, args.target, args.vm)
+    return register_metasploitable2_lab(
+        args.name,
+        args.target,
+        args.vm,
+        provider=args.provider,
+        interface=args.interface,
+        kali_source=args.kali_source,
+    )
 
 
 def _lab_check_command(args: argparse.Namespace) -> int:
@@ -243,6 +293,7 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Run the student workflow in the current terminal",
     )
+    _add_realtime_arguments(start_parser)
     start_parser.set_defaults(func=_start_command)
 
     student_parser = subparsers.add_parser(
@@ -250,6 +301,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Run the internal student pane",
     )
     student_parser.add_argument("--event-log")
+    _add_realtime_arguments(student_parser)
     student_parser.set_defaults(func=_student_command)
 
     dashboard_parser = subparsers.add_parser(
@@ -259,6 +311,7 @@ def build_parser() -> argparse.ArgumentParser:
     dashboard_parser.add_argument("--event-log", required=True)
     dashboard_parser.add_argument("--pane")
     dashboard_parser.add_argument("--interval", type=float, default=0.5)
+    _add_realtime_arguments(dashboard_parser)
     dashboard_parser.set_defaults(func=_dashboard_command)
 
     report_parser = subparsers.add_parser(
@@ -271,7 +324,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     recommend_parser = subparsers.add_parser(
         "recommend",
-        help="Show the next stored validation recommendation for a scan",
+        help="Refresh and show the next realtime recommendation for a scan",
     )
     recommend_parser.add_argument("--scan-id", type=int, required=True)
     recommend_parser.add_argument(
@@ -279,6 +332,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Restart the recommendation sequence from the first item",
     )
+    recommend_parser.add_argument(
+        "--lab",
+        help="Registered lab name used when the realtime advisor needs to stop at the access gate",
+    )
+    _add_realtime_arguments(recommend_parser)
     recommend_parser.set_defaults(func=_recommend_command)
 
     render_parser = subparsers.add_parser(
@@ -291,11 +349,30 @@ def build_parser() -> argparse.ArgumentParser:
 
     lab_register_parser = subparsers.add_parser(
         "lab-register",
-        help="Register a host-only Metasploitable 2 VirtualBox lab",
+        help="Register a host-only Metasploitable 2 lab",
     )
     lab_register_parser.add_argument("--name", required=True)
     lab_register_parser.add_argument("--target", required=True)
-    lab_register_parser.add_argument("--vm", required=True, help="VirtualBox VM name or UUID")
+    lab_register_parser.add_argument(
+        "--provider",
+        choices=("virtualbox", "vmware"),
+        default="virtualbox",
+        help="VM platform used for the isolated lab",
+    )
+    lab_register_parser.add_argument(
+        "--vm",
+        required=True,
+        help="VirtualBox VM name/UUID, or VMware .vmx path when --provider vmware",
+    )
+    lab_register_parser.add_argument(
+        "--interface",
+        default="vmnet1",
+        help="Expected Kali interface for VMware host-only routing",
+    )
+    lab_register_parser.add_argument(
+        "--kali-source",
+        help="Expected Kali source IP for VMware host-only routing, for example 192.168.178.129",
+    )
     lab_register_parser.set_defaults(func=_lab_register_command)
 
     lab_check_parser = subparsers.add_parser(

@@ -304,7 +304,7 @@ these stages:
 4. Service-aware checks using applicable installed tools such as WhatWeb,
    curl, Nikto, Gobuster, SSLScan, enum4linux-ng, and dig.
 5. Finding persistence and completion checks.
-6. Hard-coded, non-destructive validation suggestions in the right pane.
+6. Realtime, evidence-based validation recommendations in the right pane.
 7. A scan-specific report command and output path.
 
 The optional stage asks for consent because the bundled Vulners script sends
@@ -317,19 +317,28 @@ are stored as `EXPLOIT_DB_REFERENCE` findings, including multiple EDB entries
 and CVEs when available. Generic service-only searches are intentionally
 skipped to avoid unrelated or fabricated CVE results.
 
-The findings are printed after each Nmap stage completes in both panes. Final
-hard-coded suggestions are persisted as report recommendations. When the guided
-workflow finishes, the left pane returns to a normal shell on purpose so the
-student can run those commands; PTAS has not closed the tmux session.
+The findings are printed after each Nmap stage completes in both panes. Realtime
+recommendations are generated from the current evidence and persisted as report
+recommendations. When the guided workflow finishes, the left pane returns to a
+normal shell on purpose so the student can continue under PTAS guidance; PTAS
+has not closed the tmux session.
 
-Suggestions are shown only after the detailed scan completes. They are never
-executed automatically; the student chooses whether to copy a validation
-command into the left pane.
+Recommendations are never executed automatically. With `--provider ollama`,
+PTAS asks the local model for fresh next steps as scan evidence and terminal
+output change, then filters the response before showing or saving it.
 
 For a single-terminal session:
 
 ```bash
 ./ptas.sh start --no-tmux
+```
+
+For realtime model-backed recommendations, start a local Ollama model and pass
+it to PTAS:
+
+```bash
+ollama serve
+./ptas.sh start --provider ollama --model YOUR_INSTALLED_MODEL
 ```
 
 The completed session displays a command similar to:
@@ -342,17 +351,17 @@ Run the displayed command from the repository root. PTAS generates the report,
 creates the `reports/` directory if necessary, and prints the absolute saved
 file path.
 
-Request stored validation recommendations one at a time:
+Request refreshed realtime recommendations one at a time:
 
 ```bash
-./ptas.sh recommend --scan-id 12
+./ptas.sh recommend --scan-id 12 --provider ollama --model YOUR_INSTALLED_MODEL
 ```
 
 Repeat that command for the next recommendation. PTAS records presentation
-progress locally and does not execute suggestions. Restart the sequence with:
+progress locally and does not execute recommendations. Restart the sequence with:
 
 ```bash
-./ptas.sh recommend --scan-id 12 --reset
+./ptas.sh recommend --scan-id 12 --provider ollama --model YOUR_INSTALLED_MODEL --reset
 ```
 
 Report generation saves JSON and a styled HTML file with the same base name.
@@ -478,16 +487,22 @@ PTAS refuses to send excerpts to a non-local Ollama URL unless `--allow-remote-l
 ## 9. Restricted access-testing lab
 
 Credential-based `ACCESS_TESTING` is restricted to a registered, host-only
-Metasploitable 2 VirtualBox VM. It is disabled for ordinary PTAS targets. Follow
+Metasploitable 2 VirtualBox or VMware VM. It is disabled for ordinary PTAS targets. Follow
 the complete isolation, registration, snapshot, scan, exercise, and restoration
 instructions in [METASPLOITABLE2_ACCESS_TESTING.md](METASPLOITABLE2_ACCESS_TESTING.md).
 
 The principal commands are:
 
 ```bash
-./ptas.sh lab-register --name msf2-local --target 192.168.56.101 --vm Metasploitable2
-./ptas.sh lab-check --name msf2-local
-./ptas.sh access-test --scan-id 42 --lab msf2-local
+./ptas.sh lab-register \
+  --name msf2-vmnet1 \
+  --provider vmware \
+  --target 192.168.178.128 \
+  --vm /path/to/Metasploitable2.vmx \
+  --interface vmnet1 \
+  --kali-source 192.168.178.129
+./ptas.sh lab-check --name msf2-vmnet1
+./ptas.sh access-test --scan-id 42 --lab msf2-vmnet1
 ```
 
 PTAS shows one allowlisted exercise at a time and never executes it or stores a

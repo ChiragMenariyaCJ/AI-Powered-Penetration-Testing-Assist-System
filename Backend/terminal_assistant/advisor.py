@@ -5,6 +5,7 @@ from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
 from Backend.terminal_assistant.models import AnalysisResult
+from Backend.terminal_assistant.safety import filter_safe_recommendations
 
 
 class AdvisorError(RuntimeError):
@@ -44,6 +45,19 @@ class OllamaAdvisor:
             return []
 
         prompt = self._prompt(result, excerpt)
+        return self.advise_prompt(prompt, result.targets)
+
+    def advise_prompt(
+        self,
+        prompt: str,
+        authorized_targets: list[str] | None = None,
+        limit: int = 5,
+    ) -> list[str]:
+        response_text = self.complete(prompt)
+        suggestions = self._parse_suggestions(response_text, limit=limit * 2)
+        return filter_safe_recommendations(suggestions, authorized_targets, limit)
+
+    def complete(self, prompt: str) -> str:
         payload = json.dumps(
             {
                 "model": self.model,
@@ -65,13 +79,16 @@ class OllamaAdvisor:
         except (HTTPError, URLError, TimeoutError, json.JSONDecodeError) as exc:
             raise AdvisorError(f"Ollama request failed: {exc}") from exc
 
-        response_text = str(body.get("response", "")).strip()
+        return str(body.get("response", "")).strip()
+
+    @staticmethod
+    def _parse_suggestions(response_text: str, limit: int = 5) -> list[str]:
         suggestions: list[str] = []
         for line in response_text.splitlines():
             cleaned = line.strip().lstrip("-*•0123456789. ").strip()
             if cleaned and cleaned not in suggestions:
                 suggestions.append(cleaned)
-            if len(suggestions) == 5:
+            if len(suggestions) == limit:
                 break
         return suggestions
 
@@ -81,8 +98,9 @@ class OllamaAdvisor:
             f"- {finding.summary}: {finding.evidence}"
             for finding in result.findings
         ) or "- No structured findings yet"
-        return f"""You are a read-only penetration-testing assistant working only on an explicitly authorized target.
-Give at most five concise next-step suggestions. Prefer evidence collection, configuration review, and non-destructive validation. Do not suggest credential attacks, persistence, destructive actions, evasion, or automatic exploitation. Never claim that a vulnerability exists solely because a port is open.
+        return f"""You are a real-time penetration-testing coach working only on an explicitly authorized classroom target.
+Give at most five concise next-step suggestions based on the current evidence. Prefer evidence collection, configuration review, and non-destructive validation. Do not suggest credential guessing, destructive actions, evasion, service stress, automatic access, or access chaining. Never claim that a vulnerability exists solely because a port is open.
+If the next useful teaching step would require access, say only: STOP: use the gated access-test command and wait for instructor confirmation.
 
 Tool: {result.tool or 'unknown'}
 Command: {result.command or 'not captured'}

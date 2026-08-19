@@ -1,7 +1,8 @@
 # PTAS Restricted Metasploitable 2 Access-Testing Setup
 
-This guide configures the only platform currently accepted by PTAS
-`ACCESS_TESTING`: a locally registered Metasploitable 2 VM in VirtualBox.
+This guide configures the only target currently accepted by PTAS
+`ACCESS_TESTING`: a locally registered Metasploitable 2 VM on an isolated
+host-only network. VirtualBox and VMware Workstation/Player are supported.
 
 Metasploitable 2 is intentionally vulnerable. Never bridge it, expose it to a
 physical network, forward its ports, or give it a NAT adapter. Rapid7 describes
@@ -13,7 +14,7 @@ and recommends an isolated test environment:
 
 ## 1. What PTAS permits
 
-The first access-testing implementation provides one-at-a-time, manually
+The access-testing implementation provides one-at-a-time, manually
 executed, credential-based exercises for detected services:
 
 - SSH training login
@@ -24,24 +25,91 @@ executed, credential-based exercises for detected services:
 - PostgreSQL authentication
 
 PTAS does not execute these commands. It does not store passwords. It does not
-provide arbitrary exploit modules, payloads, brute force, persistence, or
-privilege escalation.
+provide arbitrary exploit modules, payloads, brute force, DoS, persistence, or
+privilege escalation. Any target other than the registered Metasploitable 2
+host remains limited to non-destructive assessment recommendations.
 
 Before showing an exercise, PTAS verifies:
 
 1. The manifest profile is exactly `metasploitable2`.
 2. The target is one private IP, not loopback, public, or a CIDR.
-3. The registered VirtualBox UUID still exists.
+3. The registered VM UUID still exists.
 4. Every enabled VM network adapter is host-only.
 5. The registered host-only MAC still matches the VM.
 6. The VM is running.
-7. At least one VirtualBox snapshot exists.
+7. At least one clean VM snapshot exists.
 8. The target IP resolves to the registered VM MAC.
 9. The completed scan target equals the registered IP.
 10. The scan contains a sufficiently distinctive Metasploitable 2 service/port fingerprint.
 11. The student types `ENABLE ACCESS TESTING` for the current request.
 
-## 2. Install VirtualBox on Kali
+## 2. VMware VMnet1 quick setup for 192.168.178.128
+
+For your classroom lab:
+
+```text
+Metasploitable 2 target: 192.168.178.128
+Kali source IP:          192.168.178.129
+Host-only interface:     vmnet1
+```
+
+In VMware settings for the Metasploitable 2 VM, enable only a host-only adapter
+on `VMnet1`. Disable NAT, bridged, shared, and any extra adapters. Create a clean
+snapshot before class.
+
+From Kali, confirm the route and neighbor identity:
+
+```bash
+ip route get 192.168.178.128
+ping -c 1 192.168.178.128
+ip neigh show 192.168.178.128
+vmrun list
+vmrun listSnapshots /path/to/Metasploitable2.vmx
+```
+
+The route must show `dev vmnet1 src 192.168.178.129`. Register the exact VM:
+
+```bash
+./ptas.sh lab-register \
+  --name msf2-vmnet1 \
+  --provider vmware \
+  --target 192.168.178.128 \
+  --vm /path/to/Metasploitable2.vmx \
+  --interface vmnet1 \
+  --kali-source 192.168.178.129
+```
+
+Verify the gate:
+
+```bash
+./ptas.sh lab-check --name msf2-vmnet1
+```
+
+After scanning this exact host with the normal workflow, request one confirmed
+exercise at a time:
+
+```bash
+./ptas.sh access-test --scan-id 42 --lab msf2-vmnet1
+```
+
+PTAS stops before showing each access exercise and requires:
+
+```text
+ENABLE ACCESS TESTING
+```
+
+For live model-backed coaching during the scan and student terminal work, run:
+
+```bash
+ollama serve
+./ptas.sh start --provider ollama --model YOUR_INSTALLED_MODEL
+```
+
+The model can recommend next validation steps from the current evidence, but
+PTAS filters its output and still routes any access-oriented teaching step
+through the `access-test` confirmation gate.
+
+## 3. Install VirtualBox on Kali
 
 The current Kali package repository provides VirtualBox. Install it and the
 matching kernel headers:
@@ -60,7 +128,7 @@ VBoxManage --version
 Reboot if the kernel modules were installed or upgraded and VirtualBox cannot
 start a VM.
 
-## 3. Download and import Metasploitable 2
+## 4. Download and import Metasploitable 2
 
 Download Metasploitable 2 only from the location linked by Rapid7's official
 documentation. Extract it into a directory that is not shared publicly.
@@ -74,7 +142,7 @@ The simplest import process uses the VirtualBox interface:
 5. Select the extracted Metasploitable `.vmdk` disk.
 6. Do not start it until networking is isolated.
 
-## 4. Configure host-only networking
+## 5. Configure host-only networking
 
 In VirtualBox:
 
@@ -97,7 +165,7 @@ VBoxManage showvminfo Metasploitable2 --machinereadable | \
 The enabled `nic` value must be `hostonly`. PTAS refuses `nat`, `bridged`,
 `intnet`, or other enabled network modes.
 
-## 5. Start the VM and find its private IP
+## 6. Start the VM and find its private IP
 
 Start the VM:
 
@@ -131,7 +199,7 @@ ip neigh show 192.168.56.101
 Do not proceed if the address appears on a physical, bridged, NAT, VPN, or
 internet-facing interface.
 
-## 6. Create a clean snapshot
+## 7. Create a clean snapshot
 
 After confirming the VM starts correctly, create the required baseline:
 
@@ -146,7 +214,7 @@ Verify it:
 VBoxManage snapshot Metasploitable2 list --details
 ```
 
-## 7. Register the VM with PTAS
+## 8. Register the VM with PTAS
 
 From the PTAS repository root:
 
@@ -166,7 +234,7 @@ local manifest at:
 
 The `.ptas/` directory is excluded from version control.
 
-## 8. Verify the registered lab
+## 9. Verify the registered lab
 
 Make sure the VM is running and its neighbor entry exists, then run:
 
@@ -178,7 +246,7 @@ ping -c 1 192.168.56.101
 Do not continue until PTAS reports that UUID, network, snapshot, and MAC checks
 all pass.
 
-## 9. Scan the registered target
+## 10. Scan the registered target
 
 Start the normal two-pane workflow:
 
@@ -197,7 +265,7 @@ Enable CVE correlation if wanted. Allow all scan stages and service-aware checks
 to finish. PTAS prints the final scan ID in the recommendation and report
 commands. Use that final ID—not an earlier Quick or Full stage ID.
 
-## 10. Request the first access exercise
+## 11. Request the first access exercise
 
 If the final scan ID is `42`:
 
@@ -235,7 +303,7 @@ Presentation progress is stored locally in:
 .ptas/access-state.json
 ```
 
-## 11. Generate JSON and HTML reports
+## 12. Generate JSON and HTML reports
 
 ```bash
 ./ptas.sh report \
@@ -254,7 +322,7 @@ Access exercises that were presented are recorded as pending recommendations;
 presentation does not mean that access succeeded. Record actual evidence before
 claiming `AUTHORIZED_ACCESS_CONFIRMED`.
 
-## 12. Restore the clean snapshot
+## 13. Restore the clean snapshot
 
 Close any student connections. Then power off and restore the lab through the
 VirtualBox interface, or use:

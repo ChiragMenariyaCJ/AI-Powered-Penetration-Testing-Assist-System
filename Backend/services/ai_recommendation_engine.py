@@ -1,391 +1,198 @@
-from typing import Optional
+from __future__ import annotations
+
+import os
+
+from Backend.terminal_assistant.advisor import AdvisorError, OllamaAdvisor
+from Backend.terminal_assistant.safety import filter_safe_recommendations
 
 
 class AIRecommendationEngine:
-    """AI Engine for generating attack recommendations based on vulnerabilities"""
+    """Generate recommendations from current evidence, not a static service catalog."""
 
-    # MITRE ATT&CK Technique Mapping
     MITRE_TECHNIQUES = {
-        "Initial Access": {
-            "T1190": {"name": "Exploit Public-Facing Application", "risk": "CRITICAL"},
-            "T1199": {"name": "Trusted Relationship", "risk": "HIGH"},
-            "T1200": {"name": "Hardware Additions", "risk": "MEDIUM"},
-        },
-        "Execution": {
-            "T1059": {"name": "Command and Scripting Interpreter", "risk": "CRITICAL"},
-            "T1059.001": {"name": "PowerShell", "risk": "HIGH"},
-            "T1059.003": {"name": "Windows Command Shell", "risk": "HIGH"},
-            "T1203": {"name": "Exploitation for Client Execution", "risk": "CRITICAL"},
-        },
-        "Persistence": {
-            "T1098": {"name": "Account Manipulation", "risk": "HIGH"},
-            "T1197": {"name": "Browser Extensions", "risk": "MEDIUM"},
-            "T1547": {"name": "Boot or Logon Autostart Execution", "risk": "HIGH"},
-        },
-        "Privilege Escalation": {
-            "T1548": {"name": "Abuse Elevation Control Mechanism", "risk": "CRITICAL"},
-            "T1547.001": {"name": "Registry Run Keys", "risk": "HIGH"},
-            "T1053": {"name": "Scheduled Task/Job", "risk": "HIGH"},
-        },
-        "Defense Evasion": {
-            "T1548": {"name": "Abuse Elevation Control Mechanism", "risk": "HIGH"},
-            "T1197": {"name": "Browser Extensions", "risk": "MEDIUM"},
-            "T1140": {"name": "Deobfuscate/Decode Files", "risk": "MEDIUM"},
-        },
-    }
-
-    # Service-to-Attack Mapping
-    SERVICE_ATTACK_MAPPING = {
-        "SSH": {
-            "techniques": ["T1110", "T1021.004"],
-            "attacks": [
-                {
-                    "name": "Brute Force Attack",
-                    "complexity": "LOW",
-                    "tools": ["hydra", "medusa", "ssh-audit"],
-                    "steps": [
-                        "Enumerate valid usernames",
-                        "Dictionary or brute force attack",
-                        "Gain shell access",
-                    ],
-                }
-            ],
-        },
-        "SMB": {
-            "techniques": ["T1570", "T1021.002"],
-            "attacks": [
-                {
-                    "name": "EternalBlue Exploitation",
-                    "complexity": "LOW",
-                    "tools": ["metasploit", "EternalBlue POC"],
-                    "steps": [
-                        "Identify SMB version",
-                        "Check vulnerability",
-                        "Exploit using EternalBlue",
-                        "Gain system access",
-                    ],
-                },
-                {
-                    "name": "Credential Relay Attack",
-                    "complexity": "MEDIUM",
-                    "tools": ["responder", "ntlm_relay"],
-                    "steps": [
-                        "Set up LLMNR/NBNS listener",
-                        "Intercept credentials",
-                        "Relay credentials to target",
-                    ],
-                },
-            ],
-        },
-        "RDP": {
-            "techniques": ["T1110", "T1021.001"],
-            "attacks": [
-                {
-                    "name": "RDP Brute Force",
-                    "complexity": "LOW",
-                    "tools": ["crowbar", "hydra"],
-                    "steps": [
-                        "Scan for RDP service",
-                        "Brute force credentials",
-                        "Gain remote access",
-                    ],
-                },
-                {
-                    "name": "CVE-2019-0708 BlueKeep",
-                    "complexity": "MEDIUM",
-                    "tools": ["metasploit", "bluekeep POC"],
-                    "steps": [
-                        "Identify vulnerable RDP version",
-                        "Exploit BlueKeep",
-                        "Execute arbitrary code",
-                    ],
-                },
-            ],
-        },
-        "MYSQL": {
-            "techniques": ["T1110", "T1021.003"],
-            "attacks": [
-                {
-                    "name": "SQL Injection",
-                    "complexity": "MEDIUM",
-                    "tools": ["sqlmap", "burp"],
-                    "steps": [
-                        "Identify SQL injection point",
-                        "Extract database",
-                        "Dump credentials",
-                        "Privilege escalation",
-                    ],
-                },
-                {
-                    "name": "Default Credentials",
-                    "complexity": "LOW",
-                    "tools": ["mysql-client"],
-                    "steps": [
-                        "Try default credentials",
-                        "Gain database access",
-                        "Extract sensitive data",
-                    ],
-                },
-            ],
-        },
-        "HTTP": {
-            "techniques": ["T1190", "T1203"],
-            "attacks": [
-                {
-                    "name": "Web Application Exploit",
-                    "complexity": "HIGH",
-                    "tools": ["burp", "zaproxy", "metasploit"],
-                    "steps": [
-                        "Enumerate web application",
-                        "Identify vulnerabilities",
-                        "Exploit vulnerability",
-                        "Gain shell access",
-                    ],
-                }
-            ],
-        },
-        "DNS": {
-            "techniques": ["T1071.004"],
-            "attacks": [
-                {
-                    "name": "DNS Cache Poisoning",
-                    "complexity": "HIGH",
-                    "tools": ["scapy", "dnsmasq"],
-                    "steps": [
-                        "Intercept DNS query",
-                        "Inject malicious response",
-                        "Redirect to attacker site",
-                    ],
-                }
-            ],
-        },
+        "Discovery": {
+            "T1046": {"name": "Network Service Discovery", "risk": "LOW"},
+        }
     }
 
     CRITICAL_SERVICES = {
-        "SMB": "CRITICAL",
-        "RDP": "CRITICAL",
-        "MySQL": "CRITICAL",
-        "PostgreSQL": "CRITICAL",
-        "MongoDB": "CRITICAL",
-        "Redis": "CRITICAL",
-        "SSH": "HIGH",
-        "HTTP": "HIGH",
+        "SMB": "HIGH",
+        "MYSQL": "HIGH",
+        "POSTGRESQL": "HIGH",
+        "SSH": "MEDIUM",
+        "HTTP": "MEDIUM",
         "HTTPS": "MEDIUM",
     }
 
-    def __init__(self):
-        pass
+    def __init__(self, advisor: OllamaAdvisor | None = None):
+        self.advisor = advisor or self._advisor_from_environment()
 
     def generate_recommendations(self, vulnerability: dict) -> list[dict]:
-        """
-        Generate attack recommendations for a vulnerability
-        
-        Args:
-            vulnerability: Dict with host, port, service, severity, etc.
-            
-        Returns:
-            List of recommendation dicts
-        """
-        recommendations = []
+        host = vulnerability.get("host") or "the authorized target"
+        port = vulnerability.get("port")
+        service = vulnerability.get("service") or "unknown"
+        severity = (vulnerability.get("severity") or "MEDIUM").upper()
+        suggestions = self._model_suggestions(vulnerability)
+        if not suggestions:
+            suggestions = [self._fallback_suggestion(vulnerability)]
 
-        service = vulnerability.get("service", "").upper()
-        severity = vulnerability.get("severity", "MEDIUM").upper()
-        port = vulnerability.get("port", 0)
+        return [
+            self._format_recommendation(suggestion, host, port, service, severity)
+            for suggestion in suggestions
+        ]
 
-        # Get base recommendations for service
-        if service in self.SERVICE_ATTACK_MAPPING:
-            service_attacks = self.SERVICE_ATTACK_MAPPING[service]
+    def _model_suggestions(self, vulnerability: dict) -> list[str]:
+        if not self.advisor:
+            return []
+        host = vulnerability.get("host") or ""
+        target_scope = [host] if host else None
+        try:
+            return self.advisor.advise_prompt(
+                self._prompt(vulnerability),
+                authorized_targets=target_scope,
+                limit=3,
+            )
+        except AdvisorError:
+            return []
 
-            for attack in service_attacks.get("attacks", []):
-                recommendation = {
-                    "attack_technique": attack["name"],
-                    "mitre_technique_id": service_attacks.get("techniques", [None])[0],
-                    "exploitation_method": self._format_exploitation_method(attack),
-                    "risk_level": self._calculate_risk_level(
-                        severity, attack.get("complexity")
-                    ),
-                    "priority": self._calculate_priority(severity, port),
-                    "likelihood": self._calculate_likelihood(
-                        severity, attack.get("complexity")
-                    ),
-                    "impact": self._calculate_impact(severity),
-                    "prerequisites": self._get_prerequisites(service, attack),
-                    "tools_required": ", ".join(attack.get("tools", [])),
-                    "execution_steps": self._format_execution_steps(
-                        attack.get("steps", [])
-                    ),
-                    "post_exploitation": self._get_post_exploitation(service),
-                    "confidence_score": self._calculate_confidence(severity),
-                }
-                recommendations.append(recommendation)
+    @staticmethod
+    def _prompt(vulnerability: dict) -> str:
+        return f"""You are a real-time classroom penetration-testing coach.
+Use only the evidence below. Return up to three concise next-step recommendations, one per line. Keep them scoped to the authorized target. Prefer evidence collection, configuration review, and non-destructive validation. Do not suggest credential guessing, destructive actions, evasion, service stress, automatic access, or access chaining.
+If the next useful teaching step would require access, say only: STOP: use the gated access-test command and wait for instructor confirmation.
 
-        else:
-            # Generic recommendations for unknown services
-            recommendation = {
-                "attack_technique": f"Generic Service Enumeration ({service})",
-                "mitre_technique_id": "T1046",
-                "exploitation_method": f"Enumerate the {service} service on port {port} to identify version, configuration, and potential weaknesses.",
-                "risk_level": "MEDIUM",
-                "priority": 5,
-                "likelihood": 60,
-                "impact": 40,
-                "prerequisites": "Network access to target",
-                "tools_required": "nmap, service-specific tools",
-                "execution_steps": "1. Connect to service\n2. Banner grabbing\n3. Identify version\n4. Search for CVEs",
-                "post_exploitation": "Research and exploit identified vulnerabilities",
-                "confidence_score": 60,
-            }
-            recommendations.append(recommendation)
+Current evidence:
+- Host: {vulnerability.get("host") or "unknown"}
+- Port: {vulnerability.get("port") or "unknown"}
+- Service: {vulnerability.get("service") or "unknown"}
+- Severity: {vulnerability.get("severity") or "unknown"}
+- Type: {vulnerability.get("vulnerability_type") or "unknown"}
+- Description: {vulnerability.get("description") or "unknown"}
+"""
 
-        return recommendations
+    @staticmethod
+    def _fallback_suggestion(vulnerability: dict) -> str:
+        host = vulnerability.get("host") or "the authorized target"
+        port = vulnerability.get("port")
+        service = vulnerability.get("service") or "unknown service"
+        endpoint = f"{host}:{port}" if port else host
+        return (
+            f"Review the current evidence for {service} on {endpoint}, collect "
+            "non-destructive configuration details, document the result, and stop "
+            "before any access activity."
+        )
 
-    def _format_exploitation_method(self, attack: dict) -> str:
-        """Format exploitation method from attack data"""
-        steps = attack.get("steps", [])
-        if steps:
-            return ". ".join(steps)
-        return "Execute the attack following the documented techniques"
-
-    def _calculate_risk_level(self, severity: str, complexity: str) -> str:
-        """Calculate risk level based on severity and complexity"""
-        risk_mapping = {
-            ("CRITICAL", "LOW"): "CRITICAL",
-            ("CRITICAL", "MEDIUM"): "CRITICAL",
-            ("CRITICAL", "HIGH"): "HIGH",
-            ("HIGH", "LOW"): "CRITICAL",
-            ("HIGH", "MEDIUM"): "HIGH",
-            ("HIGH", "HIGH"): "HIGH",
-            ("MEDIUM", "LOW"): "HIGH",
-            ("MEDIUM", "MEDIUM"): "MEDIUM",
-            ("MEDIUM", "HIGH"): "MEDIUM",
-            ("LOW", "LOW"): "MEDIUM",
-            ("LOW", "MEDIUM"): "LOW",
-            ("LOW", "HIGH"): "LOW",
+    def _format_recommendation(
+        self,
+        suggestion: str,
+        host: str,
+        port: int | None,
+        service: str,
+        severity: str,
+    ) -> dict:
+        safe = filter_safe_recommendations([suggestion], [host] if host else None, 1)
+        step = safe[0] if safe else self._fallback_suggestion(
+            {"host": host, "port": port, "service": service}
+        )
+        return {
+            "attack_technique": "Realtime guided validation",
+            "mitre_technique_id": "T1046",
+            "exploitation_method": step,
+            "risk_level": self._calculate_risk_level(severity),
+            "priority": self._calculate_priority(severity, port or 0),
+            "likelihood": self._calculate_likelihood(severity),
+            "impact": self._calculate_impact(severity),
+            "prerequisites": (
+                "Explicit authorization, in-scope target, and operator approval "
+                "before any suggested step is run manually"
+            ),
+            "tools_required": "realtime-advisor",
+            "execution_steps": step,
+            "post_exploitation": (
+                "Not applicable. Stop after validation and keep the activity inside "
+                "the registered lab boundary."
+            ),
+            "confidence_score": self._calculate_confidence(severity),
         }
-        complexity = complexity or "MEDIUM"
-        return risk_mapping.get((severity, complexity), "MEDIUM")
+
+    @staticmethod
+    def _advisor_from_environment() -> OllamaAdvisor | None:
+        provider = os.getenv("PTAS_LLM_PROVIDER", "rules").lower()
+        if provider != "ollama":
+            return None
+        model = os.getenv("PTAS_LLM_MODEL") or os.getenv("OLLAMA_MODEL")
+        if not model:
+            return None
+        allow_remote = os.getenv("PTAS_ALLOW_REMOTE_LLM", "").lower() in {"1", "true", "yes"}
+        return OllamaAdvisor(
+            model=model,
+            base_url=os.getenv("OLLAMA_BASE_URL"),
+            allow_remote=allow_remote,
+        )
+
+    def _calculate_risk_level(self, severity: str) -> str:
+        return {
+            "CRITICAL": "MEDIUM",
+            "HIGH": "MEDIUM",
+            "MEDIUM": "LOW",
+            "LOW": "LOW",
+            "INFO": "LOW",
+        }.get(severity, "LOW")
 
     def _calculate_priority(self, severity: str, port: int) -> int:
-        """Calculate priority (1-10) based on severity and port"""
-        severity_priority = {
-            "CRITICAL": 9,
-            "HIGH": 8,
-            "MEDIUM": 5,
+        priority = {
+            "CRITICAL": 6,
+            "HIGH": 5,
+            "MEDIUM": 4,
             "LOW": 3,
-        }
-        priority = severity_priority.get(severity, 5)
+            "INFO": 2,
+        }.get(severity, 3)
+        if port:
+            priority += 1
+        return min(priority, 7)
 
-        # Adjust for common risky ports
-        if port in [22, 135, 139, 445, 3306, 5432, 27017, 6379]:
-            priority = min(10, priority + 1)
-
-        return priority
-
-    def _calculate_likelihood(self, severity: str, complexity: str) -> int:
-        """Calculate attack success likelihood (0-100)"""
-        base_likelihood = {
-            "CRITICAL": 85,
-            "HIGH": 70,
+    def _calculate_likelihood(self, severity: str) -> int:
+        return {
+            "CRITICAL": 70,
+            "HIGH": 60,
             "MEDIUM": 50,
-            "LOW": 30,
-        }
-        likelihood = base_likelihood.get(severity, 50)
-
-        complexity_factor = {
-            "LOW": 10,
-            "MEDIUM": -5,
-            "HIGH": -20,
-        }
-        likelihood += complexity_factor.get(complexity, 0)
-
-        return max(10, min(100, likelihood))
+            "LOW": 40,
+            "INFO": 30,
+        }.get(severity, 40)
 
     def _calculate_impact(self, severity: str) -> int:
-        """Calculate potential impact (0-100)"""
-        impact_mapping = {
-            "CRITICAL": 95,
-            "HIGH": 80,
-            "MEDIUM": 60,
-            "LOW": 40,
-            "INFO": 20,
-        }
-        return impact_mapping.get(severity, 50)
+        return {
+            "CRITICAL": 60,
+            "HIGH": 50,
+            "MEDIUM": 35,
+            "LOW": 20,
+            "INFO": 10,
+        }.get(severity, 20)
 
     def _calculate_confidence(self, severity: str) -> int:
-        """Calculate recommendation confidence score (0-100)"""
-        confidence_mapping = {
-            "CRITICAL": 95,
+        return {
+            "CRITICAL": 90,
             "HIGH": 85,
             "MEDIUM": 75,
             "LOW": 65,
-            "INFO": 50,
-        }
-        return confidence_mapping.get(severity, 70)
-
-    def _get_prerequisites(self, service: str, attack: dict) -> str:
-        """Get prerequisites for attack"""
-        base_prereqs = "Network access to target service"
-
-        additional = {
-            "SSH": "Valid username enumeration",
-            "SMB": "NetBIOS name resolution",
-            "RDP": "Network connectivity to RDP port",
-            "MYSQL": "Network access to MySQL port",
-            "HTTP": "Web browser or HTTP client",
-        }
-
-        return f"{base_prereqs}. {additional.get(service, '')}"
-
-    def _format_execution_steps(self, steps: list) -> str:
-        """Format execution steps"""
-        if not steps:
-            return "Follow standard exploitation procedures"
-        return "\n".join([f"{i+1}. {step}" for i, step in enumerate(steps)])
-
-    def _get_post_exploitation(self, service: str) -> str:
-        """Get post-exploitation steps"""
-        post_exploit = {
-            "SSH": "Maintain persistence, escalate privileges, pivot to other systems",
-            "SMB": "Extract credentials, dump SAM database, establish remote access",
-            "RDP": "Establish persistence, extract credentials, explore network",
-            "MYSQL": "Extract sensitive data, create backdoor user, maintain persistence",
-            "HTTP": "Establish shell access, escalate privileges, pivot network",
-        }
-        return post_exploit.get(
-            service,
-            "Establish persistent access, extract sensitive data, pivot to other systems",
-        )
+            "INFO": 55,
+        }.get(severity, 70)
 
     def calculate_attack_score(self, vulnerability: dict) -> dict:
-        """Calculate risk score for an attack"""
-        severity = vulnerability.get("severity", "MEDIUM").upper()
-        port = vulnerability.get("port", 0)
-        service = vulnerability.get("service", "UNKNOWN").upper()
-
-        base_scores = {
-            "CRITICAL": 85,
-            "HIGH": 70,
-            "MEDIUM": 50,
-            "LOW": 30,
-        }
-
-        risk_score = base_scores.get(severity, 50)
-
-        # Adjust for critical services
-        if service in self.CRITICAL_SERVICES:
-            risk_score = min(100, risk_score + 15)
-
-        complexity = "MEDIUM"
-        if service in ["SSH", "RDP"]:
-            complexity = "LOW"
-        elif service in ["HTTP"]:
-            complexity = "HIGH"
-
+        severity = (vulnerability.get("severity") or "MEDIUM").upper()
+        service = (vulnerability.get("service") or "UNKNOWN").upper()
+        risk_score = {
+            "CRITICAL": 60,
+            "HIGH": 50,
+            "MEDIUM": 35,
+            "LOW": 20,
+            "INFO": 10,
+        }.get(severity, 20)
+        if service.upper() in self.CRITICAL_SERVICES:
+            risk_score = min(70, risk_score + 10)
         return {
             "risk_score": risk_score,
-            "attack_complexity": complexity,
-            "required_privileges": "NONE"
-            if service in ["HTTP", "DNS"]
-            else "LOW",
-            "success_probability": self._calculate_likelihood(severity, complexity),
+            "attack_complexity": "LOW",
+            "required_privileges": "NONE",
+            "success_probability": self._calculate_likelihood(severity),
         }

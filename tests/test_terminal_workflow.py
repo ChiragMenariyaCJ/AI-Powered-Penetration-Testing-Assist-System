@@ -20,6 +20,7 @@ from Backend.services.nmap_service import NmapService
 from Backend.services.exploitdb_service import ExploitDbService
 from Backend.services.service_scan_service import ServiceScanService
 from Backend.services.html_report_renderer import HtmlReportRenderer
+from Backend.services.ai_recommendation_engine import AIRecommendationEngine
 from Backend.services.lab_profile_service import (
     AccessExercise,
     LabVerificationError,
@@ -62,6 +63,27 @@ class TerminalWorkflowTests(unittest.TestCase):
             ["access-test", "--scan-id", "22", "--lab", "msf2"]
         )
         self.assertEqual("msf2", access.lab)
+
+        vmware = parser.parse_args(
+            [
+                "lab-register",
+                "--name",
+                "msf2",
+                "--target",
+                "192.168.178.128",
+                "--provider",
+                "vmware",
+                "--vm",
+                "/labs/Metasploitable.vmx",
+                "--interface",
+                "vmnet1",
+                "--kali-source",
+                "192.168.178.129",
+            ]
+        )
+        self.assertEqual("vmware", vmware.provider)
+        self.assertEqual("vmnet1", vmware.interface)
+        self.assertEqual("192.168.178.129", vmware.kali_source)
 
     def test_recommendation_sequence_skips_previously_shown_items(self):
         recommendations = [SimpleNamespace(id=10), SimpleNamespace(id=11)]
@@ -138,6 +160,81 @@ class TerminalWorkflowTests(unittest.TestCase):
                     service.register_virtualbox(
                         "msf2", "192.168.56.101", "Metasploitable2"
                     )
+
+    def test_vmware_registration_requires_hostonly_route_and_adapter(self):
+        with TemporaryDirectory() as directory:
+            vmx = Path(directory) / "Metasploitable.vmx"
+            vmx.write_text(
+                "\n".join(
+                    [
+                        'uuid.bios = "56 4d aa bb cc dd ee ff-00 11 22 33 44 55 66 77"',
+                        'ethernet0.connectionType = "hostonly"',
+                        'ethernet0.generatedAddress = "00:0c:29:aa:bb:cc"',
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            service = Metasploitable2LabService(Path(directory))
+            with patch.object(
+                service,
+                "_route_to_target",
+                return_value=("vmnet1", "192.168.178.129"),
+            ), patch.object(service, "verify_neighbor"):
+                manifest = service.register_vmware(
+                    "msf2",
+                    "192.168.178.128",
+                    str(vmx),
+                    "vmnet1",
+                    "192.168.178.129",
+                )
+
+        self.assertEqual("vmware", manifest.provider)
+        self.assertEqual("192.168.178.128", manifest.target)
+        self.assertEqual("00:0c:29:aa:bb:cc", manifest.expected_mac)
+
+    def test_vmware_registration_rejects_bridged_adapter(self):
+        with TemporaryDirectory() as directory:
+            vmx = Path(directory) / "Metasploitable.vmx"
+            vmx.write_text(
+                "\n".join(
+                    [
+                        'uuid.bios = "vm-uuid"',
+                        'ethernet0.connectionType = "hostonly"',
+                        'ethernet0.generatedAddress = "00:0c:29:aa:bb:cc"',
+                        'ethernet1.connectionType = "bridged"',
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            service = Metasploitable2LabService(Path(directory))
+            with patch.object(
+                service,
+                "_route_to_target",
+                return_value=("vmnet1", "192.168.178.129"),
+            ):
+                with self.assertRaises(LabVerificationError):
+                    service.register_vmware("msf2", "192.168.178.128", str(vmx))
+
+    def test_ai_recommendations_exclude_exploit_dos_and_persistence_language(self):
+        recommendation = AIRecommendationEngine().generate_recommendations(
+            {"service": "smb", "port": 445, "severity": "HIGH"}
+        )[0]
+
+        combined = " ".join(str(value) for value in recommendation.values()).lower()
+        forbidden = (
+            "brute force",
+            "eternalblue",
+            "metasploit",
+            "payload",
+            "dos",
+            "flood",
+            "persistence",
+            "pivot",
+            "backdoor",
+            "privilege escalation",
+        )
+        self.assertEqual("Realtime guided validation", recommendation["attack_technique"])
+        self.assertFalse(any(term in combined for term in forbidden))
 
     def test_scan_stages_progress_from_quick_to_detailed(self):
         self.assertEqual(("QUICK", "FULL"), tuple(stage[0] for stage in SCAN_STAGES))
@@ -342,7 +439,7 @@ class TerminalWorkflowTests(unittest.TestCase):
             self.assertEqual(0, render_existing_report(json_path))
             self.assertTrue(json_path.with_suffix(".html").is_file())
 
-    def test_hard_coded_suggestions_are_non_destructive_and_deduplicated(self):
+    def test_realtime_fallback_suggestions_are_non_destructive_and_deduplicated(self):
         findings = [
             SimpleNamespace(id=1, port=80, service="http"),
             SimpleNamespace(id=2, port=80, service="http"),
@@ -350,13 +447,37 @@ class TerminalWorkflowTests(unittest.TestCase):
         ]
 
         suggestions = validation_suggestions(findings, "10.10.10.20")
-        commands = [item["command"] for item in suggestions]
+        steps = [item["purpose"] for item in suggestions]
 
         self.assertEqual(2, len(suggestions))
-        self.assertTrue(any(command.startswith("curl -k -I") for command in commands))
-        self.assertTrue(any("ssh2-enum-algos" in command for command in commands))
+        self.assertTrue(all(item["command"] is None for item in suggestions))
+        self.assertTrue(any("10.10.10.20:80" in step for step in steps))
+        self.assertTrue(any("10.10.10.20:22" in step for step in steps))
         forbidden = ("hydra", "password", "metasploit", "exploit", "--script vuln")
-        self.assertFalse(any(term in " ".join(commands).lower() for term in forbidden))
+        self.assertFalse(any(term in " ".join(steps).lower() for term in forbidden))
+
+    def test_realtime_model_suggestions_are_filtered_before_persistence(self):
+        class StubAdvisor:
+            def advise_prompt(self, *_args, **_kwargs):
+                return [
+                    "Run nmap -sV -p 80 10.10.10.20 and record the observed service.",
+                    "Run msfconsole against 10.10.10.20",
+                    "Run curl -I http://203.0.113.10/",
+                ]
+
+        findings = [SimpleNamespace(id=1, port=80, service="http", severity="INFO")]
+
+        suggestions = validation_suggestions(
+            findings,
+            "10.10.10.20",
+            advisor=StubAdvisor(),
+            scan_id=42,
+            lab_name="msf2",
+        )
+
+        self.assertEqual(1, len(suggestions))
+        self.assertIn("nmap -sV", suggestions[0]["purpose"])
+        self.assertEqual("realtime-ollama", suggestions[0]["source"])
 
     def test_suggestions_are_persisted_for_report_generation(self):
         engine = create_engine("sqlite:///:memory:")
@@ -398,7 +519,7 @@ class TerminalWorkflowTests(unittest.TestCase):
 
             saved = db.query(Recommendation).filter_by(vulnerability_id=finding.id).all()
             self.assertEqual(1, len(saved))
-            self.assertIn("curl", saved[0].execution_steps)
+            self.assertIn("non-destructive", saved[0].execution_steps)
         finally:
             db.close()
             engine.dispose()
