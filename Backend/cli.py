@@ -158,6 +158,7 @@ def _doctor_command(_: argparse.Namespace) -> int:
         "mysqladmin (optional)": shutil.which("mysqladmin"),
         "pg_isready (optional)": shutil.which("pg_isready"),
         "redis-cli (optional)": shutil.which("redis-cli"),
+        "VBoxManage (access-lab optional)": shutil.which("VBoxManage"),
     }
     required_ok = True
     for name, path in commands.items():
@@ -206,6 +207,24 @@ def _render_report_command(args: argparse.Namespace) -> int:
         Path(args.json_report),
         Path(args.output) if args.output else None,
     )
+
+
+def _lab_register_command(args: argparse.Namespace) -> int:
+    from Backend.terminal_workflow import register_metasploitable2_lab
+
+    return register_metasploitable2_lab(args.name, args.target, args.vm)
+
+
+def _lab_check_command(args: argparse.Namespace) -> int:
+    from Backend.terminal_workflow import check_metasploitable2_lab
+
+    return check_metasploitable2_lab(args.name)
+
+
+def _access_test_command(args: argparse.Namespace) -> int:
+    from Backend.terminal_workflow import next_access_exercise
+
+    return next_access_exercise(args.scan_id, args.lab, reset=args.reset)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -269,6 +288,31 @@ def build_parser() -> argparse.ArgumentParser:
     render_parser.add_argument("json_report")
     render_parser.add_argument("--output", help="HTML output path")
     render_parser.set_defaults(func=_render_report_command)
+
+    lab_register_parser = subparsers.add_parser(
+        "lab-register",
+        help="Register a host-only Metasploitable 2 VirtualBox lab",
+    )
+    lab_register_parser.add_argument("--name", required=True)
+    lab_register_parser.add_argument("--target", required=True)
+    lab_register_parser.add_argument("--vm", required=True, help="VirtualBox VM name or UUID")
+    lab_register_parser.set_defaults(func=_lab_register_command)
+
+    lab_check_parser = subparsers.add_parser(
+        "lab-check",
+        help="Verify a registered Metasploitable 2 lab",
+    )
+    lab_check_parser.add_argument("--name", required=True)
+    lab_check_parser.set_defaults(func=_lab_check_command)
+
+    access_parser = subparsers.add_parser(
+        "access-test",
+        help="Show the next gated Metasploitable 2 access exercise",
+    )
+    access_parser.add_argument("--scan-id", type=int, required=True)
+    access_parser.add_argument("--lab", required=True)
+    access_parser.add_argument("--reset", action="store_true")
+    access_parser.set_defaults(func=_access_test_command)
 
     doctor_parser = subparsers.add_parser("doctor", help="Check local tools")
     doctor_parser.set_defaults(func=_doctor_command)

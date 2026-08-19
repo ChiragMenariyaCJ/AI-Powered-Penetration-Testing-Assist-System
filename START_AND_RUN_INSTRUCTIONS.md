@@ -475,7 +475,25 @@ ollama list
 
 PTAS refuses to send excerpts to a non-local Ollama URL unless `--allow-remote-llm` is explicitly supplied. Review authorization, privacy, and data-retention implications before allowing terminal content to leave the machine.
 
-## 9. Running automated tests
+## 9. Restricted access-testing lab
+
+Credential-based `ACCESS_TESTING` is restricted to a registered, host-only
+Metasploitable 2 VirtualBox VM. It is disabled for ordinary PTAS targets. Follow
+the complete isolation, registration, snapshot, scan, exercise, and restoration
+instructions in [METASPLOITABLE2_ACCESS_TESTING.md](METASPLOITABLE2_ACCESS_TESTING.md).
+
+The principal commands are:
+
+```bash
+./ptas.sh lab-register --name msf2-local --target 192.168.56.101 --vm Metasploitable2
+./ptas.sh lab-check --name msf2-local
+./ptas.sh access-test --scan-id 42 --lab msf2-local
+```
+
+PTAS shows one allowlisted exercise at a time and never executes it or stores a
+password.
+
+## 10. Running automated tests
 
 Activate the same environment used by the application:
 
@@ -499,7 +517,7 @@ python -m pytest -v tests/test_backend_workflows.py
 
 The existing workflow tests use an in-memory SQLite database and a fake Nmap service, so they do not scan a real target.
 
-## 10. Docker Compose setup
+## 11. Docker Compose setup
 
 Docker Compose starts a MariaDB container and a production API container.
 
@@ -564,7 +582,7 @@ Rebuild after dependency or Dockerfile changes:
 sudo docker compose up --build -d
 ```
 
-## 11. Direct production process
+## 12. Direct production process
 
 For a non-container production-like process, activate the environment and provide production environment variables before starting Gunicorn:
 
@@ -582,7 +600,7 @@ python -m gunicorn Backend.main:app \
 
 Do not place real secrets into shell history. Prefer a protected environment file managed by systemd or a secrets manager. Put a TLS reverse proxy in front of the API and bind Gunicorn to a private interface.
 
-## 12. Database inspection, backup, and restore
+## 13. Database inspection, backup, and restore
 
 Connect to the local development database:
 
@@ -612,7 +630,7 @@ mariadb -u ptas_user -p ptas_db < ptas_backup.sql
 
 Treat backups as sensitive because they can contain accounts, scan targets, findings, and reports.
 
-## 13. Updating dependencies or pulling changes
+## 14. Updating dependencies or pulling changes
 
 After repository changes:
 
@@ -625,7 +643,7 @@ python -m pytest -v
 
 Review changes before applying them in a real environment. Back up the database before migrations or major upgrades. The current application creates missing tables automatically but does not provide a migration tool for schema changes.
 
-## 14. Troubleshooting
+## 15. Troubleshooting
 
 ### `ModuleNotFoundError: No module named 'jose'`
 
@@ -743,7 +761,7 @@ curl http://127.0.0.1:11434/api/tags
 
 Start `ollama serve`, choose an installed model, and keep `OLLAMA_BASE_URL` on localhost unless remote transfer has been deliberately authorized.
 
-## 15. Safe shutdown checklist
+## 16. Safe shutdown checklist
 
 For a local development session:
 
@@ -761,7 +779,7 @@ sudo docker compose down
 
 Database data remains in the named volume unless it is explicitly deleted.
 
-## 16. Recommended daily development routine
+## 17. Recommended daily development routine
 
 ```bash
 cd ~/Projects/AI-Powered-Penetration-Testing-Assist-System

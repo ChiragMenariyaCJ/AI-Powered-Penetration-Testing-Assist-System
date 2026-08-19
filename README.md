@@ -62,6 +62,10 @@ Or use the sidecar by itself:
 See [TERMINAL_ASSISTANT.md](TERMINAL_ASSISTANT.md) for the complete two-pane
 tmux workflow, transcript mode, local Ollama integration, and safety controls.
 
+Restricted, credential-based access exercises are available only for a locally
+registered host-only Metasploitable 2 VM. See
+[METASPLOITABLE2_ACCESS_TESTING.md](METASPLOITABLE2_ACCESS_TESTING.md).
+
 ---
 
 ## API Documentation

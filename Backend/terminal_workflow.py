@@ -37,6 +37,11 @@ from Backend.services.nmap_service import NmapService
 from Backend.services.exploitdb_service import ExploitDbService
 from Backend.services.service_scan_service import ServiceScanService
 from Backend.services.html_report_renderer import HtmlReportRenderer
+from Backend.services.lab_profile_service import (
+    AccessExercise,
+    LabVerificationError,
+    Metasploitable2LabService,
+)
 from Backend.terminal_assistant.scope_guard import ScopeGuard
 from Backend.terminal_assistant.analyzer import TerminalAnalyzer
 from Backend.terminal_assistant.sanitizer import sanitize_terminal_text
@@ -889,3 +894,141 @@ def render_existing_report(json_report: Path, output: Path | None = None) -> int
     html_output.write_text(HtmlReportRenderer.render(payload), encoding="utf-8")
     _say(f"Formatted HTML report saved to {html_output}")
     return 0
+
+
+def register_metasploitable2_lab(name: str, target: str, vm: str) -> int:
+    project_dir = Path(__file__).resolve().parents[1]
+    service = Metasploitable2LabService(project_dir)
+    try:
+        manifest = service.register_virtualbox(name, target, vm)
+    except LabVerificationError as exc:
+        _say(f"Lab registration failed: {exc}")
+        return 1
+    _say(f"Registered Metasploitable 2 lab '{manifest.name}'.")
+    print(f"  VM UUID: {manifest.vm_uuid}")
+    print(f"  Target: {manifest.target}")
+    print(f"  Host-only MAC: {manifest.expected_mac}")
+    print(f"  Manifest: {service.manifest_path(name)}")
+    return 0
+
+
+def check_metasploitable2_lab(name: str) -> int:
+    project_dir = Path(__file__).resolve().parents[1]
+    service = Metasploitable2LabService(project_dir)
+    try:
+        manifest = service.load(name)
+        snapshots = service.verify_virtualbox(manifest)
+        service.verify_neighbor(manifest)
+    except LabVerificationError as exc:
+        _say(f"Lab verification failed: {exc}")
+        return 1
+    _say(f"Lab '{name}' passed VM identity, host-only network, snapshot, and MAC checks.")
+    print(f"  Target: {manifest.target}")
+    print(f"  Snapshots: {', '.join(snapshots)}")
+    return 0
+
+
+def select_next_access_exercise(exercises: list[AccessExercise], shown_keys: set[str]):
+    return next((item for item in exercises if item.key not in shown_keys), None)
+
+
+def next_access_exercise(scan_id: int, lab_name: str, reset: bool = False) -> int:
+    project_dir = Path(__file__).resolve().parents[1]
+    service = Metasploitable2LabService(project_dir)
+    state_path = project_dir / ".ptas" / "access-state.json"
+    try:
+        manifest = service.load(lab_name)
+        snapshots = service.verify_virtualbox(manifest)
+        service.verify_neighbor(manifest)
+        Base.metadata.create_all(bind=engine)
+        with SessionLocal() as db:
+            scan = ScanRepository(db).get_scan_by_id(scan_id)
+            if not scan:
+                raise LabVerificationError(f"Scan {scan_id} was not found")
+            findings = VulnerabilityRepository(db).get_vulnerabilities_by_scan_id(scan_id)
+            ports = service.verify_scan(manifest, scan, findings)
+            exercises = service.exercises(manifest.target, ports)
+            if not exercises:
+                raise LabVerificationError("No allowlisted access exercise matches this scan")
+
+            print("\nRestricted access-testing gate")
+            print(f"  Profile: {manifest.profile}")
+            print(f"  VM UUID: {manifest.vm_uuid}")
+            print(f"  Target: {manifest.target}/32")
+            print(f"  Snapshot: {snapshots[-1]}")
+            confirmation = input("Type ENABLE ACCESS TESTING to continue: ").strip()
+            if confirmation != "ENABLE ACCESS TESTING":
+                raise LabVerificationError("Access testing was not enabled")
+
+            try:
+                state = json.loads(state_path.read_text(encoding="utf-8")) if state_path.exists() else {}
+            except (OSError, json.JSONDecodeError):
+                state = {}
+            state_key = f"{lab_name}:{scan_id}"
+            if reset:
+                state.pop(state_key, None)
+            shown_keys = set(state.get(state_key, []))
+            selected = select_next_access_exercise(exercises, shown_keys)
+            report_command = (
+                f"./ptas.sh report --scan-id {scan_id} "
+                f"--output reports/ptas-scan-{scan_id}.json"
+            )
+            if selected is None:
+                _say("All allowlisted access exercises have been shown.")
+                print(f"  Reset: ./ptas.sh access-test --scan-id {scan_id} --lab {lab_name} --reset")
+                print(f"  Report: {report_command}")
+                return 0
+
+            print(f"\nACCESS_TESTING exercise {len(shown_keys) + 1}/{len(exercises)}")
+            print(f"Service: {selected.service} on port {selected.port}")
+            print(f"Title: {selected.title}")
+            print(f"Purpose: {selected.purpose}")
+            print(f"Credential handling: {selected.credential_note}")
+            print("Review and manually execute only against the registered VM:")
+            print(f"  {selected.command}")
+            print("Next exercise:")
+            print(f"  ./ptas.sh access-test --scan-id {scan_id} --lab {lab_name}")
+            print(f"Report: {report_command}")
+
+            matching_finding = next(
+                (item for item in findings if item.port == selected.port),
+                None,
+            )
+            if matching_finding:
+                repository = RecommendationRepository(db)
+                existing = repository.get_recommendations_by_vulnerability_id(
+                    matching_finding.id
+                )
+                if not any(item.execution_steps == selected.command for item in existing):
+                    repository.create_recommendation(
+                        vulnerability_id=matching_finding.id,
+                        attack_technique="Restricted Metasploitable 2 access testing",
+                        mitre_technique_id=None,
+                        exploitation_method=selected.purpose,
+                        risk_level="MEDIUM",
+                        priority=5,
+                        likelihood=50,
+                        impact=40,
+                        prerequisites=(
+                            "Registered host-only Metasploitable 2 VM, matching UUID/MAC, "
+                            "clean snapshot, exact /32 target, and explicit operator approval"
+                        ),
+                        tools_required=selected.command.split(maxsplit=1)[0],
+                        execution_steps=selected.command,
+                        post_exploitation="Stop after access validation and restore the clean VM snapshot",
+                        confidence_score=100,
+                        status="PENDING_APPROVAL",
+                    )
+            shown_keys.add(selected.key)
+            state[state_key] = sorted(shown_keys)
+            state_path.parent.mkdir(parents=True, exist_ok=True)
+            temporary = state_path.with_suffix(".tmp")
+            temporary.write_text(json.dumps(state, indent=2) + "\n", encoding="utf-8")
+            temporary.replace(state_path)
+            return 0
+    except (EOFError, KeyboardInterrupt):
+        _say("Access testing cancelled.")
+        return 130
+    except LabVerificationError as exc:
+        _say(f"Access testing blocked: {exc}")
+        return 1

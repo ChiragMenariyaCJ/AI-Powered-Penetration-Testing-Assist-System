@@ -20,6 +20,11 @@ from Backend.services.nmap_service import NmapService
 from Backend.services.exploitdb_service import ExploitDbService
 from Backend.services.service_scan_service import ServiceScanService
 from Backend.services.html_report_renderer import HtmlReportRenderer
+from Backend.services.lab_profile_service import (
+    AccessExercise,
+    LabVerificationError,
+    Metasploitable2LabService,
+)
 from Backend.services.vulnerability_parser import VulnerabilityParser
 from Backend.terminal_workflow import (
     CVE_SCAN_STAGE,
@@ -28,6 +33,7 @@ from Backend.terminal_workflow import (
     persist_validation_suggestions,
     select_next_recommendation,
     render_existing_report,
+    select_next_access_exercise,
     validation_suggestions,
 )
 
@@ -52,6 +58,11 @@ class TerminalWorkflowTests(unittest.TestCase):
         render = parser.parse_args(["render-report", "reports/example.json"])
         self.assertEqual("reports/example.json", render.json_report)
 
+        access = parser.parse_args(
+            ["access-test", "--scan-id", "22", "--lab", "msf2"]
+        )
+        self.assertEqual("msf2", access.lab)
+
     def test_recommendation_sequence_skips_previously_shown_items(self):
         recommendations = [SimpleNamespace(id=10), SimpleNamespace(id=11)]
 
@@ -67,6 +78,66 @@ class TerminalWorkflowTests(unittest.TestCase):
 
         self.assertIsNone(SHELL_READY_PATTERN.search(running))
         self.assertIsNotNone(SHELL_READY_PATTERN.search(completed))
+
+    def test_access_sequence_skips_previously_shown_exercises(self):
+        exercises = [
+            AccessExercise("ssh", "SSH", 22, "SSH", "Purpose", "ssh host", "Prompt"),
+            AccessExercise("ftp", "FTP", 21, "FTP", "Purpose", "ftp host", "Prompt"),
+        ]
+
+        selected = select_next_access_exercise(exercises, {"ssh"})
+
+        self.assertEqual("ftp", selected.key)
+        self.assertIsNone(select_next_access_exercise(exercises, {"ssh", "ftp"}))
+
+    def test_metasploitable_profile_rejects_loopback_cidr_and_weak_fingerprint(self):
+        with TemporaryDirectory() as directory:
+            service = Metasploitable2LabService(Path(directory))
+            for target in ("127.0.0.1", "192.168.56.0/24"):
+                with self.subTest(target=target):
+                    with self.assertRaises(LabVerificationError):
+                        service._private_host(target)
+
+            manifest = SimpleNamespace(
+                profile="metasploitable2",
+                provider="virtualbox",
+                target="192.168.56.101",
+            )
+            scan = SimpleNamespace(
+                target=SimpleNamespace(target_value="192.168.56.101")
+            )
+            findings = [SimpleNamespace(port=22), SimpleNamespace(port=80)]
+            with self.assertRaises(LabVerificationError):
+                service.verify_scan(manifest, scan, findings)
+
+    def test_metasploitable_profile_builds_only_exercises_for_observed_ports(self):
+        exercises = Metasploitable2LabService.exercises(
+            "192.168.56.101", {21, 22, 80}
+        )
+
+        self.assertEqual({21, 22}, {item.port for item in exercises})
+        self.assertTrue(all("192.168.56.101" in item.command for item in exercises))
+        self.assertTrue(all("msfadmin:msfadmin" not in item.command for item in exercises))
+
+    def test_metasploitable_registration_rejects_nat_even_with_hostonly_adapter(self):
+        machine_info = "\n".join(
+            [
+                'UUID="vm-uuid"',
+                'nic1="hostonly"',
+                'macaddress1="080027AABBCC"',
+                'nic2="nat"',
+            ]
+        )
+        with TemporaryDirectory() as directory:
+            service = Metasploitable2LabService(Path(directory))
+            with patch(
+                "Backend.services.lab_profile_service.shutil.which",
+                return_value="/usr/bin/VBoxManage",
+            ), patch.object(service, "_run", return_value=machine_info):
+                with self.assertRaises(LabVerificationError):
+                    service.register_virtualbox(
+                        "msf2", "192.168.56.101", "Metasploitable2"
+                    )
 
     def test_scan_stages_progress_from_quick_to_detailed(self):
         self.assertEqual(("QUICK", "FULL"), tuple(stage[0] for stage in SCAN_STAGES))

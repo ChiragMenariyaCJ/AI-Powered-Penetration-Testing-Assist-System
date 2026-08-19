@@ -9,12 +9,18 @@ from Backend.terminal_assistant.scope_guard import ScopeGuard
 SUPPORTED_TOOLS = {
     "curl",
     "dirsearch",
+    "ftp",
     "ffuf",
     "gobuster",
     "masscan",
     "nikto",
     "nmap",
+    "mysql",
+    "psql",
+    "smbclient",
+    "ssh",
     "sqlmap",
+    "telnet",
     "whatweb",
     "wget",
 }
@@ -22,12 +28,12 @@ SUPPORTED_TOOLS = {
 PROMPT_COMMAND = re.compile(
     r"(?m)^.*?(?:\$|#|❯|>)\s*"
     r"(?P<command>(?:sudo\s+)?(?:nmap|masscan|nikto|gobuster|ffuf|whatweb|"
-    r"curl|wget|sqlmap|dirsearch)\b[^\r\n]*)$",
+    r"curl|wget|sqlmap|dirsearch|ssh|ftp|telnet|smbclient|mysql|psql)\b[^\r\n]*)$",
     re.IGNORECASE,
 )
 DIRECT_COMMAND = re.compile(
     r"^\s*(?P<command>(?:sudo\s+)?(?:nmap|masscan|nikto|gobuster|ffuf|whatweb|"
-    r"curl|wget|sqlmap|dirsearch)\b[^\r\n]*)\s*$",
+    r"curl|wget|sqlmap|dirsearch|ssh|ftp|telnet|smbclient|mysql|psql)\b[^\r\n]*)\s*$",
     re.IGNORECASE,
 )
 NMAP_PORT = re.compile(

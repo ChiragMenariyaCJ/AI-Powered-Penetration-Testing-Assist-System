@@ -117,6 +117,17 @@ class Metasploitable2LabService:
         ]
         if not hostonly_nics:
             raise LabVerificationError("The VM must have a VirtualBox host-only network adapter")
+        non_isolated_nics = [
+            value
+            for key, value in values.items()
+            if key.startswith("nic")
+            and key.removeprefix("nic").isdigit()
+            and value not in {"none", "hostonly"}
+        ]
+        if non_isolated_nics:
+            raise LabVerificationError(
+                "Disable NAT, bridged, and other non-host-only VM adapters before registration"
+            )
         nic_number = hostonly_nics[0]
         manifest = LabManifest(
             name=name,
@@ -156,6 +167,17 @@ class Metasploitable2LabService:
         )
         if values.get("UUID") != manifest.vm_uuid:
             raise LabVerificationError("VirtualBox VM UUID does not match the registered lab")
+        non_isolated_nics = [
+            value
+            for key, value in values.items()
+            if key.startswith("nic")
+            and key.removeprefix("nic").isdigit()
+            and value not in {"none", "hostonly"}
+        ]
+        if non_isolated_nics:
+            raise LabVerificationError(
+                "The registered VM has a non-host-only network adapter enabled"
+            )
         matching_nic = False
         for key, value in values.items():
             number = key.removeprefix("nic")

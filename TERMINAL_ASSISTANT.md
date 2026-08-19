@@ -165,6 +165,25 @@ normal shell so the student can run the displayed validation and report
 commands. The tmux session remains open. Press `Ctrl-b`, then `d`, to detach;
 later use `tmux attach` to return.
 
+## Restricted Metasploitable 2 access testing
+
+PTAS includes an opt-in `ACCESS_TESTING` foundation for one platform only: a
+locally registered Metasploitable 2 VirtualBox VM. It verifies the VM UUID,
+host-only-only networking, MAC/IP binding, clean snapshot availability, exact
+scan target, and a distinctive service fingerprint before showing any exercise.
+
+Setup and commands are documented in
+[METASPLOITABLE2_ACCESS_TESTING.md](METASPLOITABLE2_ACCESS_TESTING.md).
+
+```bash
+./ptas.sh lab-register --name msf2-local --target 192.168.56.101 --vm Metasploitable2
+./ptas.sh lab-check --name msf2-local
+./ptas.sh access-test --scan-id 42 --lab msf2-local
+```
+
+Exercises are shown one at a time and must be executed manually. Credentials
+are requested by the target tools and are never embedded in PTAS state.
+
 ## Standalone sidecar
 
 The PTAS sidecar watches one explicitly selected terminal source and displays
