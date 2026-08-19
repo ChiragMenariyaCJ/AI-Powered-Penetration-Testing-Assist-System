@@ -12,6 +12,9 @@ DOMAIN_PATTERN = re.compile(
     r"(?i)(?<![\w.-])(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+"
     r"[a-z]{2,63}(?![\w.-])"
 )
+LAB_HOSTNAME_PATTERN = re.compile(
+    r"(?i)^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$"
+)
 
 
 @dataclass(frozen=True)
@@ -60,7 +63,10 @@ class ScopeGuard:
         domain = candidate.lower().rstrip(".")
         if domain.startswith("*."):
             domain = domain[2:]
-        if not DOMAIN_PATTERN.fullmatch(domain):
+        if not (
+            DOMAIN_PATTERN.fullmatch(domain)
+            or LAB_HOSTNAME_PATTERN.fullmatch(domain)
+        ):
             raise ValueError(f"Invalid scope entry: {entry}")
         self.domains.append(domain)
 

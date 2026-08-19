@@ -282,6 +282,64 @@ Only create targets and execute scans within explicit authorization and the scop
 
 The sidecar analyzes new output from one explicitly selected tmux pane or transcript. It sanitizes common secrets, enforces the supplied scope, and displays suggestions. It never executes suggested commands.
 
+### Complete terminal-first student workflow
+
+To use PTAS without Swagger or another browser interface, run:
+
+```bash
+./ptas.sh start
+```
+
+PTAS creates a two-pane tmux workspace. The left pane guides the student
+through registration or login, project selection, authorized scope and target
+entry, and a `yes` authorization confirmation. The scope is the complete
+allowed boundary (for example `192.168.56.0/24`), while the target is one host
+inside it (for example `192.168.56.101`). For a single authorized host, use the
+same IP for both prompts. Invalid entries are requested again. PTAS then runs
+these stages:
+
+1. A quick port and service discovery scan.
+2. A detailed default-script and service-version scan.
+3. An optional CVE stage using only NSE scripts tagged `vuln` and `safe`.
+4. Finding persistence and completion checks.
+5. Hard-coded, non-destructive validation suggestions in the right pane.
+6. A scan-specific report command and output path.
+
+The optional stage asks for consent because the bundled Vulners script sends
+detected product/version or CPE information to the external Vulners service.
+PTAS records explicit NSE `VULNERABLE` results as `CONFIRMED_CVE`; version
+correlations are recorded as `CVE_CANDIDATE` and require manual verification.
+When a concrete product/version is available, PTAS also searches Kali's local
+Exploit-DB database through `searchsploit`. Matches containing CVE identifiers
+are stored as `EXPLOIT_DB_REFERENCE` findings, including multiple EDB entries
+and CVEs when available. Generic service-only searches are intentionally
+skipped to avoid unrelated or fabricated CVE results.
+
+The findings are printed after each Nmap stage completes in both panes. Final
+hard-coded suggestions are persisted as report recommendations. When the guided
+workflow finishes, the left pane returns to a normal shell on purpose so the
+student can run those commands; PTAS has not closed the tmux session.
+
+Suggestions are shown only after the detailed scan completes. They are never
+executed automatically; the student chooses whether to copy a validation
+command into the left pane.
+
+For a single-terminal session:
+
+```bash
+./ptas.sh start --no-tmux
+```
+
+The completed session displays a command similar to:
+
+```bash
+./ptas.sh report --scan-id 12 --output reports/ptas-scan-12.json
+```
+
+Run the displayed command from the repository root. PTAS generates the report,
+creates the `reports/` directory if necessary, and prints the absolute saved
+file path.
+
 ### Check prerequisites
 
 ```bash

@@ -1,5 +1,94 @@
 # PTAS Terminal Sidecar
 
+## Complete student workflow
+
+From the repository root, start the terminal-first workflow with:
+
+```bash
+./ptas.sh start
+```
+
+When tmux is available, PTAS creates two panes:
+
+- The left pane asks the student to register or log in, select or create a
+  project, enter the authorized scope, and enter the training target.
+- The right pane displays authentication state, scope confirmation, scan
+  progress, completed findings, hard-coded validation suggestions, and the
+  final report command.
+
+The student must answer `yes` to the authorization confirmation before a scan
+can start. PTAS then runs a quick discovery stage followed by a detailed service
+assessment. Suggestions do not appear until the final scan stage completes.
+Suggested commands are non-destructive validation steps and are never run
+automatically.
+
+Each scan stage prints its completed findings in the left pane and publishes
+them to the right monitor pane. Nmap findings become available when that stage
+finishes; they are not inferred from partial output while Nmap is still running.
+Final validation suggestions are saved as recommendation records, so they also
+appear inside the generated JSON report.
+
+After the normal scan stages, PTAS asks whether to include CVE checks. Answering
+`yes` runs only Nmap scripts tagged both `vuln` and `safe`. This includes the
+external Vulners correlation service, which receives detected product/version
+or CPE data. Results are classified as:
+
+- `CONFIRMED_CVE` only when an applicable NSE script explicitly returns a
+  `VULNERABLE` state and a CVE identifier.
+- `CVE_CANDIDATE` when Vulners correlates a detected product/version with CVE
+  records. Candidates require manual product, patch, and vendor-advisory
+  verification and are not proof of exploitability.
+- `EXPLOIT_DB_REFERENCE` when Kali's local `searchsploit` database contains one
+  or more version-specific Exploit-DB entries with CVE identifiers. The report
+  includes each `EDB-ID`, title, CVEs, and whether Exploit-DB marks the entry as
+  verified. “Verified” describes the Exploit-DB entry, not the scanned host.
+
+PTAS does not run the unrestricted Nmap `vuln` category.
+
+Exploit-DB matching is deliberately skipped when Nmap cannot identify a
+concrete product/version. Searching a generic service name such as `mysql`
+would return unrelated results and create false CVEs. Exploit-DB enrichment is
+local and read-only; keep Kali's `exploitdb` package/database updated through
+the normal trusted package-management process.
+
+The scope and target are separate prompts. For one VM, both may be the same:
+
+```text
+Authorized scope: 192.168.56.101
+Training target inside that scope: 192.168.56.101
+```
+
+For a lab subnet, enter the subnet first and then one host inside it:
+
+```text
+Authorized scope: 192.168.56.0/24
+Training target inside that scope: 192.168.56.101
+```
+
+Invalid input is requested again without cancelling the complete session.
+
+To run without tmux:
+
+```bash
+./ptas.sh start --no-tmux
+```
+
+At the end, PTAS prints a scan-specific command similar to:
+
+```bash
+./ptas.sh report --scan-id 12 --output reports/ptas-scan-12.json
+```
+
+Run that command from the repository root to generate the database report and
+save its JSON content at the displayed location.
+
+After the guided scan completes, the left pane intentionally returns to a
+normal shell so the student can run the displayed validation and report
+commands. The tmux session remains open. Press `Ctrl-b`, then `d`, to detach;
+later use `tmux attach` to return.
+
+## Standalone sidecar
+
 The PTAS sidecar watches one explicitly selected terminal source and displays
 read-only suggestions in another terminal. It never executes a suggested
 command.

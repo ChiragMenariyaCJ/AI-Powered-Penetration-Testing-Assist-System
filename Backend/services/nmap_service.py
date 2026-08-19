@@ -125,7 +125,10 @@ class NmapService:
             # Keep the API service unprivileged; OS detection and SYN scans need root.
             cmd.extend(["-sV", "-sC"])
         elif scan_type == "VULNERABILITY":
-            cmd.extend(["-sV", "-sC"])  # Vulnerability detection
+            # Restrict checks to NSE scripts tagged both "vuln" and "safe".
+            # This includes Vulners correlation and applicable non-destructive
+            # checks that may explicitly report a VULNERABLE state.
+            cmd.extend(["-sV", "--script", "(vuln and safe)"])
         elif scan_type == "PORT_SCAN":
             cmd.extend(["-sV"])  # Port scan with version detection
         elif scan_type == "CUSTOM" and custom_args:
@@ -266,10 +269,27 @@ class NmapService:
             service_elem = port_elem.find("service")
             service_name = None
             service_version = None
+            service_product = None
+            service_extra = None
+            service_cpes = []
 
             if service_elem is not None:
                 service_name = service_elem.get("name")
                 service_version = service_elem.get("version")
+                service_product = service_elem.get("product")
+                service_extra = service_elem.get("extrainfo")
+                service_cpes = [
+                    cpe.text for cpe in service_elem.findall("cpe") if cpe.text
+                ]
+
+            scripts = []
+            for script_elem in port_elem.findall("script"):
+                scripts.append(
+                    {
+                        "id": script_elem.get("id") or "unknown",
+                        "output": script_elem.get("output") or "",
+                    }
+                )
 
             return {
                 "port": int(port_num),
@@ -277,6 +297,10 @@ class NmapService:
                 "state": state,
                 "service": service_name,
                 "version": service_version,
+                "product": service_product,
+                "extrainfo": service_extra,
+                "cpes": service_cpes,
+                "scripts": scripts,
             }
 
         except Exception:

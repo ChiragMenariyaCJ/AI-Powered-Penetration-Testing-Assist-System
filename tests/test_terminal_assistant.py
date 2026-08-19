@@ -40,6 +40,12 @@ class ScopeGuardTests(unittest.TestCase):
         self.assertTrue(guard.is_allowed("api.example.test"))
         self.assertFalse(guard.is_allowed("badexample.test"))
 
+    def test_single_label_lab_hostname_scope(self):
+        guard = ScopeGuard(["metasploitable"])
+
+        self.assertTrue(guard.is_allowed("metasploitable"))
+        self.assertFalse(guard.is_allowed("another-lab-host"))
+
     def test_scope_is_required(self):
         with self.assertRaises(ValueError):
             ScopeGuard([])

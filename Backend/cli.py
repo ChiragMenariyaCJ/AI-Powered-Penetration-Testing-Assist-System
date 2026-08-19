@@ -159,12 +159,71 @@ def _doctor_command(_: argparse.Namespace) -> int:
     return 0 if required_ok else 1
 
 
+def _start_command(args: argparse.Namespace) -> int:
+    from Backend.terminal_workflow import start_terminal_workflow
+
+    return start_terminal_workflow(no_tmux=args.no_tmux)
+
+
+def _student_command(args: argparse.Namespace) -> int:
+    from Backend.terminal_workflow import run_student_session
+
+    return run_student_session(Path(args.event_log) if args.event_log else None)
+
+
+def _dashboard_command(args: argparse.Namespace) -> int:
+    from Backend.terminal_workflow import run_dashboard
+
+    return run_dashboard(Path(args.event_log), interval=args.interval, pane=args.pane)
+
+
+def _report_command(args: argparse.Namespace) -> int:
+    from Backend.terminal_workflow import save_report
+
+    return save_report(args.scan_id, Path(args.output))
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="ptas",
-        description="PTAS read-only terminal sidecar",
+        description="PTAS terminal student workflow and read-only sidecar",
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
+
+    start_parser = subparsers.add_parser(
+        "start",
+        help="Start the interactive two-pane student workflow",
+    )
+    start_parser.add_argument(
+        "--no-tmux",
+        action="store_true",
+        help="Run the student workflow in the current terminal",
+    )
+    start_parser.set_defaults(func=_start_command)
+
+    student_parser = subparsers.add_parser(
+        "student",
+        help="Run the internal student pane",
+    )
+    student_parser.add_argument("--event-log")
+    student_parser.set_defaults(func=_student_command)
+
+    dashboard_parser = subparsers.add_parser(
+        "dashboard",
+        help="Run the internal monitor pane",
+    )
+    dashboard_parser.add_argument("--event-log", required=True)
+    dashboard_parser.add_argument("--pane")
+    dashboard_parser.add_argument("--interval", type=float, default=0.5)
+    dashboard_parser.set_defaults(func=_dashboard_command)
+
+    report_parser = subparsers.add_parser(
+        "report",
+        help="Generate and save a completed scan report",
+    )
+    report_parser.add_argument("--scan-id", type=int, required=True)
+    report_parser.add_argument("--output", required=True)
+    report_parser.set_defaults(func=_report_command)
 
     doctor_parser = subparsers.add_parser("doctor", help="Check local tools")
     doctor_parser.set_defaults(func=_doctor_command)

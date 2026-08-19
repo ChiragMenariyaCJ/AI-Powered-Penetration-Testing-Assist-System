@@ -46,6 +46,15 @@ http://127.0.0.1:8000
 PTAS can also run beside an explicitly selected Kali terminal and provide
 scope-aware, read-only suggestions:
 
+Start the complete terminal-first student workflow (login/register, project,
+authorized target, sequential scans, monitor pane, and report handoff):
+
+```bash
+./ptas.sh start
+```
+
+Or use the sidecar by itself:
+
 ```bash
 ./ptas.sh watch --pane %0 --scope 10.10.10.0/24
 ```
