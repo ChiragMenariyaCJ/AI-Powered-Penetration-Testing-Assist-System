@@ -1,5 +1,8 @@
 """Exercise the guided terminal application and native split-terminal helpers."""
 
+import os
+import subprocess
+import sys
 import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -39,7 +42,9 @@ from Backend.terminal_workflow import (
     SHELL_READY_PATTERN,
     SCAN_STAGES,
     _authenticate,
+    _completed_finding_count,
     _configure_target,
+    _finding_display_label,
     _select_project,
     persist_validation_suggestions,
     select_next_recommendation,
@@ -493,17 +498,78 @@ class TerminalWorkflowTests(unittest.TestCase):
         self.assertEqual(("QUICK", "FULL"), tuple(stage[0] for stage in SCAN_STAGES))
         self.assertEqual("VULNERABILITY", CVE_SCAN_STAGE[0])
 
-    def test_vulnerability_stage_uses_safe_external_vulners_script(self):
-        """Verify that vulnerability stage uses safe external vulners script.
+    def test_failed_scan_response_becomes_a_readable_terminal_error(self):
+        """Verify failed response data is reported without a missing-key traceback."""
 
-        This regression test fails if a future change breaks the described contract.
-        """
+        with self.assertRaisesRegex(
+            RuntimeError,
+            "VULNERABILITY scan failed: Scan timeout after 300 seconds",
+        ):
+            _completed_finding_count(
+                "VULNERABILITY",
+                {
+                    "status": "FAILED",
+                    "error": "Scan timeout after 300 seconds",
+                },
+            )
+
+    def test_terminal_process_registers_all_sqlalchemy_relationships(self):
+        """Verify a fresh terminal-only process can query without importing main.py."""
+
+        project_root = Path(__file__).resolve().parents[1]
+        code = """
+from Backend.database import Base, SessionLocal, engine
+import Backend.terminal_workflow
+from Backend.repositories.vulnerability_repository import VulnerabilityRepository
+
+Base.metadata.create_all(bind=engine)
+with SessionLocal() as session:
+    assert VulnerabilityRepository(session).get_vulnerabilities_by_scan_id(1) == []
+"""
+        environment = {
+            **os.environ,
+            "DATABASE_URL": "sqlite:///:memory:",
+        }
+
+        result = subprocess.run(
+            [sys.executable, "-c", code],
+            cwd=project_root,
+            env=environment,
+            capture_output=True,
+            text=True,
+            timeout=20,
+        )
+
+        self.assertEqual(0, result.returncode, result.stderr)
+
+    def test_vulnerability_stage_uses_safe_external_vulners_script(self):
+        """Verify CVE correlation uses one bounded script and the fast port set."""
+
         command = NmapService()._build_command(
             "10.10.10.20", "VULNERABILITY", None, "/tmp/result.xml"
         )
 
-        self.assertIn("(vuln and safe)", command)
-        self.assertNotIn("vuln", command)
+        self.assertIn("vulners", command)
+        self.assertNotIn("(vuln and safe)", command)
+        self.assertIn("-F", command)
+        self.assertIn("-T4", command)
+        self.assertEqual(
+            "30s",
+            command[command.index("--script-timeout") + 1],
+        )
+
+    def test_terminal_labels_observations_and_cve_candidates_differently(self):
+        """Verify terminal output does not present every observation as proven."""
+
+        observed = _finding_display_label(
+            {"vulnerability_type": "EXPOSED_SERVICE", "severity": "MEDIUM"}
+        )
+        candidate = _finding_display_label(
+            {"vulnerability_type": "CVE_CANDIDATE", "severity": "INFO"}
+        )
+
+        self.assertEqual("[OBSERVED SERVICE] [REVIEW: MEDIUM]", observed)
+        self.assertEqual("[CVE CANDIDATE] [REVIEW: INFO]", candidate)
 
     def test_cve_correlation_is_candidate_unless_explicitly_vulnerable(self):
         """Verify that cve correlation is candidate unless explicitly vulnerable.

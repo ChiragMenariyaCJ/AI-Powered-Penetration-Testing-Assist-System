@@ -11,15 +11,9 @@ from Backend.api_logging import LoggedRoute
 from Backend.config import settings
 from Backend.database import Base, engine
 
-# Import every model before create_all so SQLAlchemy knows about every table.
-from Backend.models.project_model import Project  # noqa: F401
-from Backend.models.recommendation_model import Recommendation  # noqa: F401
-from Backend.models.report_model import Report  # noqa: F401
-from Backend.models.scan_model import Scan  # noqa: F401
-from Backend.models.scope_validation_model import ScopeValidation  # noqa: F401
-from Backend.models.target_model import Target  # noqa: F401
-from Backend.models.user_model import User  # noqa: F401
-from Backend.models.vulnerability_model import Vulnerability  # noqa: F401
+# Load the central model package before create_all or the first ORM query.
+# This registers every string-named relationship in SQLAlchemy's mapper registry.
+import Backend.models  # noqa: F401
 
 from Backend.routes.auth_routes import router as auth_router
 from Backend.routes.project_routes import router as project_router

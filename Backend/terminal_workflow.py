@@ -18,13 +18,14 @@ import time
 from types import SimpleNamespace
 
 from fastapi import HTTPException
+from sqlalchemy.exc import SQLAlchemyError
 
 from Backend.api_client import PTASApiClient, PTASApiError
 from Backend.config import settings
 from Backend.database import Base, SessionLocal, engine
-from Backend.models.recommendation_model import Recommendation  # noqa: F401
-from Backend.models.report_model import Report  # noqa: F401
-from Backend.models.vulnerability_model import Vulnerability
+# Importing from the model package registers all relationship targets. The terminal
+# process runs separately from FastAPI, so it cannot rely on main.py doing this first.
+from Backend.models import Recommendation, Vulnerability
 from Backend.repositories.recommendation_repository import RecommendationRepository
 from Backend.repositories.report_repository import ReportRepository
 from Backend.repositories.scan_repository import ScanRepository
@@ -53,7 +54,7 @@ SCAN_STAGES = (
 )
 CVE_SCAN_STAGE = (
     "VULNERABILITY",
-    "Safe CVE checks and external Vulners correlation",
+    "Fast external Vulners CVE correlation on common ports",
 )
 SHELL_READY_PATTERN = re.compile(r"(?m)(?:\$|#|❯)\s*$")
 SEVERITY_PRIORITY = {
@@ -664,6 +665,48 @@ def run_service_aware_checks(
 # ---------------------------------------------------------------------------
 
 
+def _completed_finding_count(scan_type: str, result: dict) -> int:
+    """Validate a scan-execution response before reading success-only fields.
+
+    The backend normally reports failures with a non-2xx response, but this guard
+    also handles an older backend or malformed response without exposing a Python
+    traceback to the student.
+    """
+
+    if not isinstance(result, dict):
+        raise RuntimeError(f"{scan_type} scan returned an invalid API response")
+    if str(result.get("status", "")).upper() != "COMPLETED":
+        error = result.get("error") or "the backend did not provide an error message"
+        raise RuntimeError(f"{scan_type} scan failed: {error}")
+    if "findings_persisted" not in result:
+        raise RuntimeError(
+            f"{scan_type} scan completed but its API response omitted findings_persisted"
+        )
+    return int(result["findings_persisted"])
+
+
+def _finding_display_label(finding: dict) -> str:
+    """Describe the evidence level separately from its review priority.
+
+    An open service is directly observed network evidence, while a Vulners match is
+    only a candidate based on a product/version fingerprint. Keeping those labels
+    visible prevents a student from reading every stored finding as a confirmed CVE.
+    """
+
+    finding_type = str(finding.get("vulnerability_type", "")).upper()
+    evidence_labels = {
+        "EXPOSED_SERVICE": "OBSERVED SERVICE",
+        "CVE_CANDIDATE": "CVE CANDIDATE",
+        "CONFIRMED_CVE": "NMAP VULNERABLE",
+        "TOOL_OBSERVATION": "TOOL OBSERVATION",
+        "TOOL_CVE_CANDIDATE": "TOOL CVE CANDIDATE",
+        "EXPLOIT_DB_REFERENCE": "EXPLOIT-DB REFERENCE",
+    }
+    evidence = evidence_labels.get(finding_type, "FINDING")
+    severity = str(finding.get("severity", "UNKNOWN")).upper()
+    return f"[{evidence}] [REVIEW: {severity}]"
+
+
 def run_student_session(event_log: Path | None = None) -> int:
     """Perform the run student session operation.
 
@@ -728,14 +771,15 @@ def run_student_session(event_log: Path | None = None) -> int:
                     query={"project_id": project["id"]},
                     timeout=settings.nmap_timeout + 30,
                 )
+                findings_persisted = _completed_finding_count(scan_type, result)
                 completed_scan = scan
-                _say(f"{scan_type} completed; {result['findings_persisted']} findings stored.")
+                _say(f"{scan_type} completed; {findings_persisted} findings stored.")
                 _event(
                     event_log,
                     "scan_completed",
                     f"{scan_type} completed",
                     scan_id=scan["id"],
-                    findings=result["findings_persisted"],
+                    findings=findings_persisted,
                 )
                 stage_result = api.get(
                     "/api/vulnerabilities/",
@@ -756,7 +800,10 @@ def run_student_session(event_log: Path | None = None) -> int:
                         if finding.get("port") is not None
                         else f"{finding['host']} {finding['description']}"
                     )
-                    message = f"[{finding['severity']}] {finding['description']} — {evidence}"
+                    message = (
+                        f"{_finding_display_label(finding)} "
+                        f"{finding['description']} — {evidence}"
+                    )
                     _say(message)
                     _event(
                         event_log,
@@ -866,7 +913,7 @@ def run_student_session(event_log: Path | None = None) -> int:
         _say("Session cancelled.")
         _event(event_log, "stopped", "Session cancelled by the student")
         return 130
-    except (HTTPException, OSError, RuntimeError, ValueError) as exc:
+    except (HTTPException, OSError, RuntimeError, SQLAlchemyError, ValueError) as exc:
         detail = exc.detail if isinstance(exc, HTTPException) else str(exc)
         _say(f"Session stopped: {detail}")
         _event(event_log, "error", str(detail))

@@ -18,11 +18,28 @@ records.
 The terminal workflow presents scoped stages one at a time. It does not execute
 recommendations and does not replace the authorization check.
 
+The optional CVE stage is optimized for an interactive student session: it scans
+Nmap's common-port set, runs only the safe external `vulners` correlation script,
+and limits each script invocation to 30 seconds. This is intentionally faster
+than running every script in Nmap's broad `vuln and safe` categories.
+
 ## Findings
 
 Vulnerability endpoints support individual records, filtered lists, and summary
 counts by severity. A finding records the observed host/service evidence and
 severity used by recommendation and reporting features.
+
+Not every stored finding is a proven vulnerability:
+
+- `EXPOSED_SERVICE` means Nmap directly observed an open port and identified a
+  probable service. Its severity is a hard-coded review priority, not a CVSS
+  score or proof that the service is exploitable.
+- `CVE_CANDIDATE` means Vulners correlated a detected product/version or CPE with
+  published CVEs. Distribution patches and fingerprint uncertainty can make the
+  match inapplicable, so it requires manual verification.
+- `CONFIRMED_CVE` is used only when an Nmap script explicitly reports a
+  `VULNERABLE` state. It is stronger evidence, but should still be validated
+  before making a final report claim.
 
 ## Main code
 

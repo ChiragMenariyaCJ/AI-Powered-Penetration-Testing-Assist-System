@@ -144,10 +144,23 @@ class NmapService:
             # Keep the API service unprivileged; OS detection and SYN scans need root.
             cmd.extend(["-sV", "-sC"])
         elif scan_type == "VULNERABILITY":
-            # Restrict checks to NSE scripts tagged both "vuln" and "safe".
-            # This includes Vulners correlation and applicable non-destructive
-            # checks that may explicitly report a VULNERABLE state.
-            cmd.extend(["-sV", "--script", "(vuln and safe)"])
+            # The old `(vuln and safe)` selector matched dozens of NSE scripts and
+            # repeatedly exceeded the five-minute project timeout. This stage is
+            # specifically offered as external CVE correlation, so run only the
+            # safe/external `vulners` script against Nmap's common-port set.
+            # A per-script deadline prevents one remote lookup from blocking the
+            # complete student workflow indefinitely.
+            cmd.extend(
+                [
+                    "-F",
+                    "-sV",
+                    "-T4",
+                    "--script",
+                    "vulners",
+                    "--script-timeout",
+                    "30s",
+                ]
+            )
         elif scan_type == "PORT_SCAN":
             cmd.extend(["-sV"])  # Port scan with version detection
         elif scan_type == "CUSTOM" and custom_args:

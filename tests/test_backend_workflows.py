@@ -74,6 +74,18 @@ class FakeNmapService:
         }
 
 
+class TimedOutNmapService:
+    """Return the same controlled timeout result produced by the real Nmap adapter."""
+
+    def execute_scan(self, target: str, scan_type: str) -> dict:
+        """Simulate Nmap reaching its configured execution deadline."""
+
+        return {
+            "status": "FAILED",
+            "error": "Scan timeout after 300 seconds",
+        }
+
+
 class BackendWorkflowTests(unittest.TestCase):
     """Group regression tests for BackendWorkflow.
 
@@ -316,6 +328,30 @@ class BackendWorkflowTests(unittest.TestCase):
             self.session
         ).get_vulnerabilities_by_scan_id(self.scan.id)
         self.assertEqual(1, len(persisted))
+
+    def test_scan_timeout_returns_gateway_timeout_and_persists_the_error(self):
+        """Verify a subprocess timeout becomes HTTP 504 instead of a false 200 OK."""
+
+        usecase = ScanExecutionUseCase(
+            ScanRepository(self.session),
+            TargetRepository(self.session),
+            ScopeValidationRepository(self.session),
+            ProjectRepository(self.session),
+            VulnerabilityRepository(self.session),
+        )
+        usecase.nmap_service = TimedOutNmapService()
+
+        with self.assertRaises(HTTPException) as raised:
+            usecase.execute_scan_on_target(self.scan.id, self.project.id)
+
+        self.assertEqual(504, raised.exception.status_code)
+        self.assertEqual(
+            "Scan timeout after 300 seconds",
+            raised.exception.detail,
+        )
+        self.session.refresh(self.scan)
+        self.assertEqual("FAILED", self.scan.status)
+        self.assertEqual("Scan timeout after 300 seconds", self.scan.scan_result)
 
     def test_scan_rejects_mismatched_project(self):
         """Verify that scan rejects mismatched project.

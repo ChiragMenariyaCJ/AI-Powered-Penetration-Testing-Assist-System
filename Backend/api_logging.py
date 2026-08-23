@@ -164,11 +164,14 @@ class LoggedRoute(APIRoute):
                     exc.status_code if isinstance(exc, HTTPException) else 422
                 )
                 logger.info(
-                    "API request rejected | %s %s | handler=%s | status=%s | duration=%.1fms",
+                    "API request rejected | %s %s | handler=%s | status=%s | error=%s | duration=%.1fms",
                     request.method,
                     request.url.path,
                     endpoint_name,
                     status_code,
+                    exc.detail
+                    if isinstance(exc, HTTPException)
+                    else "request validation failed",
                     duration_ms,
                 )
                 raise

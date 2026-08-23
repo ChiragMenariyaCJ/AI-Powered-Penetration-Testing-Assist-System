@@ -118,18 +118,28 @@ class ScanExecutionUseCase:
             )
 
             if nmap_result.get("status") == "FAILED":
+                error_message = nmap_result.get("error") or "Nmap scan failed"
                 self.scan_repository.update_scan(
                     scan,
                     {
                         "status": "FAILED",
-                        "scan_result": nmap_result.get("error"),
+                        "scan_result": error_message,
                         "completed_at": datetime.now(UTC),
                     },
                 )
-                return {
-                    "status": "FAILED",
-                    "error": nmap_result.get("error"),
-                }
+
+                # A failed subprocess is a failed HTTP operation too. Returning a
+                # normal dictionary here previously made FastAPI emit 200 OK and
+                # caused terminal clients to mistake the response for success.
+                failure_status = (
+                    status.HTTP_504_GATEWAY_TIMEOUT
+                    if "timeout" in error_message.lower()
+                    else status.HTTP_502_BAD_GATEWAY
+                )
+                raise HTTPException(
+                    status_code=failure_status,
+                    detail=error_message,
+                )
 
             # Parse vulnerabilities
             vulnerability_data = (
@@ -183,6 +193,10 @@ class ScanExecutionUseCase:
                 "findings_persisted": len(formatted_vulnerabilities),
             }
 
+        except HTTPException:
+            # Expected scan failures were already persisted above. Preserve their
+            # meaningful 502/504 response instead of converting them into a 500.
+            raise
         except Exception as e:
             self.scan_repository.update_scan(
                 scan,
