@@ -7,6 +7,10 @@ from Backend.config import settings
 
 
 def create_access_token(data: dict) -> str:
+    """Perform the token operation needed to create access token.
+
+    Signing configuration comes from application settings rather than from the request.
+    """
     payload = data.copy()
 
     payload["exp"] = datetime.now(UTC) + timedelta(
@@ -21,6 +25,10 @@ def create_access_token(data: dict) -> str:
 
 
 def decode_access_token(token: str) -> dict | None:
+    """Perform the token operation needed to decode access token.
+
+    Signing configuration comes from application settings rather than from the request.
+    """
     try:
         return jwt.decode(
             token,

@@ -27,7 +27,11 @@ def generate_recommendations(
     vulnerability_id: int,
     db: Session = Depends(get_db),
 ):
-    """Generate AI recommendations for a vulnerability"""
+    """Handle the HTTP request that asks PTAS to generate recommendations.
+
+    FastAPI validates inputs and supplies a database session before this endpoint
+    delegates to its controller.
+    """
     controller = RecommendationController(db)
     result = controller.generate_recommendations(vulnerability_id)
     return {
@@ -41,6 +45,11 @@ def get_all_recommendations(
     vulnerability_id: int | None = Query(default=None, gt=0),
     db: Session = Depends(get_db),
 ):
+    """Handle the HTTP request that asks PTAS to get all recommendations.
+
+    FastAPI validates inputs and supplies a database session before this endpoint
+    delegates to its controller.
+    """
     controller = RecommendationController(db)
     return controller.get_all_recommendations(vulnerability_id)
 
@@ -50,6 +59,11 @@ def get_recommendation_by_id(
     recommendation_id: int,
     db: Session = Depends(get_db),
 ):
+    """Handle the HTTP request that asks PTAS to get recommendation by id.
+
+    FastAPI validates inputs and supplies a database session before this endpoint
+    delegates to its controller.
+    """
     controller = RecommendationController(db)
     return controller.get_recommendation_by_id(recommendation_id)
 
@@ -60,6 +74,11 @@ def update_recommendation(
     request: RecommendationUpdateRequest,
     db: Session = Depends(get_db),
 ):
+    """Handle the HTTP request that asks PTAS to update recommendation.
+
+    FastAPI validates inputs and supplies a database session before this endpoint
+    delegates to its controller.
+    """
     controller = RecommendationController(db)
     return controller.update_recommendation(recommendation_id, request)
 
@@ -69,6 +88,11 @@ def delete_recommendation(
     recommendation_id: int,
     db: Session = Depends(get_db),
 ):
+    """Handle the HTTP request that asks PTAS to delete recommendation.
+
+    FastAPI validates inputs and supplies a database session before this endpoint
+    delegates to its controller.
+    """
     controller = RecommendationController(db)
     return controller.delete_recommendation(recommendation_id)
 
@@ -79,7 +103,11 @@ def approve_recommendation(
     approved_by: str = Query(min_length=1, max_length=100),
     db: Session = Depends(get_db),
 ):
-    """Approve a recommendation for execution"""
+    """Handle the HTTP request that asks PTAS to approve recommendation.
+
+    FastAPI validates inputs and supplies a database session before this endpoint
+    delegates to its controller.
+    """
     controller = RecommendationController(db)
     return controller.approve_recommendation(recommendation_id, approved_by)
 
@@ -89,7 +117,11 @@ def reject_recommendation(
     recommendation_id: int,
     db: Session = Depends(get_db),
 ):
-    """Reject a recommendation"""
+    """Handle the HTTP request that asks PTAS to reject recommendation.
+
+    FastAPI validates inputs and supplies a database session before this endpoint
+    delegates to its controller.
+    """
     controller = RecommendationController(db)
     return controller.reject_recommendation(recommendation_id)
 
@@ -99,6 +131,11 @@ def get_recommendations_by_status(
     status_filter: str,
     db: Session = Depends(get_db),
 ):
+    """Handle the HTTP request that asks PTAS to get recommendations by status.
+
+    FastAPI validates inputs and supplies a database session before this endpoint
+    delegates to its controller.
+    """
     controller = RecommendationController(db)
     return controller.get_recommendations_by_status(status_filter)
 
@@ -108,6 +145,10 @@ def get_attack_score(
     vulnerability_id: int,
     db: Session = Depends(get_db),
 ):
-    """Calculate attack score for a vulnerability"""
+    """Handle the HTTP request that asks PTAS to get attack score.
+
+    FastAPI validates inputs and supplies a database session before this endpoint
+    delegates to its controller.
+    """
     controller = RecommendationController(db)
     return controller.get_attack_score(vulnerability_id)

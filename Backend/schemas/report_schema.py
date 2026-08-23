@@ -7,6 +7,10 @@ from pydantic import BaseModel, ConfigDict
 
 
 class ReportCreateRequest(BaseModel):
+    """Validate the fields used when creating a new record.
+
+    Pydantic applies the declared types and constraints before application code runs.
+    """
     scan_id: int
     title: str
     description: Optional[str] = None
@@ -14,6 +18,10 @@ class ReportCreateRequest(BaseModel):
 
 
 class ReportUpdateRequest(BaseModel):
+    """Validate the fields used when updating an existing record.
+
+    Pydantic applies the declared types and constraints before application code runs.
+    """
     title: Optional[str] = None
     description: Optional[str] = None
     status: Optional[str] = None
@@ -21,6 +29,10 @@ class ReportUpdateRequest(BaseModel):
 
 
 class VulnerabilitySummary(BaseModel):
+    """Validate the fields used when exchanging VulnerabilitySummary data through the API.
+
+    Pydantic applies the declared types and constraints before application code runs.
+    """
     total: int
     critical: int
     high: int
@@ -30,6 +42,10 @@ class VulnerabilitySummary(BaseModel):
 
 
 class RecommendationSummary(BaseModel):
+    """Validate the fields used when exchanging RecommendationSummary data through the API.
+
+    Pydantic applies the declared types and constraints before application code runs.
+    """
     total: int
     approved: int
     pending: int
@@ -37,6 +53,10 @@ class RecommendationSummary(BaseModel):
 
 
 class ScanMetadata(BaseModel):
+    """Validate the fields used when exchanging ScanMetadata data through the API.
+
+    Pydantic applies the declared types and constraints before application code runs.
+    """
     scan_id: int
     target_count: Optional[int] = None
     duration_seconds: Optional[int] = None
@@ -45,6 +65,10 @@ class ScanMetadata(BaseModel):
 
 
 class ReportResponse(BaseModel):
+    """Validate the fields used when serializing a successful API response.
+
+    Pydantic applies the declared types and constraints before application code runs.
+    """
     model_config = ConfigDict(from_attributes=True)
 
     id: int
@@ -62,16 +86,28 @@ class ReportResponse(BaseModel):
     exported_at: Optional[datetime] = None
 
 class ReportListResponse(BaseModel):
+    """Validate the fields used when returning a collection and its metadata.
+
+    Pydantic applies the declared types and constraints before application code runs.
+    """
     reports: list[ReportResponse]
     total: int
 
 
 class ReportExportRequest(BaseModel):
+    """Validate the fields used when exchanging ReportExportRequest data through the API.
+
+    Pydantic applies the declared types and constraints before application code runs.
+    """
     format_type: str  # JSON, PDF, HTML
     exported_by: Optional[str] = None
 
 
 class ReportExportResponse(BaseModel):
+    """Validate the fields used when serializing a successful API response.
+
+    Pydantic applies the declared types and constraints before application code runs.
+    """
     id: int
     status: str
     format_type: str

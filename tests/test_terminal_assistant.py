@@ -1,3 +1,5 @@
+"""Verify transcript sanitizing, scope enforcement, parsing, and file following."""
+
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -10,7 +12,16 @@ from Backend.services.nmap_service import NmapService
 
 
 class SanitizerTests(unittest.TestCase):
+    """Group regression tests for Sanitizer.
+
+    Each test documents one externally observable behavior that future changes must
+    preserve.
+    """
     def test_redacts_secrets_and_terminal_codes(self):
+        """Verify that redacts secrets and terminal codes.
+
+        This regression test fails if a future change breaks the described contract.
+        """
         raw = (
             '\x1b[31mcurl -H "Authorization: Bearer secret-token" '
             "https://user:password@lab.example.test/\x1b[0m\n"
@@ -27,13 +38,26 @@ class SanitizerTests(unittest.TestCase):
 
 
 class ScopeGuardTests(unittest.TestCase):
+    """Group regression tests for ScopeGuard.
+
+    Each test documents one externally observable behavior that future changes must
+    preserve.
+    """
     def test_ip_network_scope(self):
+        """Verify that ip network scope.
+
+        This regression test fails if a future change breaks the described contract.
+        """
         guard = ScopeGuard(["10.10.10.0/24"])
 
         self.assertTrue(guard.is_allowed("10.10.10.20"))
         self.assertFalse(guard.is_allowed("10.10.11.20"))
 
     def test_domain_scope_includes_subdomains_only(self):
+        """Verify that domain scope includes subdomains only.
+
+        This regression test fails if a future change breaks the described contract.
+        """
         guard = ScopeGuard(["example.test"])
 
         self.assertTrue(guard.is_allowed("example.test"))
@@ -41,18 +65,35 @@ class ScopeGuardTests(unittest.TestCase):
         self.assertFalse(guard.is_allowed("badexample.test"))
 
     def test_single_label_lab_hostname_scope(self):
+        """Verify that single label lab hostname scope.
+
+        This regression test fails if a future change breaks the described contract.
+        """
         guard = ScopeGuard(["metasploitable"])
 
         self.assertTrue(guard.is_allowed("metasploitable"))
         self.assertFalse(guard.is_allowed("another-lab-host"))
 
     def test_scope_is_required(self):
+        """Verify that scope is required.
+
+        This regression test fails if a future change breaks the described contract.
+        """
         with self.assertRaises(ValueError):
             ScopeGuard([])
 
 
 class AnalyzerTests(unittest.TestCase):
+    """Group regression tests for Analyzer.
+
+    Each test documents one externally observable behavior that future changes must
+    preserve.
+    """
     def test_prompt_only_extraction_ignores_printed_recommendation_commands(self):
+        """Verify that prompt only extraction ignores printed recommendation commands.
+
+        This regression test fails if a future change breaks the described contract.
+        """
         printed = "Suggested command:\n  nmap -sV 10.10.10.20\n"
         executed = "kali@kali:~$ nmap -sV 10.10.10.20\n"
 
@@ -63,6 +104,10 @@ class AnalyzerTests(unittest.TestCase):
         )
 
     def test_parses_authorized_nmap_output(self):
+        """Verify that parses authorized nmap output.
+
+        This regression test fails if a future change breaks the described contract.
+        """
         transcript = """kali@kali:~$ nmap -sV 10.10.10.20
 22/tcp open ssh OpenSSH 8.4
 80/tcp open http Apache httpd 2.4.57
@@ -77,6 +122,10 @@ class AnalyzerTests(unittest.TestCase):
         self.assertTrue(any("open-service evidence" in item for item in result.suggestions))
 
     def test_blocks_out_of_scope_target_without_scan_advice(self):
+        """Verify that blocks out of scope target without scan advice.
+
+        This regression test fails if a future change breaks the described contract.
+        """
         transcript = """kali@kali:~$ nmap -sV 192.0.2.10
 22/tcp open ssh OpenSSH 8.4
 """
@@ -91,7 +140,16 @@ class AnalyzerTests(unittest.TestCase):
 
 
 class SourceTests(unittest.TestCase):
+    """Group regression tests for Source.
+
+    Each test documents one externally observable behavior that future changes must
+    preserve.
+    """
     def test_follows_only_new_transcript_bytes(self):
+        """Verify that follows only new transcript bytes.
+
+        This regression test fails if a future change breaks the described contract.
+        """
         with TemporaryDirectory() as temp_directory:
             transcript = Path(temp_directory) / "session.log"
             transcript.write_text("existing\n", encoding="utf-8")
@@ -104,7 +162,16 @@ class SourceTests(unittest.TestCase):
 
 
 class NmapSafetyTests(unittest.TestCase):
+    """Group regression tests for NmapSafety.
+
+    Each test documents one externally observable behavior that future changes must
+    preserve.
+    """
     def test_accepts_normal_targets(self):
+        """Verify that accepts normal targets.
+
+        This regression test fails if a future change breaks the described contract.
+        """
         self.assertEqual(
             "10.10.10.0/24",
             NmapService._validate_target("10.10.10.0/24"),
@@ -115,6 +182,10 @@ class NmapSafetyTests(unittest.TestCase):
         )
 
     def test_rejects_option_and_multi_target_injection(self):
+        """Verify that rejects option and multi target injection.
+
+        This regression test fails if a future change breaks the described contract.
+        """
         for target in ("--script exploit", "10.0.0.1 10.0.0.2", "-iL"):
             with self.subTest(target=target):
                 with self.assertRaises(ValueError):

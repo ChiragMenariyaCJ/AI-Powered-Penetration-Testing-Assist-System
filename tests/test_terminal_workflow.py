@@ -1,3 +1,5 @@
+"""Exercise the guided terminal application and native split-terminal helpers."""
+
 import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -48,14 +50,33 @@ from Backend.terminal_workflow import (
 
 
 class TerminalWorkflowTests(unittest.TestCase):
+    """Group regression tests for TerminalWorkflow.
+
+    Each test documents one externally observable behavior that future changes must
+    preserve.
+    """
     class RecordingApi:
-        """Record terminal API calls without opening a network connection."""
+        """Provide the RecordingApi test double used by this test module.
+
+        It records or returns deterministic data so the tests do not require an external
+        process.
+        """
 
         def __init__(self):
+            """Support the test scenario by providing the init behavior.
+
+            The deterministic implementation keeps the test focused on PTAS rather than
+            external systems.
+            """
             self.access_token = None
             self.calls = []
 
         def get(self, path, *, query=None, timeout=15):
+            """Support the test scenario by providing the get behavior.
+
+            The deterministic implementation keeps the test focused on PTAS rather than
+            external systems.
+            """
             self.calls.append(("GET", path, query))
             return {
                 "projects": [
@@ -69,6 +90,11 @@ class TerminalWorkflowTests(unittest.TestCase):
             }
 
         def post(self, path, payload=None, *, query=None, timeout=15):
+            """Support the test scenario by providing the post behavior.
+
+            The deterministic implementation keeps the test focused on PTAS rather than
+            external systems.
+            """
             self.calls.append(("POST", path, payload))
             if path == "/api/auth/login":
                 return {
@@ -86,6 +112,10 @@ class TerminalWorkflowTests(unittest.TestCase):
             return {"id": 8, **(payload or {})}
 
     def test_login_and_project_selection_use_the_api(self):
+        """Verify that login and project selection use the api.
+
+        This regression test fails if a future change breaks the described contract.
+        """
         api = self.RecordingApi()
 
         with patch(
@@ -109,6 +139,10 @@ class TerminalWorkflowTests(unittest.TestCase):
         )
 
     def test_scope_and_target_creation_use_the_api(self):
+        """Verify that scope and target creation use the api.
+
+        This regression test fails if a future change breaks the described contract.
+        """
         api = self.RecordingApi()
         project = {"id": 4, "project_name": "API project"}
 
@@ -130,6 +164,10 @@ class TerminalWorkflowTests(unittest.TestCase):
         )
 
     def test_start_and_report_commands_are_available(self):
+        """Verify that start and report commands are available.
+
+        This regression test fails if a future change breaks the described contract.
+        """
         parser = build_parser()
 
         start = parser.parse_args(["start", "--plain"])
@@ -186,6 +224,10 @@ class TerminalWorkflowTests(unittest.TestCase):
         self.assertEqual("/tmp/student.typescript", dashboard.transcript)
 
     def test_native_layout_uses_two_real_left_right_terminals(self):
+        """Verify that native layout uses two real left right terminals.
+
+        This regression test fails if a future change breaks the described contract.
+        """
         project = Path("/opt/ptas project")
         layout = build_terminator_layout(
             project,
@@ -212,6 +254,10 @@ class TerminalWorkflowTests(unittest.TestCase):
         self.assertIn("--transcript /tmp/ptas-session.typescript", right)
 
     def test_qterminal_uses_native_left_right_split_with_dashboard_command(self):
+        """Verify that qterminal uses native left right split with dashboard command.
+
+        This regression test fails if a future change breaks the described contract.
+        """
         command = [
             "/opt/ptas/ptas.sh",
             "dashboard",
@@ -240,6 +286,10 @@ class TerminalWorkflowTests(unittest.TestCase):
         self.assertIn("'/tmp/session.typescript'", arguments[-1])
 
     def test_qterminal_argument_map_escapes_paths(self):
+        """Verify that qterminal argument map escapes paths.
+
+        This regression test fails if a future change breaks the described contract.
+        """
         serialized = qterminal_argument_map(
             Path("/opt/student's ptas"),
             ["/bin/example", "student's value"],
@@ -249,6 +299,10 @@ class TerminalWorkflowTests(unittest.TestCase):
         self.assertIn("student\\'s value", serialized)
 
     def test_recommendation_sequence_skips_previously_shown_items(self):
+        """Verify that recommendation sequence skips previously shown items.
+
+        This regression test fails if a future change breaks the described contract.
+        """
         recommendations = [SimpleNamespace(id=10), SimpleNamespace(id=11)]
 
         selected = select_next_recommendation(recommendations, {10})
@@ -258,6 +312,10 @@ class TerminalWorkflowTests(unittest.TestCase):
         self.assertIsNone(exhausted)
 
     def test_shell_ready_detection_waits_for_command_completion_prompt(self):
+        """Verify that shell ready detection waits for command completion prompt.
+
+        This regression test fails if a future change breaks the described contract.
+        """
         running = "kali@kali:~$ nmap -sV 10.10.10.20\nStarting Nmap"
         completed = running + "\nNmap done\n└─$ "
 
@@ -265,6 +323,10 @@ class TerminalWorkflowTests(unittest.TestCase):
         self.assertIsNotNone(SHELL_READY_PATTERN.search(completed))
 
     def test_access_sequence_skips_previously_shown_exercises(self):
+        """Verify that access sequence skips previously shown exercises.
+
+        This regression test fails if a future change breaks the described contract.
+        """
         exercises = [
             AccessExercise("ssh", "SSH", 22, "SSH", "Purpose", "ssh host", "Prompt"),
             AccessExercise("ftp", "FTP", 21, "FTP", "Purpose", "ftp host", "Prompt"),
@@ -276,6 +338,10 @@ class TerminalWorkflowTests(unittest.TestCase):
         self.assertIsNone(select_next_access_exercise(exercises, {"ssh", "ftp"}))
 
     def test_metasploitable_profile_rejects_loopback_cidr_and_weak_fingerprint(self):
+        """Verify that metasploitable profile rejects loopback cidr and weak fingerprint.
+
+        This regression test fails if a future change breaks the described contract.
+        """
         with TemporaryDirectory() as directory:
             service = Metasploitable2LabService(Path(directory))
             for target in ("127.0.0.1", "192.168.56.0/24"):
@@ -296,6 +362,10 @@ class TerminalWorkflowTests(unittest.TestCase):
                 service.verify_scan(manifest, scan, findings)
 
     def test_metasploitable_profile_builds_only_exercises_for_observed_ports(self):
+        """Verify that metasploitable profile builds only exercises for observed ports.
+
+        This regression test fails if a future change breaks the described contract.
+        """
         exercises = Metasploitable2LabService.exercises(
             "192.168.56.101", {21, 22, 80}
         )
@@ -305,6 +375,10 @@ class TerminalWorkflowTests(unittest.TestCase):
         self.assertTrue(all("msfadmin:msfadmin" not in item.command for item in exercises))
 
     def test_metasploitable_registration_rejects_nat_even_with_hostonly_adapter(self):
+        """Verify that metasploitable registration rejects nat even with hostonly adapter.
+
+        This regression test fails if a future change breaks the described contract.
+        """
         machine_info = "\n".join(
             [
                 'UUID="vm-uuid"',
@@ -325,6 +399,10 @@ class TerminalWorkflowTests(unittest.TestCase):
                     )
 
     def test_vmware_registration_requires_hostonly_route_and_adapter(self):
+        """Verify that vmware registration requires hostonly route and adapter.
+
+        This regression test fails if a future change breaks the described contract.
+        """
         with TemporaryDirectory() as directory:
             vmx = Path(directory) / "Metasploitable.vmx"
             vmx.write_text(
@@ -356,6 +434,10 @@ class TerminalWorkflowTests(unittest.TestCase):
         self.assertEqual("00:0c:29:aa:bb:cc", manifest.expected_mac)
 
     def test_vmware_registration_rejects_bridged_adapter(self):
+        """Verify that vmware registration rejects bridged adapter.
+
+        This regression test fails if a future change breaks the described contract.
+        """
         with TemporaryDirectory() as directory:
             vmx = Path(directory) / "Metasploitable.vmx"
             vmx.write_text(
@@ -379,6 +461,10 @@ class TerminalWorkflowTests(unittest.TestCase):
                     service.register_vmware("msf2", "192.168.178.128", str(vmx))
 
     def test_ai_recommendations_exclude_exploit_dos_and_persistence_language(self):
+        """Verify that ai recommendations exclude exploit dos and persistence language.
+
+        This regression test fails if a future change breaks the described contract.
+        """
         recommendation = AIRecommendationEngine().generate_recommendations(
             {"service": "smb", "port": 445, "severity": "HIGH"}
         )[0]
@@ -400,10 +486,18 @@ class TerminalWorkflowTests(unittest.TestCase):
         self.assertFalse(any(term in combined for term in forbidden))
 
     def test_scan_stages_progress_from_quick_to_detailed(self):
+        """Verify that scan stages progress from quick to detailed.
+
+        This regression test fails if a future change breaks the described contract.
+        """
         self.assertEqual(("QUICK", "FULL"), tuple(stage[0] for stage in SCAN_STAGES))
         self.assertEqual("VULNERABILITY", CVE_SCAN_STAGE[0])
 
     def test_vulnerability_stage_uses_safe_external_vulners_script(self):
+        """Verify that vulnerability stage uses safe external vulners script.
+
+        This regression test fails if a future change breaks the described contract.
+        """
         command = NmapService()._build_command(
             "10.10.10.20", "VULNERABILITY", None, "/tmp/result.xml"
         )
@@ -412,6 +506,10 @@ class TerminalWorkflowTests(unittest.TestCase):
         self.assertNotIn("vuln", command)
 
     def test_cve_correlation_is_candidate_unless_explicitly_vulnerable(self):
+        """Verify that cve correlation is candidate unless explicitly vulnerable.
+
+        This regression test fails if a future change breaks the described contract.
+        """
         base_port = {
             "port": 443,
             "state": "open",
@@ -450,6 +548,10 @@ class TerminalWorkflowTests(unittest.TestCase):
         )
 
     def test_exploitdb_enrichment_returns_multiple_cve_references(self):
+        """Verify that exploitdb enrichment returns multiple cve references.
+
+        This regression test fails if a future change breaks the described contract.
+        """
         payload = {
             "RESULTS_EXPLOIT": [
                 {
@@ -488,6 +590,10 @@ class TerminalWorkflowTests(unittest.TestCase):
         self.assertTrue(references[0]["verified"])
 
     def test_exploitdb_enrichment_requires_a_detected_version(self):
+        """Verify that exploitdb enrichment requires a detected version.
+
+        This regression test fails if a future change breaks the described contract.
+        """
         service = ExploitDbService(executable="searchsploit")
 
         with patch("Backend.services.exploitdb_service.subprocess.run") as run:
@@ -496,6 +602,10 @@ class TerminalWorkflowTests(unittest.TestCase):
         run.assert_not_called()
 
     def test_service_scanner_selects_tools_by_detected_service(self):
+        """Verify that service scanner selects tools by detected service.
+
+        This regression test fails if a future change breaks the described contract.
+        """
         findings = [
             SimpleNamespace(
                 port=443,
@@ -536,6 +646,10 @@ class TerminalWorkflowTests(unittest.TestCase):
         self.assertNotIn("ffuf", selected)
 
     def test_service_scanner_does_not_guess_from_unrelated_findings(self):
+        """Verify that service scanner does not guess from unrelated findings.
+
+        This regression test fails if a future change breaks the described contract.
+        """
         findings = [
             SimpleNamespace(
                 port=None,
@@ -551,6 +665,10 @@ class TerminalWorkflowTests(unittest.TestCase):
         self.assertEqual([], checks)
 
     def test_html_report_is_standalone_escaped_and_print_friendly(self):
+        """Verify that html report is standalone escaped and print friendly.
+
+        This regression test fails if a future change breaks the described contract.
+        """
         report = {
             "report_metadata": {
                 "title": "Lab <Assessment>",
@@ -603,6 +721,10 @@ class TerminalWorkflowTests(unittest.TestCase):
             self.assertTrue(json_path.with_suffix(".html").is_file())
 
     def test_realtime_fallback_suggestions_are_non_destructive_and_deduplicated(self):
+        """Verify that realtime fallback suggestions are non destructive and deduplicated.
+
+        This regression test fails if a future change breaks the described contract.
+        """
         findings = [
             SimpleNamespace(id=1, port=80, service="http"),
             SimpleNamespace(id=2, port=80, service="http"),
@@ -620,8 +742,22 @@ class TerminalWorkflowTests(unittest.TestCase):
         self.assertFalse(any(term in " ".join(steps).lower() for term in forbidden))
 
     def test_realtime_model_suggestions_are_filtered_before_persistence(self):
+        """Verify that realtime model suggestions are filtered before persistence.
+
+        This regression test fails if a future change breaks the described contract.
+        """
         class StubAdvisor:
+            """Provide the StubAdvisor test double used by this test module.
+
+            It records or returns deterministic data so the tests do not require an
+            external process.
+            """
             def advise_prompt(self, *_args, **_kwargs):
+                """Support the test scenario by providing the advise prompt behavior.
+
+                The deterministic implementation keeps the test focused on PTAS rather
+                than external systems.
+                """
                 return [
                     "Run nmap -sV -p 80 10.10.10.20 and record the observed service.",
                     "Run msfconsole against 10.10.10.20",
@@ -643,6 +779,10 @@ class TerminalWorkflowTests(unittest.TestCase):
         self.assertEqual("realtime-ollama", suggestions[0]["source"])
 
     def test_suggestions_are_persisted_for_report_generation(self):
+        """Verify that suggestions are persisted for report generation.
+
+        This regression test fails if a future change breaks the described contract.
+        """
         engine = create_engine("sqlite:///:memory:")
         Base.metadata.create_all(engine)
         db = sessionmaker(bind=engine)()

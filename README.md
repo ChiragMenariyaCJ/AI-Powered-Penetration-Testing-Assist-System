@@ -1,411 +1,78 @@
+# PTAS — AI-Powered Penetration Testing Assist System
 
-# AI-Powered Penetration Testing Assist System
+PTAS is a terminal-first teaching project for managing authorized security
+assessments. It combines a FastAPI backend, scoped Nmap scanning, evidence-based
+recommendations, vulnerability records, and report generation.
 
-AI-based vulnerability analysis, attack recommendation, and automated reporting framework.
+> **Academic and authorized use only.** Run PTAS only against systems you own or
+> have explicit written permission to test. Recommendations are advisory and are
+> never executed automatically.
 
-> ⚠️ Copyright Notice
->
-> This repository contains an MSc Cyber Security dissertation project developed by Chirag Menariya.
->
-> All rights are reserved. The source code, documentation, diagrams, and associated materials may not be copied, modified, distributed, or used without explicit written permission from the author.
->
-> This repository is made available solely for academic assessment and portfolio demonstration purposes.
+## Quick start
 
----
-
-# Quick Start
-
-## Clone the Repository
+On Kali Linux, run the setup once:
 
 ```bash
-git clone https://github.com/<your-username>/AI-Powered-Penetration-Testing-Assist-System.git
-
-cd AI-Powered-Penetration-Testing-Assist-System
+./kali-setup.sh
 ```
 
-## Install Dependencies
+Start the API in the VS Code terminal:
 
 ```bash
-pip install -r Backend/requirements.txt
+./start.sh
 ```
 
-## Run the Backend API
-
-```bash
-uvicorn Backend.main:app --reload
-```
-
-The backend will start on:
-
-```
-http://127.0.0.1:8000
-```
-
-Every API request is traced in the same terminal. The trace identifies the
-HTTP route, controller, use case, repository calls, response status, and
-execution time. Failures also include a traceback, for example:
-
-```text
-INFO: API request started | POST /api/auth/login | handler=Backend.routes.auth_routes.login
-INFO: API controller calling | function=Backend.controllers.auth_controller.AuthController.login
-INFO: API usecase calling | function=Backend.usecases.auth_usecase.AuthUseCase.login
-INFO: API repository calling | function=Backend.repositories.user_repository.UserRepository.get_user_by_email
-INFO: API repository returned | function=Backend.repositories.user_repository.UserRepository.get_user_by_email | duration=2.1ms
-INFO: API usecase returned | function=Backend.usecases.auth_usecase.AuthUseCase.login | duration=11.5ms
-INFO: API controller returned | function=Backend.controllers.auth_controller.AuthController.login | duration=11.8ms
-INFO: API request completed | POST /api/auth/login | handler=Backend.routes.auth_routes.login | status=200 | duration=12.4ms
-```
-
-## Terminal Workspace
-
-When started in Kali's QTerminal, PTAS automatically invokes **Actions → Split
-View Left-Right** in the current window. The left side runs the interactive
-workflow and then becomes a normal shell; the right side displays live,
-read-only recommendations. Terminator provides the same two-real-terminal
-layout as a fallback. PTAS does not require tmux:
-
-Keep `./start.sh` running in the VS Code terminal. Then open a separate Linux
-terminal and start the complete student workflow. Its login, project, scope,
-target, scan, and finding operations call the API and appear in the VS Code
-terminal logs:
+Open a separate Linux terminal and launch the student workspace:
 
 ```bash
 ptas
 ```
 
-Or analyze a growing transcript by itself:
+The left pane is a real interactive shell and guided workflow. The right pane is
+read-only and displays live recommendations. API calls appear in the VS Code
+terminal as route, controller, use-case, and repository trace messages.
+
+Useful development addresses:
+
+- API: `http://127.0.0.1:8000`
+- Swagger UI: `http://127.0.0.1:8000/docs`
+- ReDoc: `http://127.0.0.1:8000/redoc`
+- Readiness check: `http://127.0.0.1:8000/health/ready`
+
+## Documentation
+
+Start with the [documentation index](docs/README.md). The main guides are:
+
+- [Complete setup, startup, and troubleshooting](docs/setup-and-running.md)
+- [Terminal workspace and recommendation pane](docs/terminal-workflow.md)
+- [Architecture and request flow](docs/architecture.md)
+- [Feature documentation](docs/functionalities/README.md)
+- [Restricted Metasploitable 2 lab](docs/access-testing.md)
+
+## Project layout
+
+```text
+Backend/
+├── routes/             FastAPI endpoints and request validation
+├── controllers/        HTTP-to-business-layer adapters
+├── usecases/           Business rules and workflow orchestration
+├── repositories/       Database queries and transactions
+├── models/             SQLAlchemy database tables
+├── schemas/            Pydantic request and response shapes
+├── services/           Nmap, reporting, recommendations, and lab services
+├── terminal_assistant/ Transcript analysis and safe guidance
+├── main.py             FastAPI application setup
+└── terminal_workflow.py Guided terminal-first application
+docs/                   Setup, architecture, and feature guides
+tests/                  Automated unit and workflow tests
+```
+
+## Tests
 
 ```bash
-./ptas.sh watch --file /tmp/ptas-session.log --scope 10.10.10.0/24
+python -m pytest -q
 ```
 
-Run `./kali-setup.sh` once to install the global `ptas` command. See
-[TERMINAL_ASSISTANT.md](TERMINAL_ASSISTANT.md) for the native terminal workflow,
-plain/transcript modes, local Ollama integration, and safety controls.
-
-Restricted, credential-based access exercises are available only for a locally
-registered host-only Metasploitable 2 VM. See
-[METASPLOITABLE2_ACCESS_TESTING.md](METASPLOITABLE2_ACCESS_TESTING.md).
-
----
-
-## API Documentation
-
-Swagger UI
-
-```
-http://127.0.0.1:8000/docs
-```
-
-ReDoc
-
-```
-http://127.0.0.1:8000/redoc
-```
-
-OpenAPI Specification
-
-```
-http://127.0.0.1:8000/openapi.json
-```
-
----
-
-## Current API Endpoints
-
-### Authentication
-
-| Method | Endpoint             |
-| ------ | -------------------- |
-| POST   | `/api/auth/register` |
-| POST   | `/api/auth/login`    |
-
-### Users
-
-| Method | Endpoint               |
-| ------ | ---------------------- |
-| GET    | `/api/users`           |
-| GET    | `/api/users/{user_id}` |
-| DELETE | `/api/users/{user_id}` |
-
----
-
-## Development Roadmap
-
-- [x] Project Architecture
-- [x] Database Design
-- [x] User Authentication
-- [x] User Management
-- [ ] Project Management
-- [ ] Target Management
-- [ ] Scope Validation
-- [ ] Nmap Integration
-- [ ] OWASP ZAP Integration
-- [ ] Burp Suite Integration
-- [ ] Vulnerability Parser
-- [ ] AI Recommendation Engine
-- [ ] Evidence Collection
-- [ ] PDF Report Generation
-- [ ] Dashboard
-- [ ] Unit Testing
-## PTAS Folder Structure
-
-```
-Backend/
-│
-├── __init__.py
-├── main.py
-├── config.py
-├── database.py
-│
-├── controllers/
-│   ├── __init__.py
-│   ├── auth_controller.py
-│   ├── user_controller.py
-│   ├── project_controller.py
-│   ├── target_controller.py
-│   ├── scan_controller.py
-│   └── report_controller.py
-│
-├── routes/
-│   ├── __init__.py
-│   ├── auth_routes.py
-│   ├── user_routes.py
-│   ├── project_routes.py
-│   ├── target_routes.py
-│   ├── scan_routes.py
-│   └── report_routes.py
-│
-├── usecases/
-│   ├── __init__.py
-│   ├── auth_usecase.py
-│   ├── user_usecase.py
-│   ├── project_usecase.py
-│   ├── target_usecase.py
-│   ├── scan_usecase.py
-│   ├── ai_usecase.py
-│   └── report_usecase.py
-│
-├── repositories/
-│   ├── __init__.py
-│   ├── user_repository.py
-│   ├── project_repository.py
-│   ├── target_repository.py
-│   ├── scan_repository.py
-│   └── report_repository.py
-│
-├── models/
-│   ├── __init__.py
-│   ├── user_model.py
-│   ├── project_model.py
-│   ├── target_model.py
-│   ├── scan_model.py
-│   ├── vulnerability_model.py
-│   ├── recommendation_model.py
-│   └── report_model.py
-│
-├── schemas/
-│   ├── __init__.py
-│   ├── auth_schema.py
-│   ├── user_schema.py
-│   ├── project_schema.py
-│   ├── target_schema.py
-│   ├── scan_schema.py
-│   └── report_schema.py
-│
-├── services/
-│   ├── __init__.py
-│   ├── ai_service.py
-│   ├── nmap_service.py
-│   ├── zap_service.py
-│   ├── burp_service.py
-│   ├── report_service.py
-│   └── parser_service.py
-│
-├── middleware/
-│   ├── __init__.py
-│   ├── authentication.py
-│   ├── authorization.py
-│   └── exception_handler.py
-│
-├── utils/
-│   ├── __init__.py
-│   ├── jwt_utils.py
-│   ├── password_utils.py
-│   ├── validators.py
-│   ├── logger.py
-│   └── constants.py
-│
-├── tests/
-│   ├── test_auth.py
-│   ├── test_users.py
-│   ├── test_projects.py
-│   └── test_scans.py
-│
-└── requirements.txt
-```
-
-## Project Overview
-
-Penetration testing is a vital cybersecurity behaviour that helps us identify potential security vulnerabilities in systems, networks, web applications and APIs before attackers can exploit those vulnerabilities (OWASP Foundation, 2026; OWASP Foundation, 2025). Yet, penetration testing is still mostly a lot of manual work; including information gathering, vulnerability analysis, attack method selection and reporting (Abu-Dabaseh and Alshammari, 2018). With the increase in cyber threats, we need tools that can maximize the penetration tester efficiency (Hassan, 2024; NIST, 2026).
-
-The ability to analyse large amounts of data and identify useful patterns has led artificial intelligence (AI) to become one of most significant technologies in the cybersecurity space. There are well-defined penetration testing frameworks such as the Penetration Testing Execution Standard (PTES) that can guide a security assessment through a structured process and vulnerability scanners that may help you to pinpoint vulnerabilities on a given target (OWASP Foundation, 2026; MITRE, 2026). But they were never designed to guide a tester in real-time on what actions to perform next after a vulnerability is detected. This yields that testers will work most the time with blind eyes and to make decisions based on what they think (Bugingo, 2026).
-
-This is difficult for junior penetration testers and cybersecurity students who may understand the scan reports but are not sure which attack techniques are the most applicable, or even effective (Hassan, 2024). Thus, there exists a requirement to fill the void between discovering vulnerabilities and determining subsequent actions within a pen test.
-
-The objective of this project is to use Artificial Intelligence to implement Penetration Testing Assist system by integrating the scan for vulnerabilities, attack recommendations and generation of reports automatically. The system will evaluate vulnerabilities identified and appropriate penetration testing methodologies in a legal and controlled manner, then write structured security reports autonomously. This way you achieve efficiency, a learning aid, and support for penetration testers to make decisions better during the pen test phase (Andy, 2026; MITRE, 2026).
-
-## Academic Context
-
-- Student Name: Chirag Menariya
-- Student ID: 24155368
-- Module: 7COM1039-0509-2025 Advanced Computer Science Masters Project
-
-## Literature Review
-
-Many frameworks and methodologies have been created to aid penetration testing tasks. The Penetration Testing Execution Standard (PTES) gives a step-by-step approach to penetration testing from phases like intelligence gathering, vulnerability analysis, exploitation and reporting. Just as the OWASP Web Security Testing Guide (OWASP 2026) provides a full-fledged guide to the testing of web security. In addition, the OWASP Top 10 also describes the top ten security risks facing web applications and is often used as a measure of whether vulnerabilities may exist during an assessment (OWASP Foundation, 2025). These frameworks are helpful in defining the testing process, but they contain primarily methodologies and common vulnerabilities, lacking an intelligent decision support during penetration tests.
-
-Industry also widely adopts cybersecurity frameworks like the MITRE ATT&CK Framework and NIST Cybersecurity Framework. The MITRE ATT&CK knowledge base provides information about high-level adversary behaviour and their attack patterns to support the work of security professionals (MITRE, 2026). Similarly, NIST Cybersecurity Framework gives organisations a guide to manage cyber security risk (NIST, 2026). These frameworks work well as cornerstones of threat modelling and security organizational approaches but treat these items as swimming in the realm of abstraction; they do not give any real time recommendations on what actions a pen tester should take next during an assessment.
-
-Over the years many automated security tools have been created to help penetration testers. Again, the third category of tools are based on network scanning, service enumeration and identifying vulnerability like nmap and Burp Suite and OWASP ZAP. The study of Abu-Dabaseh and Alshammari shows how the process of vulnerability discovery can be fundamentally automated with reducing time and labour effort (Abu-Dabaseh and Alshammari, 2018). Now, nearly all other tools stop at detecting vulnerabilities and still need an expert tester to find attack paths, exploit techniques, and reporting.
-
-Use of artificial Intelligence (AI) and its future in Solving Company Issues Artificial Intelligence has been one of the recent significant topics researched by scholars dealing with Cybersecurity. Various applications regarding the use of AI were noted during penetration tests by Hassan: vulnerability analysis, pattern recognition and security decision support. The research noted that AI has the potential to be more efficient and help security professionals as they sift through massive amounts of security data (Hassan, 2024).
-
-Also, recent work by Andy which showed how AI models could be used to facilitate offensive security efforts, through vulnerability analysis and support with certain testing tasks (Andy, 2026). Likewise, Bugingo highlighted the increasing relevance of advanced penetration testing methods in discovering multifaceted vulnerabilities and enhancing cyber resilience (Bugingo, 2026). The aforementioned research suggests that AI can refresh penetration testing in a way that is much more versatile than traditional automation.
-
-Overall, the literature indicates that current penetration testing frameworks, vulnerability scanners and cybersecurity methodologies are effective at identifying vulnerabilities and supporting security assessments. However, they provide limited assistance in recommending the next actions a tester should perform after vulnerabilities are discovered. This gap is particularly challenging for junior penetration testers and cybersecurity students. Therefore, there is a need for an intelligent system that combines vulnerability identification, attack recommendation and automated reporting to support penetration testing activities in a controlled and ethical environment.
-
-## Aim
-
-To design and develop an AI-powered Penetration Testing Assist System that assists security professionals in vulnerability identification, attack recommendation, and automated penetration testing report generation.
-
-## Objectives
-
-- To develop a vulnerability scanning module capable of identifying common security weaknesses in web applications and network services. 
-- To design an AI-based recommendation engine that suggests appropriate attack techniques based on discovered vulnerabilities. 
-- To generate automated penetration testing reports containing findings, risk ratings, evidence, and remediation recommendations. 
-- To evaluate the effectiveness and accuracy of the system in supporting penetration testing activities. 
-
-
-## Research Questions
-
-- How can Artificial Intelligence assist penetration testers during vulnerability assessment and exploitation planning? 
-- Can AI-generated attack recommendations improve penetration testing efficiency? 
-- How effective is automated report generation compared to traditional manual reporting methods? 
-
-## Planned System Components
-
-### 1. Vulnerability Scanning Module
-
-This module will support network and web application scanning activities in a controlled lab environment. It is expected to help identify:
-
-- Open ports
-- Running services
-- Common web application vulnerabilities
-- Known CVEs where applicable
-- Security weaknesses discovered by tools such as Nmap, OWASP ZAP, or Burp Suite
-
-### 2. AI Attack Recommendation Engine
-
-The recommendation engine will analyse discovered vulnerabilities and suggest suitable penetration testing approaches. Recommendations may be mapped to recognised frameworks such as:
-
-- MITRE ATT&CK
-- OWASP Top 10
-- OWASP Web Security Testing Guide
-- CVE databases
-
-The purpose of this module is to assist decision-making, especially for junior penetration testers and cybersecurity students who may understand scan results but need support deciding what action should be taken next.
-
-### 3. Automated Reporting Module
-
-The reporting module will generate professional penetration testing reports that may include:
-
-- Executive summary
-- Technical findings
-- Risk ratings
-- Evidence and screenshots
-- Recommended remediation steps
-- References to relevant attack techniques or security standards
-
-## Proposed Architecture
-
-```mermaid
-flowchart LR
-    A[Target Lab Environment] --> B[Vulnerability Scanning Module]
-    B --> C[Parsed Findings]
-    C --> D[AI Recommendation Engine]
-    D --> E[Attack Technique Mapping]
-    C --> F[Automated Reporting Module]
-    E --> F
-    F --> G[Penetration Testing Report]
-```
-
-## Methodology
-
-This project will adopt a design and experimental research methodology. The proposed system will be developed within a controlled penetration testing environment using intentionally vulnerable systems such as DVWA, OWASP Juice Shop, Metasploitable, and vulnerable APIs.
-The framework will consist of three major components:
-
-1.	Vulnerability Scanning Module 
-- Network and web application scanning. 
-- Identification of open ports, services, and common vulnerabilities. 
-
-2.	AI Attack Recommendation Engine 
-- Analysis of identified vulnerabilities. 
-- Mapping findings to MITRE ATT&CK and OWASP attack techniques. 
-- Generation of recommended penetration testing approaches. 
-
-3.	Automated Reporting Module 
-- Risk classification. 
-- Evidence collection. 
-- Remediation suggestions. 
-- Professional penetration testing report generation. 
-Testing will be conducted against multiple vulnerable targets, and results will be evaluated based on detection accuracy, recommendation quality, and reporting effectiveness. 
-
-## Tools and Technologies
-
-The proposed project may use the following tools and technologies:
-
-- Python
-- JavaScript
-- VS Code
-- Nmap
-- OWASP ZAP
-- Burp Suite
-- OpenAI API or local LLM
-- CVE database
-- MITRE ATT&CK Framework
-- Docker
-- Kali Linux
-
-## Expected Outcomes
-
-The project is expected to produce an intelligent penetration testing assistance platform capable of:
-
-- Detecting common vulnerabilities. 
-- Providing AI-generated attack recommendations. 
-- Mapping findings to known attack techniques. 
-- Generating professional penetration testing reports automatically. 
-- Reducing the time required for penetration testing documentation. 
-
-The system is expected to improve penetration testing efficiency while providing educational value for junior security professionals and cybersecurity students.
-
-## Ethical and Legal Use
-
-This project is intended strictly for authorised penetration testing, academic research, and controlled lab environments. It must only be used against systems where explicit permission has been granted.
-
-Do not use this system against public, third-party, or unauthorised targets. All testing should follow ethical hacking principles, institutional policies, and applicable laws.
-
-## Project Plan
-
-![alt text](Supported%20Docs/image.png)
-
-## References
-
-- Abu-Dabaseh, F. and Alshammari, E. (2018) Automated Penetration Testing: An Overview, CS & IT Conference Proceedings. Available at: [https://www.csitcp.org/abstract/8/](https://www.csitcp.org/abstract/8/).
-- Andy, D. (2026) SANS: Workshop: Offensive AI In Practice: Hands on Exploitation of Vulnerable Applications Using Open-Source AI Tools, GitHub. Available at: [https://github.com/rpigu-i/sans-offensive-ai-in-practice-april-2026](https://github.com/rpigu-i/sans-offensive-ai-in-practice-april-2026).
-- Bugingo, E. (2026) “The Role of Advanced Penetration Testing Techniques in Enhancing   Cybersecurity: A Survey on Web Application Security”, JUTI: Jurnal Ilmiah Teknologi Informasi, 24(1), pp. 87–118. Available at: [https://doi.org/10.12962/j24068535.v24i1.a1372](https://doi.org/10.12962/j24068535.v24i1.a1372).
-- Hassan, R. (2024) Systematic Literature Review of Challenges and AI Contributions in Penetration Testing, Digitala Vetenskapliga Arkivet. Available at: [https://www.diva-portal.org/smash/record.jsf?dswid=-4925&pid=diva2%3A1895349&c=13&searchType=SIMPLE&language=en&query=Artificial+Intelligence+in+Penetration+Testing&af=%5B%5D&aq=%5B%5B%5D%5D&aq2=%5B%5B%5D%5D&aqe=%5B%5D&noOfRows=50&sortOrder=author_sort_asc&sortOrder2=title_sort_asc&onlyFullText=false&sf=all](https://www.diva-portal.org/smash/record.jsf?dswid=-4925&pid=diva2%3A1895349&c=13&searchType=SIMPLE&language=en&query=Artificial+Intelligence+in+Penetration+Testing&af=%5B%5D&aq=%5B%5B%5D%5D&aq2=%5B%5B%5D%5D&aqe=%5B%5D&noOfRows=50&sortOrder=author_sort_asc&sortOrder2=title_sort_asc&onlyFullText=false&sf=all).
-- MITRE (2026) MITRE ATT&CK®, attack.mitre.org. Available at: [https://attack.mitre.org/](https://attack.mitre.org/).
-- NIST (2026) Cybersecurity Framework, nist.gov. Available at: [https://www.nist.gov/cyberframework](https://www.nist.gov/cyberframework).
-- OWASP Foundation (2025) OWASP Top Ten Web Application Security Risks | OWASP Foundation, OWASP. Available at: [https://owasp.org/www-project-top-ten/](https://owasp.org/www-project-top-ten/).
-- OWASP Foundation (2026) OWASP Web Security Testing Guide | OWASP Foundation, OWASP. Available at: [https://owasp.org/www-project-web-security-testing-guide/](https://owasp.org/www-project-web-security-testing-guide/).
+This repository is an MSc Cyber Security dissertation project by Chirag
+Menariya. Its source and documentation are provided for academic assessment and
+portfolio demonstration; all rights are reserved by the author.

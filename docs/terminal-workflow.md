@@ -185,7 +185,7 @@ host-only-only networking, MAC/IP binding, clean snapshot availability, exact
 scan target, and a distinctive service fingerprint before showing any exercise.
 
 Setup and commands are documented in
-[METASPLOITABLE2_ACCESS_TESTING.md](METASPLOITABLE2_ACCESS_TESTING.md).
+[the restricted access-testing guide](access-testing.md).
 
 ```bash
 ./ptas.sh lab-register --name msf2-local --target 192.168.56.101 --vm Metasploitable2

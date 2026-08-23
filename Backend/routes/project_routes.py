@@ -25,6 +25,11 @@ def create_project(
     request: ProjectCreateRequest,
     db: Session = Depends(get_db),
 ):
+    """Handle the HTTP request that asks PTAS to create project.
+
+    FastAPI validates inputs and supplies a database session before this endpoint
+    delegates to its controller.
+    """
     controller = ProjectController(db)
     return controller.create_project(request)
 
@@ -34,6 +39,11 @@ def get_all_projects(
     user_id: int | None = Query(default=None, gt=0),
     db: Session = Depends(get_db),
 ):
+    """Handle the HTTP request that asks PTAS to get all projects.
+
+    FastAPI validates inputs and supplies a database session before this endpoint
+    delegates to its controller.
+    """
     controller = ProjectController(db)
     return controller.get_all_projects(user_id)
 
@@ -43,6 +53,11 @@ def get_project_by_id(
     project_id: int,
     db: Session = Depends(get_db),
 ):
+    """Handle the HTTP request that asks PTAS to get project by id.
+
+    FastAPI validates inputs and supplies a database session before this endpoint
+    delegates to its controller.
+    """
     controller = ProjectController(db)
     return controller.get_project_by_id(project_id)
 
@@ -53,6 +68,11 @@ def update_project(
     request: ProjectUpdateRequest,
     db: Session = Depends(get_db),
 ):
+    """Handle the HTTP request that asks PTAS to update project.
+
+    FastAPI validates inputs and supplies a database session before this endpoint
+    delegates to its controller.
+    """
     controller = ProjectController(db)
     return controller.update_project(project_id, request)
 
@@ -62,5 +82,10 @@ def delete_project(
     project_id: int,
     db: Session = Depends(get_db),
 ):
+    """Handle the HTTP request that asks PTAS to delete project.
+
+    FastAPI validates inputs and supplies a database session before this endpoint
+    delegates to its controller.
+    """
     controller = ProjectController(db)
     return controller.delete_project(project_id)

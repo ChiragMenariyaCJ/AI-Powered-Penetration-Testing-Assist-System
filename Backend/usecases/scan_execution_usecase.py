@@ -18,7 +18,10 @@ from Backend.services.vulnerability_parser import VulnerabilityParser
 
 @trace_usecase
 class ScanExecutionUseCase:
-    """Execute scans with Nmap and parse results"""
+    """Apply scan execution business rules between controllers and persistence.
+
+    The use case validates related state and coordinates repositories or services.
+    """
 
     def __init__(
         self,
@@ -28,6 +31,11 @@ class ScanExecutionUseCase:
         project_repository: ProjectRepository,
         vulnerability_repository: VulnerabilityRepository,
     ):
+        """Initialize the object with the dependencies required by its public operations.
+
+        Dependencies are stored once so each call uses the same request-scoped
+        collaborators.
+        """
         self.scan_repository = scan_repository
         self.target_repository = target_repository
         self.scope_validation_repository = scope_validation_repository
@@ -190,7 +198,11 @@ class ScanExecutionUseCase:
             )
 
     def get_scan_results(self, scan_id: int) -> dict:
-        """Retrieve parsed results from a completed scan"""
+        """Apply business validation and orchestration needed to get scan results.
+
+        Invalid related records or state produce a clear HTTP error; valid work is
+        delegated to repositories or services.
+        """
         scan = self.scan_repository.get_scan_by_id(scan_id)
         if not scan:
             raise HTTPException(
@@ -216,7 +228,11 @@ class ScanExecutionUseCase:
             }
 
     def validate_nmap_availability(self) -> dict:
-        """Check if Nmap is installed and available"""
+        """Apply business validation and orchestration needed to validate nmap availability.
+
+        Invalid related records or state produce a clear HTTP error; valid work is
+        delegated to repositories or services.
+        """
         is_available = self.nmap_service.is_nmap_installed()
         return {
             "nmap_available": is_available,

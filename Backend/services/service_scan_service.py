@@ -15,6 +15,11 @@ from Backend.terminal_assistant.sanitizer import sanitize_terminal_text
 
 @dataclass(frozen=True)
 class ToolCheck:
+    """Encapsulate the ToolCheck service behavior.
+
+    Keeping this integration separate prevents external-tool details from leaking into
+    use cases.
+    """
     tool: str
     purpose: str
     command: tuple[str, ...]
@@ -24,6 +29,11 @@ class ToolCheck:
 
 @dataclass(frozen=True)
 class ToolResult:
+    """Encapsulate the ToolResult service behavior.
+
+    Keeping this integration separate prevents external-tool details from leaking into
+    use cases.
+    """
     check: ToolCheck
     status: str
     returncode: int | None
@@ -31,20 +41,39 @@ class ToolResult:
 
 
 class ServiceScanService:
-    """Choose checks from observed services; never invokes a shell."""
+    """Encapsulate the ServiceScanService service behavior.
+
+    Keeping this integration separate prevents external-tool details from leaking into
+    use cases.
+    """
 
     CVE_PATTERN = re.compile(r"\bCVE-\d{4}-\d{4,7}\b", re.IGNORECASE)
 
     def __init__(self, timeout: int = 90, output_limit: int = 6000):
+        """Initialize the object with the dependencies required by its public operations.
+
+        Dependencies are stored once so each call uses the same request-scoped
+        collaborators.
+        """
         self.timeout = timeout
         self.output_limit = output_limit
 
     @staticmethod
     def _available(tool: str) -> str | None:
+        """Perform the service-level operation needed to available.
+
+        Inputs are converted to the external tool or renderer format and the normalized
+        result is returned to the use case.
+        """
         return shutil.which(tool)
 
     @staticmethod
     def _is_hostname(target: str) -> bool:
+        """Perform the service-level operation needed to is hostname.
+
+        Inputs are converted to the external tool or renderer format and the normalized
+        result is returned to the use case.
+        """
         try:
             ipaddress.ip_address(target)
             return False
@@ -52,6 +81,11 @@ class ServiceScanService:
             return "/" not in target
 
     def build_checks(self, target: str, findings: list) -> list[ToolCheck]:
+        """Perform the service-level operation needed to build checks.
+
+        Inputs are converted to the external tool or renderer format and the normalized
+        result is returned to the use case.
+        """
         target = NmapService._validate_target(target)
         checks: list[ToolCheck] = []
         seen: set[tuple[str, int | None]] = set()
@@ -181,6 +215,11 @@ class ServiceScanService:
         return checks
 
     def execute(self, checks: list[ToolCheck]) -> list[ToolResult]:
+        """Perform the service-level operation needed to execute.
+
+        Inputs are converted to the external tool or renderer format and the normalized
+        result is returned to the use case.
+        """
         results = []
         for check in checks:
             try:
@@ -219,6 +258,11 @@ class ServiceScanService:
         return results
 
     def as_findings(self, scan_id: int, target: str, results: list[ToolResult]) -> list[dict]:
+        """Perform the service-level operation needed to as findings.
+
+        Inputs are converted to the external tool or renderer format and the normalized
+        result is returned to the use case.
+        """
         findings = []
         for result in results:
             cves = sorted({value.upper() for value in self.CVE_PATTERN.findall(result.output)})

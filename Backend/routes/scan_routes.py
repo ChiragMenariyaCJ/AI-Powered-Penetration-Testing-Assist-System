@@ -26,6 +26,11 @@ def create_scan(
     request: ScanCreateRequest,
     db: Session = Depends(get_db),
 ):
+    """Handle the HTTP request that asks PTAS to create scan.
+
+    FastAPI validates inputs and supplies a database session before this endpoint
+    delegates to its controller.
+    """
     controller = ScanController(db)
     return controller.create_scan(request)
 
@@ -35,6 +40,11 @@ def get_all_scans(
     target_id: int | None = Query(default=None, gt=0),
     db: Session = Depends(get_db),
 ):
+    """Handle the HTTP request that asks PTAS to get all scans.
+
+    FastAPI validates inputs and supplies a database session before this endpoint
+    delegates to its controller.
+    """
     controller = ScanController(db)
     return controller.get_all_scans(target_id)
 
@@ -44,6 +54,11 @@ def get_scan_by_id(
     scan_id: int,
     db: Session = Depends(get_db),
 ):
+    """Handle the HTTP request that asks PTAS to get scan by id.
+
+    FastAPI validates inputs and supplies a database session before this endpoint
+    delegates to its controller.
+    """
     controller = ScanController(db)
     return controller.get_scan_by_id(scan_id)
 
@@ -54,6 +69,11 @@ def update_scan(
     request: ScanUpdateRequest,
     db: Session = Depends(get_db),
 ):
+    """Handle the HTTP request that asks PTAS to update scan.
+
+    FastAPI validates inputs and supplies a database session before this endpoint
+    delegates to its controller.
+    """
     controller = ScanController(db)
     return controller.update_scan(scan_id, request)
 
@@ -63,5 +83,10 @@ def delete_scan(
     scan_id: int,
     db: Session = Depends(get_db),
 ):
+    """Handle the HTTP request that asks PTAS to delete scan.
+
+    FastAPI validates inputs and supplies a database session before this endpoint
+    delegates to its controller.
+    """
     controller = ScanController(db)
     return controller.delete_scan(scan_id)

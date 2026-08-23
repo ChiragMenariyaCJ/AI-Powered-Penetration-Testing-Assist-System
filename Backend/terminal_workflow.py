@@ -71,10 +71,18 @@ SEVERITY_PRIORITY = {
 
 
 def _say(message: str) -> None:
+    """Implement the internal say step used by this module's public workflow.
+
+    It remains private so callers depend on the supported public interface.
+    """
     print(f"[PTAS] {message}", flush=True)
 
 
 def _event(path: Path | None, kind: str, message: str, **data) -> None:
+    """Implement the internal event step used by this module's public workflow.
+
+    It remains private so callers depend on the supported public interface.
+    """
     if path is None:
         return
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -94,6 +102,10 @@ def configure_realtime_advisor_env(
     ollama_url: str | None = None,
     allow_remote_llm: bool = False,
 ) -> None:
+    """Perform the configure realtime advisor env operation.
+
+    The type hints describe accepted inputs and the value returned to the caller.
+    """
     if provider:
         os.environ["PTAS_LLM_PROVIDER"] = provider
     if model:
@@ -110,6 +122,10 @@ def _realtime_env_prefix(
     ollama_url: str | None = None,
     allow_remote_llm: bool = False,
 ) -> str:
+    """Implement the internal realtime env prefix step used by this module's public workflow.
+
+    It remains private so callers depend on the supported public interface.
+    """
     values: dict[str, str] = {}
     if provider:
         values["PTAS_LLM_PROVIDER"] = provider
@@ -126,6 +142,10 @@ def _realtime_env_prefix(
 
 
 def _build_realtime_advisor() -> OllamaAdvisor | None:
+    """Implement the internal build realtime advisor step used by this module's public workflow.
+
+    It remains private so callers depend on the supported public interface.
+    """
     provider = os.getenv("PTAS_LLM_PROVIDER", "rules").lower()
     if provider != "ollama":
         return None
@@ -141,6 +161,10 @@ def _build_realtime_advisor() -> OllamaAdvisor | None:
 
 
 def _optional_realtime_advisor() -> OllamaAdvisor | None:
+    """Implement the internal optional realtime advisor step used by this module's public workflow.
+
+    It remains private so callers depend on the supported public interface.
+    """
     try:
         return _build_realtime_advisor()
     except ValueError as exc:
@@ -154,6 +178,10 @@ def _optional_realtime_advisor() -> OllamaAdvisor | None:
 
 
 def _required(prompt: str, *, secret: bool = False) -> str:
+    """Implement the internal required step used by this module's public workflow.
+
+    It remains private so callers depend on the supported public interface.
+    """
     while True:
         value = (getpass(prompt) if secret else input(prompt)).strip()
         if value:
@@ -162,6 +190,10 @@ def _required(prompt: str, *, secret: bool = False) -> str:
 
 
 def _choose(prompt: str, choices: tuple[str, ...]) -> str:
+    """Implement the internal choose step used by this module's public workflow.
+
+    It remains private so callers depend on the supported public interface.
+    """
     labels = "/".join(choices)
     while True:
         value = input(f"{prompt} [{labels}]: ").strip().lower()
@@ -171,7 +203,10 @@ def _choose(prompt: str, choices: tuple[str, ...]) -> str:
 
 
 def _authenticate(api: PTASApiClient) -> dict:
-    """Register or log in through the FastAPI authentication endpoints."""
+    """Implement the internal authenticate step used by this module's public workflow.
+
+    It remains private so callers depend on the supported public interface.
+    """
 
     action = _choose("Login or register", ("login", "register"))
     email: str | None = None
@@ -218,7 +253,10 @@ def _authenticate(api: PTASApiClient) -> dict:
 
 
 def _select_project(api: PTASApiClient, user: dict) -> dict:
-    """Load or create the student's project through the projects API."""
+    """Implement the internal select project step used by this module's public workflow.
+
+    It remains private so callers depend on the supported public interface.
+    """
 
     result = api.get("/api/projects/", query={"user_id": user["id"]})
     projects = result["projects"]
@@ -250,6 +288,10 @@ def _select_project(api: PTASApiClient, user: dict) -> dict:
 
 
 def _scope_type(scope_value: str) -> str:
+    """Implement the internal scope type step used by this module's public workflow.
+
+    It remains private so callers depend on the supported public interface.
+    """
     if "/" in scope_value:
         return "CIDR"
     try:
@@ -260,7 +302,10 @@ def _scope_type(scope_value: str) -> str:
 
 
 def _configure_target(api: PTASApiClient, project: dict) -> tuple[dict, str]:
-    """Confirm authorization, create scope, and create a target through the API."""
+    """Implement the internal configure target step used by this module's public workflow.
+
+    It remains private so callers depend on the supported public interface.
+    """
 
     print("\nScope setup")
     print("  Scope is the complete authorized boundary, for example:")
@@ -339,6 +384,10 @@ def _configure_target(api: PTASApiClient, project: dict) -> tuple[dict, str]:
 
 
 def _finding_sort_key(finding: Vulnerability) -> tuple[int, int, int]:
+    """Implement the internal finding sort key step used by this module's public workflow.
+
+    It remains private so callers depend on the supported public interface.
+    """
     severity = (getattr(finding, "severity", None) or "INFO").upper()
     return (
         SEVERITY_PRIORITY.get(severity, 5),
@@ -348,6 +397,10 @@ def _finding_sort_key(finding: Vulnerability) -> tuple[int, int, int]:
 
 
 def _finding_evidence(finding: Vulnerability, target: str) -> str:
+    """Implement the internal finding evidence step used by this module's public workflow.
+
+    It remains private so callers depend on the supported public interface.
+    """
     endpoint = target
     if finding.port is not None:
         endpoint = f"{target}:{finding.port}"
@@ -365,6 +418,10 @@ def _scan_recommendation_prompt(
     scan_id: int | None = None,
     lab_name: str | None = None,
 ) -> str:
+    """Implement the internal scan recommendation prompt step used by this module's public workflow.
+
+    It remains private so callers depend on the supported public interface.
+    """
     evidence = "\n".join(
         f"- [{getattr(finding, 'severity', None) or 'INFO'}] {_finding_evidence(finding, target)}"
         for finding in sorted(findings, key=_finding_sort_key)[:20]
@@ -389,6 +446,10 @@ def _fallback_realtime_suggestions(
     vulnerabilities: list[Vulnerability],
     target: str,
 ) -> list[str]:
+    """Implement the internal fallback realtime suggestions step used by this module's public workflow.
+
+    It remains private so callers depend on the supported public interface.
+    """
     suggestions: list[str] = []
     seen: set[tuple[int | None, str]] = set()
     for finding in sorted(vulnerabilities, key=_finding_sort_key):
@@ -417,7 +478,10 @@ def validation_suggestions(
     scan_id: int | None = None,
     lab_name: str | None = None,
 ) -> list[dict]:
-    """Return real-time recommendations from current scan evidence."""
+    """Perform the validation suggestions operation.
+
+    The type hints describe accepted inputs and the value returned to the caller.
+    """
     findings = [item for item in vulnerabilities if getattr(item, "id", None) is not None]
     if not findings:
         return []
@@ -451,7 +515,10 @@ def validation_suggestions(
 
 
 def persist_validation_suggestions(db, suggestions: list[dict]) -> int:
-    """Store terminal suggestions so generated reports include them."""
+    """Perform the persist validation suggestions operation.
+
+    The type hints describe accepted inputs and the value returned to the caller.
+    """
     repository = RecommendationRepository(db)
     created = 0
     for suggestion in suggestions:
@@ -486,7 +553,10 @@ def persist_validation_suggestions(db, suggestions: list[dict]) -> int:
 
 
 def persist_exploitdb_references(db, scan_id: int, target: str) -> int:
-    """Add version-specific Exploit-DB CVE references as candidate findings."""
+    """Perform the persist exploitdb references operation.
+
+    The type hints describe accepted inputs and the value returned to the caller.
+    """
     vulnerability_repository = VulnerabilityRepository(db)
     findings = vulnerability_repository.get_vulnerabilities_by_scan_id(scan_id)
     existing_edb_ids = {
@@ -546,7 +616,10 @@ def run_service_aware_checks(
     target: str,
     event_log: Path | None,
 ) -> int:
-    """Run installed, non-destructive checks that match discovered services."""
+    """Perform the run service aware checks operation.
+
+    The type hints describe accepted inputs and the value returned to the caller.
+    """
 
     repository = VulnerabilityRepository(db)
     base_findings = repository.get_vulnerabilities_by_scan_id(scan_id)
@@ -592,7 +665,10 @@ def run_service_aware_checks(
 
 
 def run_student_session(event_log: Path | None = None) -> int:
-    """Guide a student through login, scope confirmation, and safe assessment."""
+    """Perform the run student session operation.
+
+    The type hints describe accepted inputs and the value returned to the caller.
+    """
 
     _say("Terminal-first student workflow")
     _say("Only explicitly authorized training targets may be scanned.")
@@ -802,7 +878,10 @@ def run_dashboard(
     transcript: Path,
     interval: float = 0.5,
 ) -> int:
-    """Show recommendations and review new commands from the left transcript."""
+    """Perform the run dashboard operation.
+
+    The type hints describe accepted inputs and the value returned to the caller.
+    """
 
     _say("Live recommendation assistant")
     _say("Waiting for assessment evidence from the left terminal...")
@@ -915,7 +994,10 @@ def start_terminal_workflow(
     ollama_url: str | None = None,
     allow_remote_llm: bool = False,
 ) -> int:
-    """Open PTAS in native terminal panes, with a plain-mode fallback."""
+    """Perform the start terminal workflow operation.
+
+    The type hints describe accepted inputs and the value returned to the caller.
+    """
 
     configure_realtime_advisor_env(provider, model, ollama_url, allow_remote_llm)
     if plain:
@@ -1008,7 +1090,10 @@ def start_terminal_workflow(
 
 
 def save_report(scan_id: int, output: Path) -> int:
-    """Generate JSON and HTML reports for a completed scan."""
+    """Perform the save report operation.
+
+    The type hints describe accepted inputs and the value returned to the caller.
+    """
 
     Base.metadata.create_all(bind=engine)
     with SessionLocal() as db:
@@ -1076,7 +1161,10 @@ def save_report(scan_id: int, output: Path) -> int:
 
 
 def select_next_recommendation(recommendations: list, shown_ids: set[int]):
-    """Select the first recommendation not already presented."""
+    """Perform the select next recommendation operation.
+
+    The type hints describe accepted inputs and the value returned to the caller.
+    """
     return next((item for item in recommendations if item.id not in shown_ids), None)
 
 
@@ -1089,7 +1177,10 @@ def next_recommendation(
     allow_remote_llm: bool = False,
     lab_name: str | None = None,
 ) -> int:
-    """Refresh and present one realtime recommendation, remembering progress locally."""
+    """Perform the next recommendation operation.
+
+    The type hints describe accepted inputs and the value returned to the caller.
+    """
     configure_realtime_advisor_env(provider, model, ollama_url, allow_remote_llm)
     Base.metadata.create_all(bind=engine)
     project_dir = Path(__file__).resolve().parents[1]
@@ -1194,7 +1285,10 @@ def next_recommendation(
 
 
 def render_existing_report(json_report: Path, output: Path | None = None) -> int:
-    """Render an existing JSON report without requiring database access."""
+    """Perform the render existing report operation.
+
+    The type hints describe accepted inputs and the value returned to the caller.
+    """
     json_report = json_report.expanduser().resolve()
     if not json_report.is_file():
         _say(f"JSON report not found: {json_report}")
@@ -1233,7 +1327,10 @@ def register_metasploitable2_lab(
     interface: str = "vmnet1",
     kali_source: str | None = None,
 ) -> int:
-    """Register an isolated Metasploitable 2 VM as an approved lab target."""
+    """Perform the register metasploitable2 lab operation.
+
+    The type hints describe accepted inputs and the value returned to the caller.
+    """
 
     project_dir = Path(__file__).resolve().parents[1]
     service = Metasploitable2LabService(project_dir)
@@ -1261,7 +1358,10 @@ def register_metasploitable2_lab(
 
 
 def check_metasploitable2_lab(name: str) -> int:
-    """Verify the registered VM identity and host-only network safeguards."""
+    """Perform the check metasploitable2 lab operation.
+
+    The type hints describe accepted inputs and the value returned to the caller.
+    """
 
     project_dir = Path(__file__).resolve().parents[1]
     service = Metasploitable2LabService(project_dir)
@@ -1279,13 +1379,19 @@ def check_metasploitable2_lab(name: str) -> int:
 
 
 def select_next_access_exercise(exercises: list[AccessExercise], shown_keys: set[str]):
-    """Select the first allowlisted exercise not already presented."""
+    """Perform the select next access exercise operation.
+
+    The type hints describe accepted inputs and the value returned to the caller.
+    """
 
     return next((item for item in exercises if item.key not in shown_keys), None)
 
 
 def next_access_exercise(scan_id: int, lab_name: str, reset: bool = False) -> int:
-    """Present one gated lab exercise after rechecking all safeguards."""
+    """Perform the next access exercise operation.
+
+    The type hints describe accepted inputs and the value returned to the caller.
+    """
 
     project_dir = Path(__file__).resolve().parents[1]
     service = Metasploitable2LabService(project_dir)

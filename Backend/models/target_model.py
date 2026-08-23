@@ -9,6 +9,10 @@ from Backend.database import Base
 
 
 class Target(Base):
+    """Represent the target table in the application database.
+
+    SQLAlchemy maps these attributes and relationships to persisted records.
+    """
     __tablename__ = "targets"
 
     id = Column(Integer, primary_key=True, index=True)

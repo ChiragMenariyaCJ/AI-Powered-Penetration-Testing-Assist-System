@@ -34,6 +34,11 @@ FORBIDDEN_PATTERNS = tuple(
 
 
 def is_safe_recommendation(text: str, authorized_targets: list[str] | None = None) -> bool:
+    """Perform the is safe recommendation step of the terminal guidance pipeline.
+
+    The operation works with sanitized evidence and does not execute a recommended
+    security command.
+    """
     value = " ".join(text.split())
     if not value:
         return False
@@ -68,6 +73,11 @@ def filter_safe_recommendations(
     authorized_targets: list[str] | None = None,
     limit: int = 5,
 ) -> list[str]:
+    """Perform the filter safe recommendations step of the terminal guidance pipeline.
+
+    The operation works with sanitized evidence and does not execute a recommended
+    security command.
+    """
     filtered: list[str] = []
     for suggestion in suggestions:
         cleaned = " ".join(suggestion.strip().split())

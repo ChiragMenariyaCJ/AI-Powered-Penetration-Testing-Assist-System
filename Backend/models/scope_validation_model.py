@@ -9,6 +9,10 @@ from Backend.database import Base
 
 
 class ScopeValidation(Base):
+    """Represent the scope validation table in the application database.
+
+    SQLAlchemy maps these attributes and relationships to persisted records.
+    """
     __tablename__ = "scope_validations"
 
     id = Column(Integer, primary_key=True, index=True)

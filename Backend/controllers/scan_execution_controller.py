@@ -15,9 +15,17 @@ from Backend.usecases.scan_execution_usecase import ScanExecutionUseCase
 
 @trace_controller
 class ScanExecutionController:
-    """Connect scan execution handlers to scoped Nmap orchestration."""
+    """Connect scan execution HTTP handlers to the business layer.
+
+    The controller constructs dependencies and delegates without performing SQL itself.
+    """
 
     def __init__(self, db: Session):
+        """Initialize the object with the dependencies required by its public operations.
+
+        Dependencies are stored once so each call uses the same request-scoped
+        collaborators.
+        """
         scan_repository = ScanRepository(db)
         target_repository = TargetRepository(db)
         scope_validation_repository = ScopeValidationRepository(db)
@@ -33,12 +41,27 @@ class ScanExecutionController:
         )
 
     def execute_scan(self, scan_id: int, project_id: int):
+        """Delegate the request to execute scan through the configured use case.
+
+        The controller keeps transport concerns separate from validation and persistence
+        rules.
+        """
         return self.scan_execution_usecase.execute_scan_on_target(
             scan_id, project_id
         )
 
     def get_scan_results(self, scan_id: int):
+        """Delegate the request to get scan results through the configured use case.
+
+        The controller keeps transport concerns separate from validation and persistence
+        rules.
+        """
         return self.scan_execution_usecase.get_scan_results(scan_id)
 
     def validate_nmap_availability(self):
+        """Delegate the request to validate nmap availability through the configured use case.
+
+        The controller keeps transport concerns separate from validation and persistence
+        rules.
+        """
         return self.scan_execution_usecase.validate_nmap_availability()

@@ -20,6 +20,11 @@ def register(
     request: UserRegisterRequest,
     db: Session = Depends(get_db)
 ):
+    """Handle the HTTP request that asks PTAS to register.
+
+    FastAPI validates inputs and supplies a database session before this endpoint
+    delegates to its controller.
+    """
     controller = AuthController(db)
     return controller.register(request)
 
@@ -29,5 +34,10 @@ def login(
     request: UserLoginRequest,
     db: Session = Depends(get_db)
 ):
+    """Handle the HTTP request that asks PTAS to login.
+
+    FastAPI validates inputs and supplies a database session before this endpoint
+    delegates to its controller.
+    """
     controller = AuthController(db)
     return controller.login(request)

@@ -8,15 +8,30 @@ import re
 
 
 class HtmlReportRenderer:
+    """Encapsulate the HtmlReportRenderer service behavior.
+
+    Keeping this integration separate prevents external-tool details from leaking into
+    use cases.
+    """
     CVE_PATTERN = re.compile(r"CVE-\d{4}-\d{4,7}", re.IGNORECASE)
     SEVERITIES = ("CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO")
 
     @staticmethod
     def _text(value) -> str:
+        """Perform the service-level operation needed to text.
+
+        Inputs are converted to the external tool or renderer format and the normalized
+        result is returned to the use case.
+        """
         return escape(str(value)) if value not in (None, "") else "Not available"
 
     @classmethod
     def _cve_badges(cls, value) -> str:
+        """Perform the service-level operation needed to cve badges.
+
+        Inputs are converted to the external tool or renderer format and the normalized
+        result is returned to the use case.
+        """
         cves = sorted({item.upper() for item in cls.CVE_PATTERN.findall(str(value or ""))})
         if not cves:
             return '<span class="muted">No CVE reference</span>'
@@ -27,6 +42,11 @@ class HtmlReportRenderer:
 
     @classmethod
     def render(cls, report: dict) -> str:
+        """Perform the service-level operation needed to render.
+
+        Inputs are converted to the external tool or renderer format and the normalized
+        result is returned to the use case.
+        """
         metadata = report.get("report_metadata", {})
         findings = report.get("vulnerabilities", [])
         severity_counts = Counter(

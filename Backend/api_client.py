@@ -12,7 +12,11 @@ from Backend.config import settings
 
 
 class PTASApiError(RuntimeError):
-    """Describe an API response or connection failure for terminal users."""
+    """Signal that PTASApi could not complete safely.
+
+    Callers catch this specific error to present a controlled failure instead of
+    continuing with invalid state.
+    """
 
 
 def default_api_url() -> str:
@@ -28,9 +32,17 @@ def default_api_url() -> str:
 
 
 class PTASApiClient:
-    """Send JSON requests to the separately running FastAPI application."""
+    """Coordinate the responsibilities of PTASApiClient.
+
+    Its public methods provide the supported interface used by the rest of PTAS.
+    """
 
     def __init__(self, base_url: str | None = None):
+        """Initialize the object with the dependencies required by its public operations.
+
+        Dependencies are stored once so each call uses the same request-scoped
+        collaborators.
+        """
         self.base_url = (base_url or default_api_url()).rstrip("/")
         self.access_token: str | None = None
 
@@ -41,7 +53,10 @@ class PTASApiClient:
         query: dict | None = None,
         timeout: float = 15,
     ):
-        """Send a GET request and return its decoded JSON body."""
+        """Perform the get operation for PTASApiClient.
+
+        The type hints describe accepted inputs and the value returned to the caller.
+        """
 
         return self._request("GET", path, query=query, timeout=timeout)
 
@@ -53,7 +68,10 @@ class PTASApiClient:
         query: dict | None = None,
         timeout: float = 15,
     ):
-        """Send a POST request and return its decoded JSON body."""
+        """Perform the post operation for PTASApiClient.
+
+        The type hints describe accepted inputs and the value returned to the caller.
+        """
 
         return self._request(
             "POST",
@@ -72,7 +90,10 @@ class PTASApiClient:
         query: dict | None = None,
         timeout: float,
     ):
-        """Build one request, normalize errors, and decode a JSON response."""
+        """Implement the internal request step used by this module's public workflow.
+
+        It remains private so callers depend on the supported public interface.
+        """
 
         url = f"{self.base_url}{path}"
         if query:
@@ -107,7 +128,10 @@ class PTASApiClient:
 
     @staticmethod
     def _error_detail(error: HTTPError) -> str:
-        """Extract FastAPI's safe error detail without exposing request secrets."""
+        """Implement the internal error detail step used by this module's public workflow.
+
+        It remains private so callers depend on the supported public interface.
+        """
 
         try:
             payload = json.loads(error.read().decode("utf-8"))

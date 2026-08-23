@@ -30,6 +30,11 @@ def create_scope_validation(
     request: ScopeValidationCreateRequest,
     db: Session = Depends(get_db),
 ):
+    """Handle the HTTP request that asks PTAS to create scope validation.
+
+    FastAPI validates inputs and supplies a database session before this endpoint
+    delegates to its controller.
+    """
     controller = ScopeValidationController(db)
     return controller.create_scope_validation(request)
 
@@ -39,6 +44,11 @@ def get_all_scope_validations(
     project_id: int | None = Query(default=None, gt=0),
     db: Session = Depends(get_db),
 ):
+    """Handle the HTTP request that asks PTAS to get all scope validations.
+
+    FastAPI validates inputs and supplies a database session before this endpoint
+    delegates to its controller.
+    """
     controller = ScopeValidationController(db)
     return controller.get_all_scope_validations(project_id)
 
@@ -48,6 +58,11 @@ def get_scope_validation_by_id(
     scope_validation_id: int,
     db: Session = Depends(get_db),
 ):
+    """Handle the HTTP request that asks PTAS to get scope validation by id.
+
+    FastAPI validates inputs and supplies a database session before this endpoint
+    delegates to its controller.
+    """
     controller = ScopeValidationController(db)
     return controller.get_scope_validation_by_id(scope_validation_id)
 
@@ -58,6 +73,11 @@ def update_scope_validation(
     request: ScopeValidationUpdateRequest,
     db: Session = Depends(get_db),
 ):
+    """Handle the HTTP request that asks PTAS to update scope validation.
+
+    FastAPI validates inputs and supplies a database session before this endpoint
+    delegates to its controller.
+    """
     controller = ScopeValidationController(db)
     return controller.update_scope_validation(scope_validation_id, request)
 
@@ -67,6 +87,11 @@ def delete_scope_validation(
     scope_validation_id: int,
     db: Session = Depends(get_db),
 ):
+    """Handle the HTTP request that asks PTAS to delete scope validation.
+
+    FastAPI validates inputs and supplies a database session before this endpoint
+    delegates to its controller.
+    """
     controller = ScopeValidationController(db)
     return controller.delete_scope_validation(scope_validation_id)
 
@@ -76,5 +101,10 @@ def check_target_scope(
     request: ScopeCheckRequest,
     db: Session = Depends(get_db),
 ):
+    """Handle the HTTP request that asks PTAS to check target scope.
+
+    FastAPI validates inputs and supplies a database session before this endpoint
+    delegates to its controller.
+    """
     controller = ScopeValidationController(db)
     return controller.check_target_in_scope(request.project_id, request.target_value)

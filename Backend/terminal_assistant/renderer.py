@@ -9,19 +9,49 @@ from Backend.terminal_assistant.models import AnalysisResult
 
 
 class ConsoleRenderer:
+    """Represent or coordinate ConsoleRenderer in the terminal guidance pipeline.
+
+    The assistant analyzes evidence but never automatically executes its
+    recommendations.
+    """
     def __init__(self):
+        """Initialize the object with the dependencies required by its public operations.
+
+        Dependencies are stored once so each call uses the same request-scoped
+        collaborators.
+        """
         self.color = sys.stdout.isatty() and "NO_COLOR" not in os.environ
 
     def _paint(self, code: str, text: str) -> str:
+        """Perform the paint step of the terminal guidance pipeline.
+
+        The operation works with sanitized evidence and does not execute a recommended
+        security command.
+        """
         return f"\033[{code}m{text}\033[0m" if self.color else text
 
     def status(self, message: str) -> None:
+        """Perform the status step of the terminal guidance pipeline.
+
+        The operation works with sanitized evidence and does not execute a recommended
+        security command.
+        """
         print(self._paint("36", f"[PTAS] {message}"), flush=True)
 
     def warning(self, message: str) -> None:
+        """Perform the warning step of the terminal guidance pipeline.
+
+        The operation works with sanitized evidence and does not execute a recommended
+        security command.
+        """
         print(self._paint("33", f"[PTAS] {message}"), flush=True)
 
     def render(self, result: AnalysisResult) -> None:
+        """Perform the render step of the terminal guidance pipeline.
+
+        The operation works with sanitized evidence and does not execute a recommended
+        security command.
+        """
         print()
         print(self._paint("1;36", "PTAS terminal observation"))
         if result.command:
@@ -52,6 +82,11 @@ class ConsoleRenderer:
 
 
 def append_audit_event(path: Path, result: AnalysisResult) -> None:
+    """Perform the append audit event step of the terminal guidance pipeline.
+
+    The operation works with sanitized evidence and does not execute a recommended
+    security command.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(result.to_dict(), sort_keys=True, default=str))

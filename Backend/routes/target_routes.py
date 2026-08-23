@@ -26,6 +26,11 @@ def create_target(
     request: TargetCreateRequest,
     db: Session = Depends(get_db),
 ):
+    """Handle the HTTP request that asks PTAS to create target.
+
+    FastAPI validates inputs and supplies a database session before this endpoint
+    delegates to its controller.
+    """
     controller = TargetController(db)
     return controller.create_target(request)
 
@@ -35,6 +40,11 @@ def get_all_targets(
     project_id: int | None = Query(default=None, gt=0),
     db: Session = Depends(get_db),
 ):
+    """Handle the HTTP request that asks PTAS to get all targets.
+
+    FastAPI validates inputs and supplies a database session before this endpoint
+    delegates to its controller.
+    """
     controller = TargetController(db)
     return controller.get_all_targets(project_id)
 
@@ -44,6 +54,11 @@ def get_target_by_id(
     target_id: int,
     db: Session = Depends(get_db),
 ):
+    """Handle the HTTP request that asks PTAS to get target by id.
+
+    FastAPI validates inputs and supplies a database session before this endpoint
+    delegates to its controller.
+    """
     controller = TargetController(db)
     return controller.get_target_by_id(target_id)
 
@@ -54,6 +69,11 @@ def update_target(
     request: TargetUpdateRequest,
     db: Session = Depends(get_db),
 ):
+    """Handle the HTTP request that asks PTAS to update target.
+
+    FastAPI validates inputs and supplies a database session before this endpoint
+    delegates to its controller.
+    """
     controller = TargetController(db)
     return controller.update_target(target_id, request)
 
@@ -63,5 +83,10 @@ def delete_target(
     target_id: int,
     db: Session = Depends(get_db),
 ):
+    """Handle the HTTP request that asks PTAS to delete target.
+
+    FastAPI validates inputs and supplies a database session before this endpoint
+    delegates to its controller.
+    """
     controller = TargetController(db)
     return controller.delete_target(target_id)

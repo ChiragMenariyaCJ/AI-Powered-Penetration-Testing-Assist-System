@@ -9,6 +9,10 @@ from Backend.database import Base
 
 
 class Report(Base):
+    """Represent the report table in the application database.
+
+    SQLAlchemy maps these attributes and relationships to persisted records.
+    """
     __tablename__ = "reports"
 
     id = Column(Integer, primary_key=True, index=True)

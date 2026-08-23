@@ -10,15 +10,29 @@ from Backend.repositories.target_repository import TargetRepository
 @trace_usecase
 class TargetUseCase:
 
+    """Apply target business rules between controllers and persistence.
+
+    The use case validates related state and coordinates repositories or services.
+    """
     def __init__(
         self,
         target_repository: TargetRepository,
         project_repository: ProjectRepository,
     ):
+        """Initialize the object with the dependencies required by its public operations.
+
+        Dependencies are stored once so each call uses the same request-scoped
+        collaborators.
+        """
         self.target_repository = target_repository
         self.project_repository = project_repository
 
     def create_target(self, request):
+        """Apply business validation and orchestration needed to create target.
+
+        Invalid related records or state produce a clear HTTP error; valid work is
+        delegated to repositories or services.
+        """
         project = self.project_repository.get_project_by_id(request.project_id)
 
         if not project:
@@ -37,6 +51,11 @@ class TargetUseCase:
         )
 
     def get_all_targets(self, project_id: int | None = None):
+        """Apply business validation and orchestration needed to get all targets.
+
+        Invalid related records or state produce a clear HTTP error; valid work is
+        delegated to repositories or services.
+        """
         if project_id is not None:
             project = self.project_repository.get_project_by_id(project_id)
 
@@ -58,6 +77,11 @@ class TargetUseCase:
         }
 
     def get_target_by_id(self, target_id: int):
+        """Apply business validation and orchestration needed to get target by id.
+
+        Invalid related records or state produce a clear HTTP error; valid work is
+        delegated to repositories or services.
+        """
         target = self.target_repository.get_target_by_id(target_id)
 
         if not target:
@@ -69,6 +93,11 @@ class TargetUseCase:
         return target
 
     def update_target(self, target_id: int, request):
+        """Apply business validation and orchestration needed to update target.
+
+        Invalid related records or state produce a clear HTTP error; valid work is
+        delegated to repositories or services.
+        """
         target = self.target_repository.get_target_by_id(target_id)
 
         if not target:
@@ -91,6 +120,11 @@ class TargetUseCase:
         )
 
     def delete_target(self, target_id: int):
+        """Apply business validation and orchestration needed to delete target.
+
+        Invalid related records or state produce a clear HTTP error; valid work is
+        delegated to repositories or services.
+        """
         target = self.target_repository.get_target_by_id(target_id)
 
         if not target:

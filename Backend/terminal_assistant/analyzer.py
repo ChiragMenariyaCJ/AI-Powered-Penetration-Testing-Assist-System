@@ -51,13 +51,27 @@ HTTP_STATUS = re.compile(r"(?m)^HTTP/\d(?:\.\d)?\s+(?P<status>\d{3})\b")
 
 
 class TerminalAnalyzer:
-    """Convert sanitized terminal output into scoped, read-only suggestions."""
+    """Represent or coordinate TerminalAnalyzer in the terminal guidance pipeline.
+
+    The assistant analyzes evidence but never automatically executes its
+    recommendations.
+    """
 
     def __init__(self, scope_guard: ScopeGuard):
+        """Initialize the object with the dependencies required by its public operations.
+
+        Dependencies are stored once so each call uses the same request-scoped
+        collaborators.
+        """
         self.scope_guard = scope_guard
 
     @staticmethod
     def extract_latest_command(text: str) -> str | None:
+        """Perform the extract latest command step of the terminal guidance pipeline.
+
+        The operation works with sanitized evidence and does not execute a recommended
+        security command.
+        """
         matches = list(PROMPT_COMMAND.finditer(text))
         if matches:
             return matches[-1].group("command").strip()
@@ -80,6 +94,11 @@ class TerminalAnalyzer:
 
     @staticmethod
     def command_tool(command: str | None) -> str | None:
+        """Perform the command tool step of the terminal guidance pipeline.
+
+        The operation works with sanitized evidence and does not execute a recommended
+        security command.
+        """
         if not command:
             return None
         try:
@@ -99,6 +118,11 @@ class TerminalAnalyzer:
         context_command: str | None = None,
         explicit_targets: list[str] | None = None,
     ) -> AnalysisResult:
+        """Perform the analyze step of the terminal guidance pipeline.
+
+        The operation works with sanitized evidence and does not execute a recommended
+        security command.
+        """
         clean_text = sanitize_terminal_text(text)
         command = self.extract_latest_command(clean_text) or context_command
         tool = self.command_tool(command)
@@ -157,6 +181,11 @@ class TerminalAnalyzer:
         return result
 
     def _collect_findings(self, text: str, result: AnalysisResult) -> None:
+        """Perform the collect findings step of the terminal guidance pipeline.
+
+        The operation works with sanitized evidence and does not execute a recommended
+        security command.
+        """
         for match in NMAP_PORT.finditer(text):
             port = int(match.group("port"))
             if not 0 < port <= 65535:
@@ -217,10 +246,20 @@ class TerminalAnalyzer:
 
     @staticmethod
     def _append_unique(items: list[str], value: str) -> None:
+        """Perform the append unique step of the terminal guidance pipeline.
+
+        The operation works with sanitized evidence and does not execute a recommended
+        security command.
+        """
         if value not in items:
             items.append(value)
 
     def _build_suggestions(self, text: str, result: AnalysisResult) -> None:
+        """Perform the build suggestions step of the terminal guidance pipeline.
+
+        The operation works with sanitized evidence and does not execute a recommended
+        security command.
+        """
         open_services = [
             finding.evidence
             for finding in result.findings

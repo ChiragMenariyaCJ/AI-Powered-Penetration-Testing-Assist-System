@@ -9,7 +9,16 @@ from Backend.models.target_model import Target
 @trace_repository
 class TargetRepository:
 
+    """Provide database operations for target records.
+
+    This layer owns SQLAlchemy queries and transaction boundaries for the feature.
+    """
     def __init__(self, db: Session):
+        """Initialize the object with the dependencies required by its public operations.
+
+        Dependencies are stored once so each call uses the same request-scoped
+        collaborators.
+        """
         self.db = db
 
     def create_target(
@@ -21,6 +30,11 @@ class TargetRepository:
         scope: str | None,
         status: str,
     ) -> Target:
+        """Create and commit the requested target record.
+
+        The committed instance is refreshed so generated database values are available
+        to callers.
+        """
         target = Target(
             project_id=project_id,
             target_name=target_name,
@@ -37,9 +51,19 @@ class TargetRepository:
         return target
 
     def get_all_targets(self) -> list[Target]:
+        """Query target data for get all targets.
+
+        This read operation returns matching model instances without changing database
+        state.
+        """
         return self.db.query(Target).order_by(Target.id.desc()).all()
 
     def get_targets_by_project_id(self, project_id: int) -> list[Target]:
+        """Query target data for get targets by project id.
+
+        This read operation returns matching model instances without changing database
+        state.
+        """
         return (
             self.db.query(Target)
             .filter(Target.project_id == project_id)
@@ -48,6 +72,11 @@ class TargetRepository:
         )
 
     def get_target_by_id(self, target_id: int) -> Target | None:
+        """Query target data for get target by id.
+
+        This read operation returns matching model instances without changing database
+        state.
+        """
         return (
             self.db.query(Target)
             .filter(Target.id == target_id)
@@ -59,6 +88,11 @@ class TargetRepository:
         target: Target,
         update_data: dict,
     ) -> Target:
+        """Persist the state change required to update target.
+
+        The transaction is committed and refreshed before the updated record is
+        returned.
+        """
         for field, value in update_data.items():
             setattr(target, field, value)
 
@@ -68,5 +102,10 @@ class TargetRepository:
         return target
 
     def delete_target(self, target: Target) -> None:
+        """Delete the supplied target record and commit the transaction.
+
+        Callers must validate that the record exists before invoking this persistence
+        operation.
+        """
         self.db.delete(target)
         self.db.commit()

@@ -49,7 +49,11 @@ def generate_report(
 
 @router.get("/{report_id}", response_model=ReportResponse)
 def get_report(report_id: int, db: Session = Depends(get_db)):
-    """Get a specific report by ID"""
+    """Handle the HTTP request that asks PTAS to get report.
+
+    FastAPI validates inputs and supplies a database session before this endpoint
+    delegates to its controller.
+    """
     result = ReportController.get_report(db, report_id)
 
     if "error" in result:
@@ -60,13 +64,21 @@ def get_report(report_id: int, db: Session = Depends(get_db)):
 
 @router.get("/scan/{scan_id}")
 def get_reports_by_scan(scan_id: int, db: Session = Depends(get_db)):
-    """Get all reports generated for a specific scan"""
+    """Handle the HTTP request that asks PTAS to get reports by scan.
+
+    FastAPI validates inputs and supplies a database session before this endpoint
+    delegates to its controller.
+    """
     return ReportController.get_reports_by_scan(db, scan_id)
 
 
 @router.get("/")
 def list_reports(skip: int = 0, limit: int = 10, db: Session = Depends(get_db)):
-    """List all reports with pagination"""
+    """Handle the HTTP request that asks PTAS to list reports.
+
+    FastAPI validates inputs and supplies a database session before this endpoint
+    delegates to its controller.
+    """
     return ReportController.list_all_reports(db, skip, limit)
 
 
@@ -98,7 +110,11 @@ def export_report(
 
 @router.post("/{report_id}/regenerate")
 def regenerate_report(report_id: int, db: Session = Depends(get_db)):
-    """Regenerate a report"""
+    """Handle the HTTP request that asks PTAS to regenerate report.
+
+    FastAPI validates inputs and supplies a database session before this endpoint
+    delegates to its controller.
+    """
     # This would fetch the original report, get the scan, and regenerate
     # Implementation depends on your specific requirements
     return {"message": "Report regeneration not yet implemented"}
@@ -106,7 +122,11 @@ def regenerate_report(report_id: int, db: Session = Depends(get_db)):
 
 @router.delete("/{report_id}")
 def delete_report(report_id: int, db: Session = Depends(get_db)):
-    """Delete a report"""
+    """Handle the HTTP request that asks PTAS to delete report.
+
+    FastAPI validates inputs and supplies a database session before this endpoint
+    delegates to its controller.
+    """
     from Backend.repositories.report_repository import ReportRepository
 
     success = ReportRepository.delete_report(db, report_id)

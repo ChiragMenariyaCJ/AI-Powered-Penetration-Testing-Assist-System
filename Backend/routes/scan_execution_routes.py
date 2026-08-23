@@ -33,13 +33,21 @@ def get_scan_results(
     scan_id: int,
     db: Session = Depends(get_db),
 ):
-    """Get parsed results from a completed scan"""
+    """Handle the HTTP request that asks PTAS to get scan results.
+
+    FastAPI validates inputs and supplies a database session before this endpoint
+    delegates to its controller.
+    """
     controller = ScanExecutionController(db)
     return controller.get_scan_results(scan_id)
 
 
 @router.get("/status/nmap-availability")
 def check_nmap_availability(db: Session = Depends(get_db)):
-    """Check if Nmap is installed and available"""
+    """Handle the HTTP request that asks PTAS to check nmap availability.
+
+    FastAPI validates inputs and supplies a database session before this endpoint
+    delegates to its controller.
+    """
     controller = ScanExecutionController(db)
     return controller.validate_nmap_availability()

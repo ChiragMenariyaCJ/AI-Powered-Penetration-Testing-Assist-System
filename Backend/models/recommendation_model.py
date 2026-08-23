@@ -9,6 +9,10 @@ from Backend.database import Base
 
 
 class Recommendation(Base):
+    """Represent the recommendation table in the application database.
+
+    SQLAlchemy maps these attributes and relationships to persisted records.
+    """
     __tablename__ = "recommendations"
 
     id = Column(Integer, primary_key=True, index=True)

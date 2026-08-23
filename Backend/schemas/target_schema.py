@@ -11,6 +11,10 @@ TargetStatus = Literal["ACTIVE", "INACTIVE", "ARCHIVED"]
 
 
 class TargetCreateRequest(BaseModel):
+    """Validate the fields used when creating a new record.
+
+    Pydantic applies the declared types and constraints before application code runs.
+    """
     project_id: int = Field(gt=0)
     target_name: str = Field(min_length=2, max_length=150)
     target_type: TargetType = "HOST"
@@ -20,6 +24,10 @@ class TargetCreateRequest(BaseModel):
 
 
 class TargetUpdateRequest(BaseModel):
+    """Validate the fields used when updating an existing record.
+
+    Pydantic applies the declared types and constraints before application code runs.
+    """
     target_name: str | None = Field(default=None, min_length=2, max_length=150)
     target_type: TargetType | None = None
     target_value: str | None = Field(default=None, min_length=3, max_length=255)
@@ -28,6 +36,10 @@ class TargetUpdateRequest(BaseModel):
 
 
 class TargetResponse(BaseModel):
+    """Validate the fields used when serializing a successful API response.
+
+    Pydantic applies the declared types and constraints before application code runs.
+    """
     model_config = ConfigDict(from_attributes=True)
 
     id: int
@@ -42,5 +54,9 @@ class TargetResponse(BaseModel):
 
 
 class TargetListResponse(BaseModel):
+    """Validate the fields used when returning a collection and its metadata.
+
+    Pydantic applies the declared types and constraints before application code runs.
+    """
     count: int
     targets: list[TargetResponse]

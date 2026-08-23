@@ -13,14 +13,27 @@ from Backend.config import settings
 
 
 class NmapService:
-    """Service for executing Nmap scans and parsing results"""
+    """Encapsulate the NmapService service behavior.
+
+    Keeping this integration separate prevents external-tool details from leaking into
+    use cases.
+    """
 
     def __init__(self):
+        """Initialize the object with the dependencies required by its public operations.
+
+        Dependencies are stored once so each call uses the same request-scoped
+        collaborators.
+        """
         self.nmap_command = settings.nmap_path
         self.timeout = settings.nmap_timeout
 
     def is_nmap_installed(self) -> bool:
-        """Check if Nmap is installed on the system"""
+        """Perform the service-level operation needed to is nmap installed.
+
+        Inputs are converted to the external tool or renderer format and the normalized
+        result is returned to the use case.
+        """
         try:
             result = subprocess.run(
                 [self.nmap_command, "-V"],
@@ -118,7 +131,11 @@ class NmapService:
         custom_args: Optional[str],
         xml_output: str,
     ) -> list:
-        """Build Nmap command arguments based on scan type"""
+        """Perform the service-level operation needed to build command.
+
+        Inputs are converted to the external tool or renderer format and the normalized
+        result is returned to the use case.
+        """
         cmd = [self.nmap_command, "-oX", xml_output]
 
         if scan_type == "QUICK":
@@ -141,6 +158,11 @@ class NmapService:
 
     @staticmethod
     def _validate_target(target: str) -> str:
+        """Perform the service-level operation needed to validate target.
+
+        Inputs are converted to the external tool or renderer format and the normalized
+        result is returned to the use case.
+        """
         candidate = target.strip().rstrip(".")
         if (
             not candidate
@@ -167,7 +189,11 @@ class NmapService:
         return candidate
 
     def _parse_xml_output(self, xml_file_path: str) -> dict:
-        """Parse Nmap XML output and extract relevant information"""
+        """Perform the service-level operation needed to parse xml output.
+
+        Inputs are converted to the external tool or renderer format and the normalized
+        result is returned to the use case.
+        """
         try:
             tree = ET.parse(xml_file_path)
             root = tree.getroot()
@@ -205,7 +231,11 @@ class NmapService:
             }
 
     def _parse_host(self, host_elem) -> Optional[dict]:
-        """Parse individual host information from Nmap XML"""
+        """Perform the service-level operation needed to parse host.
+
+        Inputs are converted to the external tool or renderer format and the normalized
+        result is returned to the use case.
+        """
         try:
             # Get host status
             status_elem = host_elem.find("status")
@@ -260,7 +290,11 @@ class NmapService:
             return None
 
     def _parse_port(self, port_elem) -> Optional[dict]:
-        """Parse individual port information from Nmap XML"""
+        """Perform the service-level operation needed to parse port.
+
+        Inputs are converted to the external tool or renderer format and the normalized
+        result is returned to the use case.
+        """
         try:
             port_num = port_elem.get("portid")
             protocol = port_elem.get("protocol")
@@ -309,7 +343,11 @@ class NmapService:
             return None
 
     def stop_scan(self, process_pid: int) -> bool:
-        """Stop a running Nmap scan by process ID"""
+        """Perform the service-level operation needed to stop scan.
+
+        Inputs are converted to the external tool or renderer format and the normalized
+        result is returned to the use case.
+        """
         try:
             subprocess.run(
                 ["kill", "-9", str(process_pid)],

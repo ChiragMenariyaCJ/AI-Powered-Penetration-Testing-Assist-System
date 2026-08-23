@@ -11,6 +11,10 @@ ScanStatus = Literal["PENDING", "RUNNING", "COMPLETED", "FAILED", "STOPPED"]
 
 
 class ScanCreateRequest(BaseModel):
+    """Validate the fields used when creating a new record.
+
+    Pydantic applies the declared types and constraints before application code runs.
+    """
     target_id: int = Field(gt=0)
     scan_name: str = Field(min_length=2, max_length=150)
     scan_type: ScanType = "FULL"
@@ -18,6 +22,10 @@ class ScanCreateRequest(BaseModel):
 
 
 class ScanUpdateRequest(BaseModel):
+    """Validate the fields used when updating an existing record.
+
+    Pydantic applies the declared types and constraints before application code runs.
+    """
     scan_name: str | None = Field(default=None, min_length=2, max_length=150)
     scan_type: ScanType | None = None
     status: ScanStatus | None = None
@@ -27,6 +35,10 @@ class ScanUpdateRequest(BaseModel):
 
 
 class ScanResponse(BaseModel):
+    """Validate the fields used when serializing a successful API response.
+
+    Pydantic applies the declared types and constraints before application code runs.
+    """
     model_config = ConfigDict(from_attributes=True)
 
     id: int
@@ -42,5 +54,9 @@ class ScanResponse(BaseModel):
 
 
 class ScanListResponse(BaseModel):
+    """Validate the fields used when returning a collection and its metadata.
+
+    Pydantic applies the declared types and constraints before application code runs.
+    """
     count: int
     scans: list[ScanResponse]

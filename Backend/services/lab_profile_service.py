@@ -13,11 +13,21 @@ import subprocess
 
 
 class LabVerificationError(RuntimeError):
+    """Encapsulate the LabVerificationError service behavior.
+
+    Keeping this integration separate prevents external-tool details from leaking into
+    use cases.
+    """
     pass
 
 
 @dataclass(frozen=True)
 class LabManifest:
+    """Encapsulate the LabManifest service behavior.
+
+    Keeping this integration separate prevents external-tool details from leaking into
+    use cases.
+    """
     name: str
     profile: str
     provider: str
@@ -33,6 +43,11 @@ class LabManifest:
 
 @dataclass(frozen=True)
 class AccessExercise:
+    """Encapsulate the AccessExercise service behavior.
+
+    Keeping this integration separate prevents external-tool details from leaking into
+    use cases.
+    """
     key: str
     service: str
     port: int
@@ -43,6 +58,11 @@ class AccessExercise:
 
 
 class Metasploitable2LabService:
+    """Encapsulate the Metasploitable2LabService service behavior.
+
+    Keeping this integration separate prevents external-tool details from leaking into
+    use cases.
+    """
     PROFILE = "metasploitable2"
     EXPECTED_PORTS = {
         21, 22, 23, 25, 53, 80, 111, 139, 445, 512, 513, 514, 1099,
@@ -51,11 +71,21 @@ class Metasploitable2LabService:
     DISTINCTIVE_PORTS = {21, 23, 139, 445, 1524, 2121, 3306, 5432, 6667, 8180}
 
     def __init__(self, project_dir: Path):
+        """Initialize the object with the dependencies required by its public operations.
+
+        Dependencies are stored once so each call uses the same request-scoped
+        collaborators.
+        """
         self.project_dir = project_dir.resolve()
         self.lab_dir = self.project_dir / ".ptas" / "labs"
 
     @staticmethod
     def _private_host(target: str) -> str:
+        """Perform the service-level operation needed to private host.
+
+        Inputs are converted to the external tool or renderer format and the normalized
+        result is returned to the use case.
+        """
         if "/" in target:
             raise LabVerificationError("Access testing requires one exact host, not a CIDR")
         try:
@@ -68,6 +98,11 @@ class Metasploitable2LabService:
 
     @staticmethod
     def _normalize_mac(value: str) -> str:
+        """Perform the service-level operation needed to normalize mac.
+
+        Inputs are converted to the external tool or renderer format and the normalized
+        result is returned to the use case.
+        """
         compact = re.sub(r"[^0-9a-fA-F]", "", value).lower()
         if len(compact) != 12:
             raise LabVerificationError("VirtualBox did not return a valid VM MAC address")
@@ -75,6 +110,11 @@ class Metasploitable2LabService:
 
     @staticmethod
     def _machine_values(output: str) -> dict[str, str]:
+        """Perform the service-level operation needed to machine values.
+
+        Inputs are converted to the external tool or renderer format and the normalized
+        result is returned to the use case.
+        """
         values = {}
         for line in output.splitlines():
             if "=" not in line:
@@ -85,6 +125,11 @@ class Metasploitable2LabService:
 
     @staticmethod
     def _vmx_values(path: Path) -> dict[str, str]:
+        """Perform the service-level operation needed to vmx values.
+
+        Inputs are converted to the external tool or renderer format and the normalized
+        result is returned to the use case.
+        """
         try:
             lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
         except OSError as exc:
@@ -99,6 +144,11 @@ class Metasploitable2LabService:
 
     @staticmethod
     def _run(command: list[str], timeout: int = 20) -> str:
+        """Perform the service-level operation needed to run.
+
+        Inputs are converted to the external tool or renderer format and the normalized
+        result is returned to the use case.
+        """
         try:
             result = subprocess.run(
                 command,
@@ -114,11 +164,21 @@ class Metasploitable2LabService:
         return result.stdout
 
     def manifest_path(self, name: str) -> Path:
+        """Perform the service-level operation needed to manifest path.
+
+        Inputs are converted to the external tool or renderer format and the normalized
+        result is returned to the use case.
+        """
         if not re.fullmatch(r"[a-zA-Z0-9_-]{1,50}", name):
             raise LabVerificationError("Lab name may contain only letters, numbers, _ and -")
         return self.lab_dir / f"{name}.json"
 
     def register_virtualbox(self, name: str, target: str, vm_identifier: str) -> LabManifest:
+        """Perform the service-level operation needed to register virtualbox.
+
+        Inputs are converted to the external tool or renderer format and the normalized
+        result is returned to the use case.
+        """
         target = self._private_host(target)
         executable = shutil.which("VBoxManage")
         if not executable:
@@ -166,6 +226,11 @@ class Metasploitable2LabService:
         return manifest
 
     def _route_to_target(self, target: str) -> tuple[str | None, str | None]:
+        """Perform the service-level operation needed to route to target.
+
+        Inputs are converted to the external tool or renderer format and the normalized
+        result is returned to the use case.
+        """
         executable = shutil.which("ip")
         if not executable:
             raise LabVerificationError("The ip command is required for route verification")
@@ -185,6 +250,11 @@ class Metasploitable2LabService:
         interface: str = "vmnet1",
         kali_source: str | None = None,
     ) -> LabManifest:
+        """Perform the service-level operation needed to register vmware.
+
+        Inputs are converted to the external tool or renderer format and the normalized
+        result is returned to the use case.
+        """
         target = self._private_host(target)
         vmx_path = Path(vm_identifier).expanduser().resolve()
         if vmx_path.suffix.lower() != ".vmx" or not vmx_path.is_file():
@@ -247,6 +317,11 @@ class Metasploitable2LabService:
         return manifest
 
     def load(self, name: str) -> LabManifest:
+        """Perform the service-level operation needed to load.
+
+        Inputs are converted to the external tool or renderer format and the normalized
+        result is returned to the use case.
+        """
         path = self.manifest_path(name)
         if not path.is_file():
             raise LabVerificationError(f"Lab manifest not found: {path}")
@@ -256,6 +331,11 @@ class Metasploitable2LabService:
             raise LabVerificationError(f"Invalid lab manifest: {exc}") from exc
 
     def verify_virtualbox(self, manifest: LabManifest) -> list[str]:
+        """Perform the service-level operation needed to verify virtualbox.
+
+        Inputs are converted to the external tool or renderer format and the normalized
+        result is returned to the use case.
+        """
         executable = shutil.which("VBoxManage")
         if not executable:
             raise LabVerificationError("VBoxManage is not installed or not on PATH")
@@ -296,6 +376,11 @@ class Metasploitable2LabService:
         return snapshots
 
     def verify_vmware(self, manifest: LabManifest) -> list[str]:
+        """Perform the service-level operation needed to verify vmware.
+
+        Inputs are converted to the external tool or renderer format and the normalized
+        result is returned to the use case.
+        """
         vmx_path = Path(manifest.vm_identifier).expanduser().resolve()
         values = self._vmx_values(vmx_path)
         vm_uuid = values.get("uuid.bios") or values.get("uuid.location", "")
@@ -352,6 +437,11 @@ class Metasploitable2LabService:
         return snapshots
 
     def verify_runtime(self, manifest: LabManifest) -> list[str]:
+        """Perform the service-level operation needed to verify runtime.
+
+        Inputs are converted to the external tool or renderer format and the normalized
+        result is returned to the use case.
+        """
         if manifest.provider == "virtualbox":
             return self.verify_virtualbox(manifest)
         if manifest.provider == "vmware":
@@ -359,6 +449,11 @@ class Metasploitable2LabService:
         raise LabVerificationError("Only registered VirtualBox or VMware Metasploitable 2 labs are allowed")
 
     def verify_neighbor(self, manifest: LabManifest) -> None:
+        """Perform the service-level operation needed to verify neighbor.
+
+        Inputs are converted to the external tool or renderer format and the normalized
+        result is returned to the use case.
+        """
         executable = shutil.which("ip")
         if not executable:
             raise LabVerificationError("The ip command is required for MAC verification")
@@ -370,6 +465,11 @@ class Metasploitable2LabService:
             raise LabVerificationError("Target IP resolves to a different MAC than the registered VM")
 
     def verify_scan(self, manifest: LabManifest, scan, findings: list) -> set[int]:
+        """Perform the service-level operation needed to verify scan.
+
+        Inputs are converted to the external tool or renderer format and the normalized
+        result is returned to the use case.
+        """
         if manifest.profile != self.PROFILE or manifest.provider not in {"virtualbox", "vmware"}:
             raise LabVerificationError("Only the registered Metasploitable 2 lab profile is allowed")
         if scan.target.target_value != manifest.target:
@@ -385,6 +485,11 @@ class Metasploitable2LabService:
 
     @staticmethod
     def exercises(target: str, ports: set[int]) -> list[AccessExercise]:
+        """Perform the service-level operation needed to exercises.
+
+        Inputs are converted to the external tool or renderer format and the normalized
+        result is returned to the use case.
+        """
         catalog = [
             AccessExercise(
                 "ssh_training_login", "SSH", 22,

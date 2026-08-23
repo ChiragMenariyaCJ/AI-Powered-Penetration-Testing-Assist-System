@@ -1,3 +1,5 @@
+"""Exercise backend layers, logging decorators, and database-backed workflows."""
+
 import asyncio
 import unittest
 from types import SimpleNamespace
@@ -38,7 +40,17 @@ from Backend.utils.password_utils import hash_password, verify_password
 
 
 class FakeNmapService:
+    """Provide the FakeNmapService test double used by this test module.
+
+    It records or returns deterministic data so the tests do not require an external
+    process.
+    """
     def execute_scan(self, target: str, scan_type: str) -> dict:
+        """Support the test scenario by providing the execute scan behavior.
+
+        The deterministic implementation keeps the test focused on PTAS rather than
+        external systems.
+        """
         return {
             "status": "COMPLETED",
             "started_at": "2026-01-01T00:00:00",
@@ -63,7 +75,16 @@ class FakeNmapService:
 
 
 class BackendWorkflowTests(unittest.TestCase):
+    """Group regression tests for BackendWorkflow.
+
+    Each test documents one externally observable behavior that future changes must
+    preserve.
+    """
     def setUp(self):
+        """Create the isolated records and collaborators required by each test.
+
+        A fresh setup prevents state from one regression scenario affecting another.
+        """
         self.engine = create_engine("sqlite:///:memory:")
         Base.metadata.create_all(self.engine)
         self.session = sessionmaker(bind=self.engine)()
@@ -105,15 +126,27 @@ class BackendWorkflowTests(unittest.TestCase):
         self.session.commit()
 
     def tearDown(self):
+        """Release database and temporary resources created for the completed test.
+
+        Cleanup keeps later tests independent and avoids leaked connections or files.
+        """
         self.session.close()
         self.engine.dispose()
 
     def test_password_hashing_works_with_supported_bcrypt(self):
+        """Verify that password hashing works with supported bcrypt.
+
+        This regression test fails if a future change breaks the described contract.
+        """
         hashed = hash_password("safe-test-password")
         self.assertTrue(verify_password("safe-test-password", hashed))
         self.assertFalse(verify_password("wrong-password", hashed))
 
     def test_login_returns_user_identity_for_the_terminal_api_client(self):
+        """Verify that login returns user identity for the terminal api client.
+
+        This regression test fails if a future change breaks the described contract.
+        """
         request = SimpleNamespace(
             email="terminal@example.test",
             password="safe-test-password",
@@ -126,6 +159,10 @@ class BackendWorkflowTests(unittest.TestCase):
         self.assertIn("access_token", result)
 
     def test_every_feature_endpoint_uses_controller_logging(self):
+        """Verify that every feature endpoint uses controller logging.
+
+        This regression test fails if a future change breaks the described contract.
+        """
         routes = [
             route
             for router, _, _ in ROUTERS
@@ -137,6 +174,10 @@ class BackendWorkflowTests(unittest.TestCase):
         self.assertTrue(all(isinstance(route, LoggedRoute) for route in routes))
 
     def test_request_logger_reports_handler_status_and_duration(self):
+        """Verify that request logger reports handler status and duration.
+
+        This regression test fails if a future change breaks the described contract.
+        """
         async def endpoint():
             return {"ok": True}
 
@@ -167,9 +208,23 @@ class BackendWorkflowTests(unittest.TestCase):
         self.assertIn("duration=", output)
 
     def test_controller_decorator_reports_called_method(self):
+        """Verify that controller decorator reports called method.
+
+        This regression test fails if a future change breaks the described contract.
+        """
         @trace_controller
         class DemoController:
+            """Provide the DemoController test double used by this test module.
+
+            It records or returns deterministic data so the tests do not require an
+            external process.
+            """
             def load_record(self):
+                """Support the test scenario by providing the load record behavior.
+
+                The deterministic implementation keeps the test focused on PTAS rather
+                than external systems.
+                """
                 return {"id": 7}
 
         with self.assertLogs("uvicorn.error", level="INFO") as captured:
@@ -183,17 +238,46 @@ class BackendWorkflowTests(unittest.TestCase):
         self.assertIn("duration=", output)
 
     def test_usecase_and_repository_decorators_report_each_layer(self):
+        """Verify that usecase and repository decorators report each layer.
+
+        This regression test fails if a future change breaks the described contract.
+        """
         @trace_repository
         class DemoRepository:
+            """Provide the DemoRepository test double used by this test module.
+
+            It records or returns deterministic data so the tests do not require an
+            external process.
+            """
             def load_record(self):
+                """Support the test scenario by providing the load record behavior.
+
+                The deterministic implementation keeps the test focused on PTAS rather
+                than external systems.
+                """
                 return {"id": 7}
 
         @trace_usecase
         class DemoUseCase:
+            """Provide the DemoUseCase test double used by this test module.
+
+            It records or returns deterministic data so the tests do not require an
+            external process.
+            """
             def __init__(self):
+                """Support the test scenario by providing the init behavior.
+
+                The deterministic implementation keeps the test focused on PTAS rather
+                than external systems.
+                """
                 self.repository = DemoRepository()
 
             def get_record(self):
+                """Support the test scenario by providing the get record behavior.
+
+                The deterministic implementation keeps the test focused on PTAS rather
+                than external systems.
+                """
                 return self.repository.load_record()
 
         with self.assertLogs("uvicorn.error", level="INFO") as captured:
@@ -209,6 +293,10 @@ class BackendWorkflowTests(unittest.TestCase):
         self.assertIn("API usecase returned", output)
 
     def test_scan_execution_uses_project_repository_for_scope(self):
+        """Verify that scan execution uses project repository for scope.
+
+        This regression test fails if a future change breaks the described contract.
+        """
         usecase = ScanExecutionUseCase(
             ScanRepository(self.session),
             TargetRepository(self.session),
@@ -230,6 +318,10 @@ class BackendWorkflowTests(unittest.TestCase):
         self.assertEqual(1, len(persisted))
 
     def test_scan_rejects_mismatched_project(self):
+        """Verify that scan rejects mismatched project.
+
+        This regression test fails if a future change breaks the described contract.
+        """
         other_project = Project(
             user_id=self.project.user_id,
             project_name="Different project",
@@ -250,6 +342,10 @@ class BackendWorkflowTests(unittest.TestCase):
         self.assertEqual(400, raised.exception.status_code)
 
     def test_report_generation_and_response_schema(self):
+        """Verify that report generation and response schema.
+
+        This regression test fails if a future change breaks the described contract.
+        """
         generated = ReportUseCase.generate_report(
             self.session,
             self.scan.id,

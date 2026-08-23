@@ -11,11 +11,20 @@ from Backend.terminal_assistant.safety import filter_safe_recommendations
 
 
 class AdvisorError(RuntimeError):
+    """Represent or coordinate AdvisorError in the terminal guidance pipeline.
+
+    The assistant analyzes evidence but never automatically executes its
+    recommendations.
+    """
     pass
 
 
 class OllamaAdvisor:
-    """Optional local-model advisor. Terminal content stays local by default."""
+    """Represent or coordinate OllamaAdvisor in the terminal guidance pipeline.
+
+    The assistant analyzes evidence but never automatically executes its
+    recommendations.
+    """
 
     def __init__(
         self,
@@ -24,6 +33,11 @@ class OllamaAdvisor:
         allow_remote: bool = False,
         timeout: int = 20,
     ):
+        """Initialize the object with the dependencies required by its public operations.
+
+        Dependencies are stored once so each call uses the same request-scoped
+        collaborators.
+        """
         if not model:
             raise ValueError("An Ollama model name is required")
         self.model = model
@@ -43,6 +57,11 @@ class OllamaAdvisor:
             )
 
     def advise(self, result: AnalysisResult, excerpt: str) -> list[str]:
+        """Perform the advise step of the terminal guidance pipeline.
+
+        The operation works with sanitized evidence and does not execute a recommended
+        security command.
+        """
         if result.scope_allowed is False:
             return []
 
@@ -55,11 +74,21 @@ class OllamaAdvisor:
         authorized_targets: list[str] | None = None,
         limit: int = 5,
     ) -> list[str]:
+        """Perform the advise prompt step of the terminal guidance pipeline.
+
+        The operation works with sanitized evidence and does not execute a recommended
+        security command.
+        """
         response_text = self.complete(prompt)
         suggestions = self._parse_suggestions(response_text, limit=limit * 2)
         return filter_safe_recommendations(suggestions, authorized_targets, limit)
 
     def complete(self, prompt: str) -> str:
+        """Perform the complete step of the terminal guidance pipeline.
+
+        The operation works with sanitized evidence and does not execute a recommended
+        security command.
+        """
         payload = json.dumps(
             {
                 "model": self.model,
@@ -85,6 +114,11 @@ class OllamaAdvisor:
 
     @staticmethod
     def _parse_suggestions(response_text: str, limit: int = 5) -> list[str]:
+        """Perform the parse suggestions step of the terminal guidance pipeline.
+
+        The operation works with sanitized evidence and does not execute a recommended
+        security command.
+        """
         suggestions: list[str] = []
         for line in response_text.splitlines():
             cleaned = line.strip().lstrip("-*•0123456789. ").strip()
@@ -96,6 +130,11 @@ class OllamaAdvisor:
 
     @staticmethod
     def _prompt(result: AnalysisResult, excerpt: str) -> str:
+        """Perform the prompt step of the terminal guidance pipeline.
+
+        The operation works with sanitized evidence and does not execute a recommended
+        security command.
+        """
         findings = "\n".join(
             f"- {finding.summary}: {finding.evidence}"
             for finding in result.findings

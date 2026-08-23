@@ -11,6 +11,10 @@ RecommendationStatus = Literal["PENDING_APPROVAL", "APPROVED", "REJECTED", "EXEC
 
 
 class RecommendationCreateRequest(BaseModel):
+    """Validate the fields used when creating a new record.
+
+    Pydantic applies the declared types and constraints before application code runs.
+    """
     vulnerability_id: int = Field(gt=0)
     attack_technique: str = Field(min_length=3, max_length=255)
     mitre_technique_id: str | None = Field(default=None, max_length=50)
@@ -27,6 +31,10 @@ class RecommendationCreateRequest(BaseModel):
 
 
 class RecommendationUpdateRequest(BaseModel):
+    """Validate the fields used when updating an existing record.
+
+    Pydantic applies the declared types and constraints before application code runs.
+    """
     attack_technique: str | None = Field(default=None, min_length=3, max_length=255)
     exploitation_method: str | None = Field(default=None, min_length=10, max_length=3000)
     risk_level: RiskLevel | None = None
@@ -36,6 +44,10 @@ class RecommendationUpdateRequest(BaseModel):
 
 
 class RecommendationResponse(BaseModel):
+    """Validate the fields used when serializing a successful API response.
+
+    Pydantic applies the declared types and constraints before application code runs.
+    """
     model_config = ConfigDict(from_attributes=True)
 
     id: int
@@ -59,15 +71,27 @@ class RecommendationResponse(BaseModel):
 
 
 class RecommendationListResponse(BaseModel):
+    """Validate the fields used when returning a collection and its metadata.
+
+    Pydantic applies the declared types and constraints before application code runs.
+    """
     count: int
     recommendations: list[RecommendationResponse]
 
 
 class AIRecommendationRequest(BaseModel):
+    """Validate the fields used when exchanging AIRecommendationRequest data through the API.
+
+    Pydantic applies the declared types and constraints before application code runs.
+    """
     vulnerability_id: int = Field(gt=0)
 
 
 class RecommendationScore(BaseModel):
+    """Validate the fields used when exchanging RecommendationScore data through the API.
+
+    Pydantic applies the declared types and constraints before application code runs.
+    """
     risk_score: int  # 0-100
     attack_complexity: str  # LOW, MEDIUM, HIGH
     required_privileges: str  # NONE, LOW, HIGH

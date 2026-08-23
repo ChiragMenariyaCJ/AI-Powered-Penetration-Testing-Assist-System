@@ -21,14 +21,28 @@ LAB_HOSTNAME_PATTERN = re.compile(
 
 @dataclass(frozen=True)
 class ScopeDecision:
+    """Represent or coordinate ScopeDecision in the terminal guidance pipeline.
+
+    The assistant analyzes evidence but never automatically executes its
+    recommendations.
+    """
     allowed: bool
     blocked_targets: list[str]
 
 
 class ScopeGuard:
-    """Match observed targets against explicit IP, network, or domain scopes."""
+    """Represent or coordinate ScopeGuard in the terminal guidance pipeline.
+
+    The assistant analyzes evidence but never automatically executes its
+    recommendations.
+    """
 
     def __init__(self, entries: list[str]):
+        """Initialize the object with the dependencies required by its public operations.
+
+        Dependencies are stored once so each call uses the same request-scoped
+        collaborators.
+        """
         if not entries:
             raise ValueError("At least one authorized scope entry is required")
 
@@ -45,6 +59,11 @@ class ScopeGuard:
             raise ValueError("No valid scope entries were supplied")
 
     def _add_entry(self, entry: str) -> None:
+        """Perform the add entry step of the terminal guidance pipeline.
+
+        The operation works with sanitized evidence and does not execute a recommended
+        security command.
+        """
         hostname = self._hostname(entry) if "://" in entry else None
         candidate = hostname or entry
 
@@ -74,6 +93,11 @@ class ScopeGuard:
 
     @staticmethod
     def _hostname(value: str) -> str | None:
+        """Perform the hostname step of the terminal guidance pipeline.
+
+        The operation works with sanitized evidence and does not execute a recommended
+        security command.
+        """
         parsed_value = value if "://" in value else f"//{value}"
         try:
             return urlparse(parsed_value).hostname
@@ -81,6 +105,11 @@ class ScopeGuard:
             return None
 
     def is_allowed(self, target: str) -> bool:
+        """Perform the is allowed step of the terminal guidance pipeline.
+
+        The operation works with sanitized evidence and does not execute a recommended
+        security command.
+        """
         hostname = self._hostname(target) if "://" in target else target
         hostname = hostname.strip().strip("[]").lower().rstrip(".")
 
@@ -102,11 +131,21 @@ class ScopeGuard:
             )
 
     def check(self, targets: list[str]) -> ScopeDecision:
+        """Perform the check step of the terminal guidance pipeline.
+
+        The operation works with sanitized evidence and does not execute a recommended
+        security command.
+        """
         blocked = [target for target in targets if not self.is_allowed(target)]
         return ScopeDecision(allowed=not blocked, blocked_targets=blocked)
 
     @staticmethod
     def extract_targets(text: str) -> list[str]:
+        """Perform the extract targets step of the terminal guidance pipeline.
+
+        The operation works with sanitized evidence and does not execute a recommended
+        security command.
+        """
         targets: list[str] = []
 
         for url in URL_PATTERN.findall(text):

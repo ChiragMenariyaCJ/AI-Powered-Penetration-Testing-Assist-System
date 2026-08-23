@@ -16,6 +16,10 @@ from Backend.repositories.vulnerability_repository import VulnerabilityRepositor
 
 @trace_usecase
 class ReportUseCase:
+    """Apply report business rules between controllers and persistence.
+
+    The use case validates related state and coordinates repositories or services.
+    """
     @staticmethod
     def generate_report(
         db: Session, scan_id: int, title: str, description: str = None, generated_by: str = None
@@ -101,7 +105,11 @@ class ReportUseCase:
 
     @staticmethod
     def _calculate_vulnerability_summary(vulnerabilities: list[Vulnerability]) -> dict:
-        """Calculate vulnerability counts by severity"""
+        """Apply business validation and orchestration needed to calculate vulnerability summary.
+
+        Invalid related records or state produce a clear HTTP error; valid work is
+        delegated to repositories or services.
+        """
         severity_map = {
             "CRITICAL": 0,
             "HIGH": 0,
@@ -128,7 +136,11 @@ class ReportUseCase:
     def _calculate_recommendation_summary(
         db: Session, vulnerabilities: list[Vulnerability]
     ) -> dict:
-        """Calculate recommendation counts by status"""
+        """Apply business validation and orchestration needed to calculate recommendation summary.
+
+        Invalid related records or state produce a clear HTTP error; valid work is
+        delegated to repositories or services.
+        """
         vuln_ids = [v.id for v in vulnerabilities]
 
         if not vuln_ids:
@@ -162,7 +174,11 @@ class ReportUseCase:
 
     @staticmethod
     def _gather_scan_metadata(db: Session, scan: Scan) -> dict:
-        """Gather scan metadata"""
+        """Apply business validation and orchestration needed to gather scan metadata.
+
+        Invalid related records or state produce a clear HTTP error; valid work is
+        delegated to repositories or services.
+        """
         # Count unique targets in scan
         targets = db.query(Vulnerability.host).filter(
             Vulnerability.scan_id == scan.id
@@ -188,7 +204,11 @@ class ReportUseCase:
         title: str,
         description: str = None,
     ) -> str:
-        """Generate detailed JSON report content"""
+        """Apply business validation and orchestration needed to generate report content.
+
+        Invalid related records or state produce a clear HTTP error; valid work is
+        delegated to repositories or services.
+        """
         vuln_list = []
 
         for vuln in vulnerabilities:
@@ -250,7 +270,11 @@ class ReportUseCase:
 
     @staticmethod
     def get_report(db: Session, report_id: int) -> dict:
-        """Get report by ID"""
+        """Apply business validation and orchestration needed to get report.
+
+        Invalid related records or state produce a clear HTTP error; valid work is
+        delegated to repositories or services.
+        """
         report = ReportRepository.get_report_by_id(db, report_id)
         if not report:
             return {"error": f"Report {report_id} not found"}
@@ -291,7 +315,11 @@ class ReportUseCase:
 
     @staticmethod
     def get_reports_by_scan(db: Session, scan_id: int) -> dict:
-        """Get all reports for a scan"""
+        """Apply business validation and orchestration needed to get reports by scan.
+
+        Invalid related records or state produce a clear HTTP error; valid work is
+        delegated to repositories or services.
+        """
         reports = ReportRepository.get_reports_by_scan_id(db, scan_id)
         return {
             "scan_id": scan_id,
@@ -309,7 +337,11 @@ class ReportUseCase:
 
     @staticmethod
     def export_report(db: Session, report_id: int, format_type: str, exported_by: str = None) -> dict:
-        """Export report in specified format"""
+        """Apply business validation and orchestration needed to export report.
+
+        Invalid related records or state produce a clear HTTP error; valid work is
+        delegated to repositories or services.
+        """
         report = ReportRepository.get_report_by_id(db, report_id)
         if not report:
             return {"error": f"Report {report_id} not found"}
@@ -334,7 +366,11 @@ class ReportUseCase:
 
     @staticmethod
     def list_all_reports(db: Session, skip: int = 0, limit: int = 10) -> dict:
-        """List all reports with pagination"""
+        """Apply business validation and orchestration needed to list all reports.
+
+        Invalid related records or state produce a clear HTTP error; valid work is
+        delegated to repositories or services.
+        """
         reports = ReportRepository.get_all_reports(db, skip, limit)
         total = ReportRepository.count_reports(db)
 

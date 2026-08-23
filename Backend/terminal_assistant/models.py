@@ -8,6 +8,11 @@ import json
 
 @dataclass(frozen=True)
 class Finding:
+    """Represent or coordinate Finding in the terminal guidance pipeline.
+
+    The assistant analyzes evidence but never automatically executes its
+    recommendations.
+    """
     kind: str
     summary: str
     evidence: str
@@ -16,6 +21,11 @@ class Finding:
 
 @dataclass
 class AnalysisResult:
+    """Represent or coordinate AnalysisResult in the terminal guidance pipeline.
+
+    The assistant analyzes evidence but never automatically executes its
+    recommendations.
+    """
     command: str | None
     tool: str | None
     targets: list[str] = field(default_factory=list)
@@ -28,9 +38,19 @@ class AnalysisResult:
     )
 
     def to_dict(self) -> dict:
+        """Perform the to dict step of the terminal guidance pipeline.
+
+        The operation works with sanitized evidence and does not execute a recommended
+        security command.
+        """
         return asdict(self)
 
     def fingerprint(self) -> str:
+        """Perform the fingerprint step of the terminal guidance pipeline.
+
+        The operation works with sanitized evidence and does not execute a recommended
+        security command.
+        """
         stable_data = {
             "command": self.command,
             "targets": self.targets,

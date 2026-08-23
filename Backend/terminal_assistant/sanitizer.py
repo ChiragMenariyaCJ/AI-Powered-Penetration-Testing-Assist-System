@@ -53,7 +53,11 @@ SECRET_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
 
 
 def sanitize_terminal_text(text: str, max_chars: int = 12000) -> str:
-    """Remove terminal control codes and common secrets before analysis or logging."""
+    """Perform the sanitize terminal text step of the terminal guidance pipeline.
+
+    The operation works with sanitized evidence and does not execute a recommended
+    security command.
+    """
     sanitized = ANSI_ESCAPE.sub("", text)
     sanitized = sanitized.replace("\r\n", "\n").replace("\r", "\n")
     sanitized = CONTROL_CHARACTERS.sub("", sanitized)

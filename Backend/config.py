@@ -9,6 +9,10 @@ try:
     from dotenv import load_dotenv
 except ImportError:  # Environment variables still work without optional .env loading.
     def load_dotenv() -> bool:
+        """Perform the load dotenv operation.
+
+        The type hints describe accepted inputs and the value returned to the caller.
+        """
         return False
 
 
@@ -17,12 +21,20 @@ load_dotenv()
 
 
 def _as_bool(value: str | None, default: bool = False) -> bool:
+    """Implement the internal as bool step used by this module's public workflow.
+
+    It remains private so callers depend on the supported public interface.
+    """
     if value is None:
         return default
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
 def _cors_origins(value: str | None) -> tuple[str, ...]:
+    """Implement the internal cors origins step used by this module's public workflow.
+
+    It remains private so callers depend on the supported public interface.
+    """
     if not value:
         return ("http://localhost:3000", "http://localhost:8000")
 
@@ -38,7 +50,10 @@ def _cors_origins(value: str | None) -> tuple[str, ...]:
 
 @dataclass(frozen=True)
 class Settings:
-    """Validated runtime configuration shared by the API and terminal tools."""
+    """Coordinate the responsibilities of Settings.
+
+    Its public methods provide the supported interface used by the rest of PTAS.
+    """
 
     app_env: str
     database_url: str
@@ -54,11 +69,18 @@ class Settings:
 
     @property
     def is_production(self) -> bool:
+        """Perform the is production operation for Settings.
+
+        The type hints describe accepted inputs and the value returned to the caller.
+        """
         return self.app_env == "production"
 
 
 def get_settings() -> Settings:
-    """Build settings and enforce stricter secrets in production."""
+    """Perform the get settings operation.
+
+    The type hints describe accepted inputs and the value returned to the caller.
+    """
 
     app_env = os.getenv("APP_ENV", "development").strip().lower()
     if app_env not in {"development", "test", "production"}:

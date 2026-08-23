@@ -21,7 +21,10 @@ logger = logging.getLogger("uvicorn.error")
 
 
 def _logged_layer_method(method, layer: str):
-    """Trace one application-layer method while preserving async behavior."""
+    """Implement the internal logged layer method step used by this module's public workflow.
+
+    It remains private so callers depend on the supported public interface.
+    """
 
     method_name = f"{method.__module__}.{method.__qualname__}"
 
@@ -83,7 +86,10 @@ def _logged_layer_method(method, layer: str):
 
 
 def _trace_class(application_class, layer: str):
-    """Wrap every public method belonging to one application-layer class."""
+    """Implement the internal trace class step used by this module's public workflow.
+
+    It remains private so callers depend on the supported public interface.
+    """
 
     for name, attribute in vars(application_class).items():
         if name.startswith("_"):
@@ -101,28 +107,43 @@ def _trace_class(application_class, layer: str):
 
 
 def trace_controller(controller_class):
-    """Trace every public method on a controller class."""
+    """Perform the trace controller operation.
+
+    The type hints describe accepted inputs and the value returned to the caller.
+    """
 
     return _trace_class(controller_class, "controller")
 
 
 def trace_usecase(usecase_class):
-    """Trace every public method on a business-use-case class."""
+    """Perform the trace usecase operation.
+
+    The type hints describe accepted inputs and the value returned to the caller.
+    """
 
     return _trace_class(usecase_class, "usecase")
 
 
 def trace_repository(repository_class):
-    """Trace every public method on a database-repository class."""
+    """Perform the trace repository operation.
+
+    The type hints describe accepted inputs and the value returned to the caller.
+    """
 
     return _trace_class(repository_class, "repository")
 
 
 class LoggedRoute(APIRoute):
-    """Log the route function, status, and duration for every API request."""
+    """Coordinate the responsibilities of LoggedRoute.
+
+    Its public methods provide the supported interface used by the rest of PTAS.
+    """
 
     def get_route_handler(self):
-        """Wrap FastAPI's generated handler with lightweight request tracing."""
+        """Perform the get route handler operation for LoggedRoute.
+
+        The type hints describe accepted inputs and the value returned to the caller.
+        """
 
         original_handler = super().get_route_handler()
         endpoint_name = f"{self.endpoint.__module__}.{self.endpoint.__qualname__}"

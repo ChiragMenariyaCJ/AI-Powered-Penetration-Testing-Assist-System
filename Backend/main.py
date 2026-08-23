@@ -57,7 +57,10 @@ ROUTERS = (
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    """Create missing tables, then keep the application available for requests."""
+    """Perform the lifespan operation.
+
+    The type hints describe accepted inputs and the value returned to the caller.
+    """
 
     Base.metadata.create_all(bind=engine)
     logger.info(
@@ -103,21 +106,30 @@ for router, prefix, tag in ROUTERS:
 
 @app.get("/")
 def home():
-    """Return a simple response confirming that the API process is running."""
+    """Perform the home operation.
+
+    The type hints describe accepted inputs and the value returned to the caller.
+    """
 
     return {"message": "PTAS Backend API is running"}
 
 
 @app.get("/health/live", include_in_schema=False)
 def liveness():
-    """Confirm that the Python process can serve requests."""
+    """Perform the liveness operation.
+
+    The type hints describe accepted inputs and the value returned to the caller.
+    """
 
     return {"status": "ok"}
 
 
 @app.get("/health/ready", include_in_schema=False)
 def readiness():
-    """Confirm that the API can also reach its configured database."""
+    """Perform the readiness operation.
+
+    The type hints describe accepted inputs and the value returned to the caller.
+    """
 
     with engine.connect() as connection:
         connection.execute(text("SELECT 1"))

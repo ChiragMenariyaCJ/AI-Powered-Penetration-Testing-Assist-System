@@ -21,7 +21,11 @@ import time
 
 
 class NativeTerminalError(RuntimeError):
-    """Raised when the native split-terminal window cannot be started."""
+    """Signal that NativeTerminal could not complete safely.
+
+    Callers catch this specific error to present a controlled failure instead of
+    continuing with invalid state.
+    """
 
 
 # ---------------------------------------------------------------------------
@@ -30,13 +34,19 @@ class NativeTerminalError(RuntimeError):
 
 
 def _gvariant_string(value: str) -> str:
-    """Escape one string for QTerminal's D-Bus argument map."""
+    """Implement the internal gvariant string step used by this module's public workflow.
+
+    It remains private so callers depend on the supported public interface.
+    """
 
     return "'" + value.replace("\\", "\\\\").replace("'", "\\'") + "'"
 
 
 def qterminal_argument_map(project_dir: Path, command: list[str]) -> str:
-    """Serialize QTerminal's ``a{sv}`` split-terminal argument map."""
+    """Perform the qterminal argument map operation.
+
+    The type hints describe accepted inputs and the value returned to the caller.
+    """
 
     shell = ", ".join(_gvariant_string(value) for value in command)
     return (
@@ -54,7 +64,10 @@ def split_qterminal_recommendations(
     project_dir: Path,
     dashboard_command: list[str],
 ) -> int:
-    """Use QTerminal's native Actions → Split View Left-Right operation."""
+    """Perform the split qterminal recommendations operation.
+
+    The type hints describe accepted inputs and the value returned to the caller.
+    """
 
     if not re.fullmatch(r"org\.lxqt\.QTerminal(?:-\d+)?", service):
         raise NativeTerminalError("The QTerminal D-Bus service name is invalid")
@@ -106,7 +119,10 @@ def split_qterminal_recommendations(
 
 
 def run_recorded_shell(project_dir: Path, transcript: Path, login_shell: str) -> int:
-    """Run a normal interactive shell while flushing output for the dashboard."""
+    """Perform the run recorded shell operation.
+
+    The type hints describe accepted inputs and the value returned to the caller.
+    """
 
     script = shutil.which("script")
     if not script:
@@ -130,7 +146,10 @@ def build_terminator_layout(
     realtime_prefix: str = "",
     login_shell: str = "/bin/bash",
 ) -> dict:
-    """Build a two-pane Terminator JSON layout."""
+    """Perform the build terminator layout operation.
+
+    The type hints describe accepted inputs and the value returned to the caller.
+    """
 
     launcher = project_dir / "ptas.sh"
     quoted_project = shlex.quote(str(project_dir))
@@ -182,7 +201,10 @@ def launch_split_terminals(
     realtime_prefix: str = "",
     login_shell: str = "/bin/bash",
 ) -> int:
-    """Open a maximized native Terminator window with two real terminals."""
+    """Perform the launch split terminals operation.
+
+    The type hints describe accepted inputs and the value returned to the caller.
+    """
 
     executable = shutil.which("terminator")
     if not executable:

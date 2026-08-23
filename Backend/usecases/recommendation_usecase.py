@@ -11,11 +11,20 @@ from Backend.services.ai_recommendation_engine import AIRecommendationEngine
 @trace_usecase
 class RecommendationUseCase:
 
+    """Apply recommendation business rules between controllers and persistence.
+
+    The use case validates related state and coordinates repositories or services.
+    """
     def __init__(
         self,
         recommendation_repository: RecommendationRepository,
         vulnerability_repository: VulnerabilityRepository,
     ):
+        """Initialize the object with the dependencies required by its public operations.
+
+        Dependencies are stored once so each call uses the same request-scoped
+        collaborators.
+        """
         self.recommendation_repository = recommendation_repository
         self.vulnerability_repository = vulnerability_repository
         self.ai_engine = AIRecommendationEngine()
@@ -82,6 +91,11 @@ class RecommendationUseCase:
         }
 
     def get_recommendation_by_id(self, recommendation_id: int):
+        """Apply business validation and orchestration needed to get recommendation by id.
+
+        Invalid related records or state produce a clear HTTP error; valid work is
+        delegated to repositories or services.
+        """
         recommendation = (
             self.recommendation_repository.get_recommendation_by_id(recommendation_id)
         )
@@ -95,6 +109,11 @@ class RecommendationUseCase:
         return recommendation
 
     def get_all_recommendations(self, vulnerability_id: int | None = None):
+        """Apply business validation and orchestration needed to get all recommendations.
+
+        Invalid related records or state produce a clear HTTP error; valid work is
+        delegated to repositories or services.
+        """
         if vulnerability_id is not None:
             vulnerability = (
                 self.vulnerability_repository.get_vulnerability_by_id(
@@ -124,6 +143,11 @@ class RecommendationUseCase:
         }
 
     def update_recommendation(self, recommendation_id: int, request):
+        """Apply business validation and orchestration needed to update recommendation.
+
+        Invalid related records or state produce a clear HTTP error; valid work is
+        delegated to repositories or services.
+        """
         recommendation = (
             self.recommendation_repository.get_recommendation_by_id(
                 recommendation_id
@@ -150,6 +174,11 @@ class RecommendationUseCase:
         )
 
     def delete_recommendation(self, recommendation_id: int):
+        """Apply business validation and orchestration needed to delete recommendation.
+
+        Invalid related records or state produce a clear HTTP error; valid work is
+        delegated to repositories or services.
+        """
         recommendation = (
             self.recommendation_repository.get_recommendation_by_id(
                 recommendation_id
@@ -176,6 +205,11 @@ class RecommendationUseCase:
         }
 
     def approve_recommendation(self, recommendation_id: int, approved_by: str):
+        """Apply business validation and orchestration needed to approve recommendation.
+
+        Invalid related records or state produce a clear HTTP error; valid work is
+        delegated to repositories or services.
+        """
         recommendation = (
             self.recommendation_repository.get_recommendation_by_id(
                 recommendation_id
@@ -193,6 +227,11 @@ class RecommendationUseCase:
         )
 
     def reject_recommendation(self, recommendation_id: int):
+        """Apply business validation and orchestration needed to reject recommendation.
+
+        Invalid related records or state produce a clear HTTP error; valid work is
+        delegated to repositories or services.
+        """
         recommendation = (
             self.recommendation_repository.get_recommendation_by_id(
                 recommendation_id
@@ -208,6 +247,11 @@ class RecommendationUseCase:
         return self.recommendation_repository.reject_recommendation(recommendation)
 
     def get_recommendations_by_status(self, status_filter: str):
+        """Apply business validation and orchestration needed to get recommendations by status.
+
+        Invalid related records or state produce a clear HTTP error; valid work is
+        delegated to repositories or services.
+        """
         valid_statuses = [
             "PENDING_APPROVAL",
             "APPROVED",
@@ -233,7 +277,11 @@ class RecommendationUseCase:
         }
 
     def get_attack_score(self, vulnerability_id: int) -> dict:
-        """Calculate attack score for a vulnerability"""
+        """Apply business validation and orchestration needed to get attack score.
+
+        Invalid related records or state produce a clear HTTP error; valid work is
+        delegated to repositories or services.
+        """
         vulnerability = (
             self.vulnerability_repository.get_vulnerability_by_id(vulnerability_id)
         )

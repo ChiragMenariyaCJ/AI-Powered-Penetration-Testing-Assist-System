@@ -5,6 +5,10 @@ from sqlalchemy.orm import relationship
 from Backend.database import Base
 
 class User(Base):
+    """Represent the user table in the application database.
+
+    SQLAlchemy maps these attributes and relationships to persisted records.
+    """
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)

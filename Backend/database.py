@@ -21,7 +21,10 @@ Base = declarative_base()
 
 
 def get_db():
-    """Provide one database session per API request and always close it."""
+    """Perform the get db operation.
+
+    The type hints describe accepted inputs and the value returned to the caller.
+    """
 
     db = SessionLocal()
 

@@ -476,7 +476,7 @@ PTAS refuses to send excerpts to a non-local Ollama URL unless `--allow-remote-l
 Credential-based `ACCESS_TESTING` is restricted to a registered, host-only
 Metasploitable 2 VirtualBox or VMware VM. It is disabled for ordinary PTAS targets. Follow
 the complete isolation, registration, snapshot, scan, exercise, and restoration
-instructions in [METASPLOITABLE2_ACCESS_TESTING.md](METASPLOITABLE2_ACCESS_TESTING.md).
+instructions in [the restricted access-testing guide](access-testing.md).
 
 The principal commands are:
 

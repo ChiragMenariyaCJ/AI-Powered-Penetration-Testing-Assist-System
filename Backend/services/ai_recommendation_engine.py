@@ -9,7 +9,11 @@ from Backend.terminal_assistant.safety import filter_safe_recommendations
 
 
 class AIRecommendationEngine:
-    """Generate recommendations from current evidence, not a static service catalog."""
+    """Encapsulate the AIRecommendationEngine service behavior.
+
+    Keeping this integration separate prevents external-tool details from leaking into
+    use cases.
+    """
 
     MITRE_TECHNIQUES = {
         "Discovery": {
@@ -27,9 +31,19 @@ class AIRecommendationEngine:
     }
 
     def __init__(self, advisor: OllamaAdvisor | None = None):
+        """Initialize the object with the dependencies required by its public operations.
+
+        Dependencies are stored once so each call uses the same request-scoped
+        collaborators.
+        """
         self.advisor = advisor or self._advisor_from_environment()
 
     def generate_recommendations(self, vulnerability: dict) -> list[dict]:
+        """Perform the service-level operation needed to generate recommendations.
+
+        Inputs are converted to the external tool or renderer format and the normalized
+        result is returned to the use case.
+        """
         host = vulnerability.get("host") or "the authorized target"
         port = vulnerability.get("port")
         service = vulnerability.get("service") or "unknown"
@@ -44,6 +58,11 @@ class AIRecommendationEngine:
         ]
 
     def _model_suggestions(self, vulnerability: dict) -> list[str]:
+        """Perform the service-level operation needed to model suggestions.
+
+        Inputs are converted to the external tool or renderer format and the normalized
+        result is returned to the use case.
+        """
         if not self.advisor:
             return []
         host = vulnerability.get("host") or ""
@@ -59,6 +78,11 @@ class AIRecommendationEngine:
 
     @staticmethod
     def _prompt(vulnerability: dict) -> str:
+        """Perform the service-level operation needed to prompt.
+
+        Inputs are converted to the external tool or renderer format and the normalized
+        result is returned to the use case.
+        """
         return f"""You are a real-time classroom penetration-testing coach.
 Use only the evidence below. Return up to three concise next-step recommendations, one per line. Keep them scoped to the authorized target. Prefer evidence collection, configuration review, and non-destructive validation. Do not suggest credential guessing, destructive actions, evasion, service stress, automatic access, or access chaining.
 If the next useful teaching step would require access, say only: STOP: use the gated access-test command and wait for instructor confirmation.
@@ -74,6 +98,11 @@ Current evidence:
 
     @staticmethod
     def _fallback_suggestion(vulnerability: dict) -> str:
+        """Perform the service-level operation needed to fallback suggestion.
+
+        Inputs are converted to the external tool or renderer format and the normalized
+        result is returned to the use case.
+        """
         host = vulnerability.get("host") or "the authorized target"
         port = vulnerability.get("port")
         service = vulnerability.get("service") or "unknown service"
@@ -92,6 +121,11 @@ Current evidence:
         service: str,
         severity: str,
     ) -> dict:
+        """Perform the service-level operation needed to format recommendation.
+
+        Inputs are converted to the external tool or renderer format and the normalized
+        result is returned to the use case.
+        """
         safe = filter_safe_recommendations([suggestion], [host] if host else None, 1)
         step = safe[0] if safe else self._fallback_suggestion(
             {"host": host, "port": port, "service": service}
@@ -119,6 +153,11 @@ Current evidence:
 
     @staticmethod
     def _advisor_from_environment() -> OllamaAdvisor | None:
+        """Perform the service-level operation needed to advisor from environment.
+
+        Inputs are converted to the external tool or renderer format and the normalized
+        result is returned to the use case.
+        """
         provider = os.getenv("PTAS_LLM_PROVIDER", "rules").lower()
         if provider != "ollama":
             return None
@@ -133,6 +172,11 @@ Current evidence:
         )
 
     def _calculate_risk_level(self, severity: str) -> str:
+        """Perform the service-level operation needed to calculate risk level.
+
+        Inputs are converted to the external tool or renderer format and the normalized
+        result is returned to the use case.
+        """
         return {
             "CRITICAL": "MEDIUM",
             "HIGH": "MEDIUM",
@@ -142,6 +186,11 @@ Current evidence:
         }.get(severity, "LOW")
 
     def _calculate_priority(self, severity: str, port: int) -> int:
+        """Perform the service-level operation needed to calculate priority.
+
+        Inputs are converted to the external tool or renderer format and the normalized
+        result is returned to the use case.
+        """
         priority = {
             "CRITICAL": 6,
             "HIGH": 5,
@@ -154,6 +203,11 @@ Current evidence:
         return min(priority, 7)
 
     def _calculate_likelihood(self, severity: str) -> int:
+        """Perform the service-level operation needed to calculate likelihood.
+
+        Inputs are converted to the external tool or renderer format and the normalized
+        result is returned to the use case.
+        """
         return {
             "CRITICAL": 70,
             "HIGH": 60,
@@ -163,6 +217,11 @@ Current evidence:
         }.get(severity, 40)
 
     def _calculate_impact(self, severity: str) -> int:
+        """Perform the service-level operation needed to calculate impact.
+
+        Inputs are converted to the external tool or renderer format and the normalized
+        result is returned to the use case.
+        """
         return {
             "CRITICAL": 60,
             "HIGH": 50,
@@ -172,6 +231,11 @@ Current evidence:
         }.get(severity, 20)
 
     def _calculate_confidence(self, severity: str) -> int:
+        """Perform the service-level operation needed to calculate confidence.
+
+        Inputs are converted to the external tool or renderer format and the normalized
+        result is returned to the use case.
+        """
         return {
             "CRITICAL": 90,
             "HIGH": 85,
@@ -181,6 +245,11 @@ Current evidence:
         }.get(severity, 70)
 
     def calculate_attack_score(self, vulnerability: dict) -> dict:
+        """Perform the service-level operation needed to calculate attack score.
+
+        Inputs are converted to the external tool or renderer format and the normalized
+        result is returned to the use case.
+        """
         severity = (vulnerability.get("severity") or "MEDIUM").upper()
         service = (vulnerability.get("service") or "UNKNOWN").upper()
         risk_score = {

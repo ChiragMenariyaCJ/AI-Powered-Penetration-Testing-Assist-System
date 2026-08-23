@@ -9,6 +9,10 @@ from Backend.database import Base
 
 
 class Project(Base):
+    """Represent the project table in the application database.
+
+    SQLAlchemy maps these attributes and relationships to persisted records.
+    """
     __tablename__ = "projects"
 
     id = Column(Integer, primary_key=True, index=True)
