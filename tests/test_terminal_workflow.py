@@ -45,6 +45,7 @@ from Backend.terminal_workflow import (
     _completed_finding_count,
     _configure_target,
     _finding_display_label,
+    _is_manual_validation_command,
     _select_project,
     persist_validation_suggestions,
     select_next_recommendation,
@@ -799,13 +800,42 @@ with SessionLocal() as session:
 
         suggestions = validation_suggestions(findings, "10.10.10.20")
         steps = [item["purpose"] for item in suggestions]
+        commands = [item["command"] for item in suggestions]
 
         self.assertEqual(2, len(suggestions))
-        self.assertTrue(all(item["command"] is None for item in suggestions))
+        self.assertTrue(all(command.startswith("nmap ") for command in commands))
+        self.assertTrue(all("10.10.10.20" in command for command in commands))
+        self.assertTrue(any("http-title,http-headers" in command for command in commands))
+        self.assertTrue(any("ssh2-enum-algos,ssh-hostkey" in command for command in commands))
         self.assertTrue(any("10.10.10.20:80" in step for step in steps))
         self.assertTrue(any("10.10.10.20:22" in step for step in steps))
+        combined = " ".join(steps + commands).lower()
         forbidden = ("hydra", "password", "metasploit", "exploit", "--script vuln")
-        self.assertFalse(any(term in " ".join(steps).lower() for term in forbidden))
+        self.assertFalse(any(term in combined for term in forbidden))
+
+    def test_only_allowlisted_scoped_steps_are_treated_as_manual_commands(self):
+        """Verify old prose and unsafe/out-of-scope steps are not shown as commands."""
+
+        target = "10.10.10.20"
+
+        self.assertTrue(
+            _is_manual_validation_command(
+                "nmap -Pn -sV -p 23 --script banner 10.10.10.20",
+                target,
+            )
+        )
+        self.assertFalse(
+            _is_manual_validation_command(
+                "Review the current evidence and document it.",
+                target,
+            )
+        )
+        self.assertFalse(
+            _is_manual_validation_command(
+                "nmap -sV 203.0.113.10",
+                target,
+            )
+        )
 
     def test_realtime_model_suggestions_are_filtered_before_persistence(self):
         """Verify that realtime model suggestions are filtered before persistence.
@@ -888,7 +918,8 @@ with SessionLocal() as session:
 
             saved = db.query(Recommendation).filter_by(vulnerability_id=finding.id).all()
             self.assertEqual(1, len(saved))
-            self.assertIn("non-destructive", saved[0].execution_steps)
+            self.assertTrue(saved[0].execution_steps.startswith("nmap "))
+            self.assertIn("http-title,http-headers", saved[0].execution_steps)
         finally:
             db.close()
             engine.dispose()

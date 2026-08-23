@@ -43,7 +43,11 @@ from Backend.terminal_assistant.scope_guard import ScopeGuard
 from Backend.terminal_assistant.analyzer import TerminalAnalyzer
 from Backend.terminal_assistant.advisor import AdvisorError, OllamaAdvisor
 from Backend.terminal_assistant.sanitizer import sanitize_terminal_text
-from Backend.terminal_assistant.safety import filter_safe_recommendations
+from Backend.terminal_assistant.safety import (
+    SAFE_METADATA_TOOLS,
+    filter_safe_recommendations,
+    is_safe_recommendation,
+)
 from Backend.terminal_assistant.sources import FollowFileSource
 from Backend.usecases.report_usecase import ReportUseCase
 
@@ -446,12 +450,30 @@ Current evidence:
 def _fallback_realtime_suggestions(
     vulnerabilities: list[Vulnerability],
     target: str,
-) -> list[str]:
-    """Implement the internal fallback realtime suggestions step used by this module's public workflow.
+) -> list[dict]:
+    """Build manual, non-destructive validation commands from observed evidence.
 
-    It remains private so callers depend on the supported public interface.
+    Commands use only Nmap discovery scripts that Kali identifies as safe. They
+    remain suggestions: PTAS displays and stores them but never executes them.
     """
-    suggestions: list[str] = []
+
+    script_profiles = {
+        21: ("ftp-syst,banner", "Collect FTP system and banner metadata"),
+        22: ("ssh2-enum-algos,ssh-hostkey", "Review SSH algorithms and host keys"),
+        23: ("banner", "Collect the Telnet service banner"),
+        25: ("smtp-commands,banner", "Review advertised SMTP commands and banner"),
+        53: ("dns-nsid", "Collect DNS server identity metadata"),
+        80: ("http-title,http-headers", "Review the HTTP title and response headers"),
+        139: ("nbstat", "Collect NetBIOS names and host metadata"),
+        445: (
+            "smb-protocols,smb-security-mode",
+            "Review supported SMB dialects and security mode",
+        ),
+        2121: ("ftp-syst,banner", "Collect FTP system and banner metadata"),
+        3306: ("mysql-info", "Collect MySQL protocol and version metadata"),
+        5432: ("banner", "Collect the PostgreSQL service banner"),
+    }
+    suggestions: list[dict] = []
     seen: set[tuple[int | None, str]] = set()
     for finding in sorted(vulnerabilities, key=_finding_sort_key):
         if finding.port is None:
@@ -462,10 +484,28 @@ def _fallback_realtime_suggestions(
             continue
         seen.add(key)
         endpoint = f"{target}:{finding.port}"
+        scripts, action = script_profiles.get(
+            int(finding.port),
+            ("banner", f"Collect additional {service} banner metadata"),
+        )
+        command = (
+            f"nmap -Pn -sV -p {int(finding.port)} --script {scripts} "
+            f"--script-timeout 20s {shlex.quote(target)}"
+        )
+        if not is_safe_recommendation(command, [target]):
+            continue
         suggestions.append(
-            f"Review the current evidence for {service} on {endpoint}, collect one "
-            "non-destructive validation detail, document it, and stop before any "
-            "access activity."
+            {
+                "finding_id": finding.id,
+                "purpose": (
+                    f"{action} for {service} on {endpoint}; record the evidence and "
+                    "stop before credential or access testing."
+                ),
+                "command": command,
+                "tool": "nmap",
+                "source": "evidence-fallback",
+                "attack_technique": "Guided service validation",
+            }
         )
         if len(suggestions) == 5:
             break
@@ -501,7 +541,7 @@ def validation_suggestions(
         except AdvisorError as exc:
             _say(f"Realtime advisor unavailable; using evidence fallback: {exc}")
     if not generated:
-        generated = _fallback_realtime_suggestions(findings, target)
+        return _fallback_realtime_suggestions(findings, target)
     return [
         {
             "finding_id": primary_finding.id,
@@ -513,6 +553,22 @@ def validation_suggestions(
         }
         for suggestion in generated[:5]
     ]
+
+
+def _is_manual_validation_command(value: str | None, target: str) -> bool:
+    """Return whether stored execution text is a runnable, allowlisted command."""
+
+    if not value:
+        return False
+    try:
+        parts = shlex.split(value)
+    except ValueError:
+        return False
+    if parts and parts[0].lower() == "sudo":
+        parts = parts[1:]
+    if not parts or parts[0].rsplit("/", 1)[-1].lower() not in SAFE_METADATA_TOOLS:
+        return False
+    return is_safe_recommendation(value, [target])
 
 
 def persist_validation_suggestions(db, suggestions: list[dict]) -> int:
@@ -1285,6 +1341,19 @@ def next_recommendation(
                 .order_by(Recommendation.priority.desc(), Recommendation.id.asc())
                 .all()
             )
+        # Older PTAS versions persisted prose in execution_steps. Once runnable,
+        # allowlisted commands exist, show those instead of making the student
+        # cycle through stale prose-only recommendations first.
+        command_recommendations = [
+            item
+            for item in recommendations
+            if _is_manual_validation_command(
+                item.execution_steps,
+                scan.target.target_value,
+            )
+        ]
+        if command_recommendations:
+            recommendations = command_recommendations
         shown_ids = {int(value) for value in state.get(scan_key, [])}
         selected = select_next_recommendation(recommendations, shown_ids)
         report_output = f"reports/ptas-scan-{scan_id}.json"

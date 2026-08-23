@@ -66,6 +66,12 @@ the normal trusted package-management process.
 
 ## Service-aware scanning tools
 
+The recommendation pane displays a purpose and an allowlisted, scoped validation
+command when PTAS can derive one from observed service evidence. Commands use
+non-destructive Nmap discovery scripts, are never run by PTAS, and must be copied
+or typed into the left terminal by the student. Prose-only recommendations remain
+possible when a safe command cannot be derived.
+
 Nmap remains the discovery source, but it is no longer the only assessment
 tool. After discovery, PTAS selects applicable installed tools from the
 observed service type:
