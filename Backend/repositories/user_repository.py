@@ -1,8 +1,12 @@
+"""Database operations for PTAS user accounts."""
+
 from sqlalchemy.orm import Session
 
+from Backend.api_logging import trace_repository
 from Backend.models.user_model import User
 
 
+@trace_repository
 class UserRepository:
 
     def __init__(self, db: Session):

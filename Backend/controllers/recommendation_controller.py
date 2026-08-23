@@ -1,11 +1,16 @@
+"""Translate recommendation routes into recommendation use-case calls."""
+
 from sqlalchemy.orm import Session
 
+from Backend.api_logging import trace_controller
 from Backend.repositories.vulnerability_repository import VulnerabilityRepository
 from Backend.repositories.recommendation_repository import RecommendationRepository
 from Backend.usecases.recommendation_usecase import RecommendationUseCase
 
 
+@trace_controller
 class RecommendationController:
+    """Connect recommendation HTTP handlers to the business layer."""
 
     def __init__(self, db: Session):
         recommendation_repository = RecommendationRepository(db)

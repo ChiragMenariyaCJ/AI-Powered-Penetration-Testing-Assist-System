@@ -1,3 +1,5 @@
+"""Validated request bodies used by authentication endpoints."""
+
 from pydantic import BaseModel, EmailStr, Field
 
 

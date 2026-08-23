@@ -41,7 +41,22 @@ The backend will start on:
 http://127.0.0.1:8000
 ```
 
-## Terminal Sidecar
+Every API request is traced in the same terminal. The trace identifies the
+HTTP route, controller, use case, repository calls, response status, and
+execution time. Failures also include a traceback, for example:
+
+```text
+INFO: API request started | POST /api/auth/login | handler=Backend.routes.auth_routes.login
+INFO: API controller calling | function=Backend.controllers.auth_controller.AuthController.login
+INFO: API usecase calling | function=Backend.usecases.auth_usecase.AuthUseCase.login
+INFO: API repository calling | function=Backend.repositories.user_repository.UserRepository.get_user_by_email
+INFO: API repository returned | function=Backend.repositories.user_repository.UserRepository.get_user_by_email | duration=2.1ms
+INFO: API usecase returned | function=Backend.usecases.auth_usecase.AuthUseCase.login | duration=11.5ms
+INFO: API controller returned | function=Backend.controllers.auth_controller.AuthController.login | duration=11.8ms
+INFO: API request completed | POST /api/auth/login | handler=Backend.routes.auth_routes.login | status=200 | duration=12.4ms
+```
+
+## Terminal Workspace
 
 When started in Kali's QTerminal, PTAS automatically invokes **Actions → Split
 View Left-Right** in the current window. The left side runs the interactive
@@ -49,21 +64,23 @@ workflow and then becomes a normal shell; the right side displays live,
 read-only recommendations. Terminator provides the same two-real-terminal
 layout as a fallback. PTAS does not require tmux:
 
-Start the complete terminal-first student workflow (login/register, project,
-authorized target, sequential scans, monitor pane, and report handoff):
+Keep `./start.sh` running in the VS Code terminal. Then open a separate Linux
+terminal and start the complete student workflow. Its login, project, scope,
+target, scan, and finding operations call the API and appear in the VS Code
+terminal logs:
 
 ```bash
 ptas
 ```
 
-Or use the sidecar by itself:
+Or analyze a growing transcript by itself:
 
 ```bash
-./ptas.sh watch --pane %0 --scope 10.10.10.0/24
+./ptas.sh watch --file /tmp/ptas-session.log --scope 10.10.10.0/24
 ```
 
 Run `./kali-setup.sh` once to install the global `ptas` command. See
-[TERMINAL_ASSISTANT.md](TERMINAL_ASSISTANT.md) for the split-screen workflow,
+[TERMINAL_ASSISTANT.md](TERMINAL_ASSISTANT.md) for the native terminal workflow,
 plain/transcript modes, local Ollama integration, and safety controls.
 
 Restricted, credential-based access exercises are available only for a locally

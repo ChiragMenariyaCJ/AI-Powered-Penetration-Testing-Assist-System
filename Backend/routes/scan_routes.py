@@ -1,6 +1,9 @@
+"""Scan record creation, lookup, update, and deletion endpoints."""
+
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
+from Backend.api_logging import LoggedRoute
 from Backend.controllers.scan_controller import ScanController
 from Backend.database import get_db
 from Backend.schemas.scan_schema import (
@@ -10,7 +13,8 @@ from Backend.schemas.scan_schema import (
     ScanUpdateRequest,
 )
 
-router = APIRouter()
+# Every route uses the shared terminal request logger.
+router = APIRouter(route_class=LoggedRoute)
 
 
 @router.post(

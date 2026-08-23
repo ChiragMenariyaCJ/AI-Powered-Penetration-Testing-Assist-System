@@ -1,3 +1,5 @@
+"""Validated API request and response shapes for user accounts."""
+
 from pydantic import BaseModel, EmailStr, Field
 
 class UserRegisterRequest(BaseModel):

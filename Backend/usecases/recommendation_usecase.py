@@ -1,10 +1,14 @@
+"""Business rules for generating and reviewing recommendations."""
+
 from fastapi import HTTPException, status
 
+from Backend.api_logging import trace_usecase
 from Backend.repositories.vulnerability_repository import VulnerabilityRepository
 from Backend.repositories.recommendation_repository import RecommendationRepository
 from Backend.services.ai_recommendation_engine import AIRecommendationEngine
 
 
+@trace_usecase
 class RecommendationUseCase:
 
     def __init__(

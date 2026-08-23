@@ -1,9 +1,14 @@
+"""Translate report routes into report-generation use-case calls."""
+
 from sqlalchemy.orm import Session
 
+from Backend.api_logging import trace_controller
 from Backend.usecases.report_usecase import ReportUseCase
 
 
+@trace_controller
 class ReportController:
+    """Expose report operations to the HTTP route layer."""
     @staticmethod
     def generate_report(
         db: Session, scan_id: int, title: str, description: str = None, generated_by: str = None

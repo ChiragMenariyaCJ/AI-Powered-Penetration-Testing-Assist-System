@@ -1,3 +1,5 @@
+"""SQLAlchemy model for evidence-based assessment recommendations."""
+
 from datetime import UTC, datetime
 
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text

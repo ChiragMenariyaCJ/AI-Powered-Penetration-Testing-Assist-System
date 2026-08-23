@@ -1,3 +1,5 @@
+"""Render analysis results and optional sanitized audit events."""
+
 import json
 import os
 from pathlib import Path

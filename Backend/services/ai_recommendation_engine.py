@@ -1,3 +1,5 @@
+"""Generate deterministic recommendations from vulnerability evidence."""
+
 from __future__ import annotations
 
 import os

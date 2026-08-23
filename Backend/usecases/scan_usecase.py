@@ -1,9 +1,13 @@
+"""Business rules for creating and managing scan records."""
+
 from fastapi import HTTPException, status
 
+from Backend.api_logging import trace_usecase
 from Backend.repositories.target_repository import TargetRepository
 from Backend.repositories.scan_repository import ScanRepository
 
 
+@trace_usecase
 class ScanUseCase:
 
     def __init__(

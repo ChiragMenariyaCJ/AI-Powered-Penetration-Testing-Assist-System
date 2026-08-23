@@ -1,10 +1,15 @@
+"""Translate user route requests into user use-case calls."""
+
 from sqlalchemy.orm import Session
 
+from Backend.api_logging import trace_controller
 from Backend.repositories.user_repository import UserRepository
 from Backend.usecases.user_usecase import UserUseCase
 
 
+@trace_controller
 class UserController:
+    """Connect user HTTP handlers to user business rules."""
 
     def __init__(self, db: Session):
         repository = UserRepository(db)

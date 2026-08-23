@@ -1,9 +1,13 @@
+"""Business rules for creating and managing student projects."""
+
 from fastapi import HTTPException, status
 
+from Backend.api_logging import trace_usecase
 from Backend.repositories.project_repository import ProjectRepository
 from Backend.repositories.user_repository import UserRepository
 
 
+@trace_usecase
 class ProjectUseCase:
 
     def __init__(

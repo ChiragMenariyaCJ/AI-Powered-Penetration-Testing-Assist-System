@@ -1,3 +1,5 @@
+"""Check observed hosts against explicit IP, network, and domain scope."""
+
 from dataclasses import dataclass
 import ipaddress
 import re

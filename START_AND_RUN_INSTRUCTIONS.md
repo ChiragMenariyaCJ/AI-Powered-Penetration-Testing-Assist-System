@@ -12,7 +12,7 @@ The current repository contains:
 - A MariaDB/MySQL persistence layer using SQLAlchemy
 - Nmap scan execution and vulnerability parsing services
 - Project, target, scope, scan, vulnerability, recommendation, and report APIs
-- A one-terminal split-screen student workflow plus an optional advanced sidecar
+- A two-pane native terminal workspace with a normal student shell and read-only recommendations
 - Optional local Ollama integration for terminal advice
 - Automated backend and terminal-assistant tests
 - Kali setup and start scripts
@@ -64,17 +64,20 @@ python3 -c "import secrets; print(secrets.token_urlsafe(48))"
 
 Copy that output into `SECRET_KEY=` in `.env`. Never commit `.env` or expose its passwords and secret key.
 
-Start the student terminal interface from any directory:
+Start the backend API in the VS Code terminal and leave it running:
+
+```bash
+./start.sh
+```
+
+Then start the student terminal interface from a separate terminal:
 
 ```bash
 ptas
 ```
 
-Start only the backend API:
-
-```bash
-./start.sh
-```
+The student workflow sends real HTTP requests to that API. Its route and
+controller calls therefore appear in the VS Code terminal.
 
 The default development URLs are:
 
@@ -173,6 +176,7 @@ Development settings and their purpose:
 | `APP_ENV` | `development`, `test`, or `production` | `development` |
 | `API_HOST` | Bind address used by `start.sh` | `127.0.0.1` |
 | `API_PORT` | API listening port | `8000` |
+| `PTAS_API_URL` | Address used by the separate `ptas` terminal client | `http://127.0.0.1:8000` |
 | `DEBUG` | Development debug flag | `True` |
 | `SECRET_KEY` | Signs JWT access tokens | Generate a random value |
 | `ALGORITHM` | JWT signing algorithm | `HS256` |
@@ -195,6 +199,24 @@ In production, `SECRET_KEY` must contain at least 32 characters. Swagger and ReD
 ```
 
 This checks Python, Nmap, MariaDB, the configured database connection, dependencies, host, and port before launching Uvicorn. It may request `sudo` to start MariaDB.
+
+The same terminal displays a layered trace for every API request. It shows the
+request method and path, then every controller, use-case, and repository method
+called before the response status and execution time. Unhandled failures
+include the same context followed by a traceback.
+
+```text
+INFO: API request started | GET /api/projects/ | handler=Backend.routes.project_routes.get_all_projects
+INFO: API controller calling | function=Backend.controllers.project_controller.ProjectController.get_all_projects
+INFO: API usecase calling | function=Backend.usecases.project_usecase.ProjectUseCase.get_all_projects
+INFO: API repository calling | function=Backend.repositories.user_repository.UserRepository.get_user_by_id
+INFO: API repository returned | function=Backend.repositories.user_repository.UserRepository.get_user_by_id | duration=1.0ms
+INFO: API repository calling | function=Backend.repositories.project_repository.ProjectRepository.get_projects_by_user_id
+INFO: API repository returned | function=Backend.repositories.project_repository.ProjectRepository.get_projects_by_user_id | duration=2.4ms
+INFO: API usecase returned | function=Backend.usecases.project_usecase.ProjectUseCase.get_all_projects | duration=3.5ms
+INFO: API controller returned | function=Backend.controllers.project_controller.ProjectController.get_all_projects | duration=7.6ms
+INFO: API request completed | GET /api/projects/ | handler=Backend.routes.project_routes.get_all_projects | status=200 | duration=8.1ms
+```
 
 ### Direct development command
 
@@ -294,8 +316,8 @@ automatically.
 
 ### Complete terminal-first student workflow
 
-To use PTAS without Swagger or another browser interface, open a normal
-terminal and run:
+Keep `./start.sh` running in the VS Code terminal. To use PTAS without Swagger
+or another browser interface, open a separate normal terminal and run:
 
 ```bash
 ptas
@@ -388,55 +410,6 @@ Existing JSON reports can be formatted without database access:
 ./ptas.sh --help
 ```
 
-### Optional advanced tmux sidecar workflow
-
-The main student interface above does not require this section. The standalone
-`watch` command still supports tmux for advanced users who want PTAS to observe
-a separately managed shell.
-
-Start tmux:
-
-```bash
-tmux new-session -s ptas
-```
-
-Press `Ctrl+b`, then `%`, to split the terminal vertically. List pane IDs:
-
-```bash
-tmux list-panes -F '#{pane_id}  #{pane_current_command}'
-```
-
-Use one pane for the authorized assessment. If that pane is `%0`, run this in the assistant pane:
-
-```bash
-./ptas.sh watch --pane %0 --scope 10.10.10.0/24
-```
-
-Supply several authorized entries by repeating `--scope`:
-
-```bash
-./ptas.sh watch \
-  --pane %0 \
-  --scope 10.10.10.0/24 \
-  --scope lab.example.test
-```
-
-Or create a scope file:
-
-```text
-# scope.txt
-10.10.10.0/24
-lab.example.test
-```
-
-Then run:
-
-```bash
-./ptas.sh watch --pane %0 --scope-file scope.txt
-```
-
-By default, existing pane content is treated as the baseline and only new output is analyzed. Use `--from-start` only when you deliberately want to analyze existing content. Stop the watcher with `Ctrl+C`.
-
 ### Analyze a saved file or piped output
 
 ```bash
@@ -449,7 +422,7 @@ nmap -sV 10.10.10.20 | ./ptas.sh analyze - \
   --scope 10.10.10.0/24
 ```
 
-### Follow a terminal transcript without tmux
+### Follow a terminal transcript
 
 In the assessment terminal:
 
@@ -470,7 +443,7 @@ The raw transcript is not sanitized on disk. Protect it, stop `script` with `exi
 ```bash
 mkdir -p .ptas
 ./ptas.sh watch \
-  --pane %0 \
+  --file /tmp/ptas-session.log \
   --scope 10.10.10.0/24 \
   --audit-log .ptas/session.jsonl
 ```
@@ -490,7 +463,7 @@ In another terminal:
 ```bash
 ollama list
 ./ptas.sh watch \
-  --pane %0 \
+  --file /tmp/ptas-session.log \
   --scope 10.10.10.0/24 \
   --provider ollama \
   --model YOUR_INSTALLED_MODEL
@@ -772,14 +745,10 @@ APP_ENV=development
 
 Do not enable interactive API documentation on a public production deployment without considering the information exposure.
 
-### The terminal sidecar cannot find or capture a pane
+### The recommendation pane does not open
 
-```bash
-tmux list-panes -a -F '#S:#I.#{pane_index} #{pane_id}'
-./ptas.sh doctor
-```
-
-Pass the exact pane ID, including `%`, and run the watcher as the same user who owns the tmux session.
+Run `./ptas.sh doctor` and confirm that QTerminal or the Terminator fallback is
+available. Use `ptas --plain` when no graphical terminal session is available.
 
 ### Ollama advice does not start
 
@@ -795,7 +764,7 @@ Start `ollama serve`, choose an installed model, and keep `OLLAMA_BASE_URL` on l
 For a local development session:
 
 1. Stop Uvicorn and the sidecar with `Ctrl+C`.
-2. Exit transcript recording with `exit` if `script` was used.
+2. Exit transcript recording with `exit` if standalone `script` was used.
 3. Protect or remove raw transcripts and audit logs according to the engagement rules.
 4. Run `deactivate` to leave the Python environment.
 5. Stop MariaDB only if other local applications do not need it: `sudo systemctl stop mariadb`.
@@ -818,13 +787,13 @@ python -m pytest -v
 ./start.sh
 ```
 
-In another terminal, use Swagger or start the scoped sidecar:
+In another terminal, use Swagger or analyze a recorded transcript:
 
 ```bash
 cd ~/Projects/AI-Powered-Penetration-Testing-Assist-System
 source .venv/bin/activate
 ./ptas.sh doctor
-./ptas.sh watch --pane %0 --scope YOUR_AUTHORIZED_SCOPE
+./ptas.sh watch --file /tmp/ptas-session.log --scope YOUR_AUTHORIZED_SCOPE
 ```
 
 Keep `.env`, database dumps, raw terminal transcripts, audit logs, scan evidence, and generated reports out of version control unless the project explicitly provides a secure, approved storage process.

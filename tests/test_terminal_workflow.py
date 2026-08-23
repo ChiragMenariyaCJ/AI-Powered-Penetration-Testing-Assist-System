@@ -36,6 +36,9 @@ from Backend.terminal_workflow import (
     CVE_SCAN_STAGE,
     SHELL_READY_PATTERN,
     SCAN_STAGES,
+    _authenticate,
+    _configure_target,
+    _select_project,
     persist_validation_suggestions,
     select_next_recommendation,
     render_existing_report,
@@ -45,16 +48,96 @@ from Backend.terminal_workflow import (
 
 
 class TerminalWorkflowTests(unittest.TestCase):
+    class RecordingApi:
+        """Record terminal API calls without opening a network connection."""
+
+        def __init__(self):
+            self.access_token = None
+            self.calls = []
+
+        def get(self, path, *, query=None, timeout=15):
+            self.calls.append(("GET", path, query))
+            return {
+                "projects": [
+                    {
+                        "id": 4,
+                        "user_id": 7,
+                        "project_name": "API project",
+                        "status": "ACTIVE",
+                    }
+                ]
+            }
+
+        def post(self, path, payload=None, *, query=None, timeout=15):
+            self.calls.append(("POST", path, payload))
+            if path == "/api/auth/login":
+                return {
+                    "access_token": "test-token",
+                    "user": {
+                        "id": 7,
+                        "full_name": "Student Tester",
+                        "email": "student@example.com",
+                    },
+                }
+            if path == "/api/scope-validation/check-target-scope":
+                return {"is_in_scope": True}
+            if path == "/api/targets/":
+                return {"id": 9, **payload}
+            return {"id": 8, **(payload or {})}
+
+    def test_login_and_project_selection_use_the_api(self):
+        api = self.RecordingApi()
+
+        with patch(
+            "builtins.input",
+            side_effect=["login", "student@example.com", "4"],
+        ), patch(
+            "Backend.terminal_workflow.getpass",
+            return_value="test-password",
+        ), patch("builtins.print"):
+            user = _authenticate(api)
+            project = _select_project(api, user)
+
+        self.assertEqual("test-token", api.access_token)
+        self.assertEqual(4, project["id"])
+        self.assertEqual(
+            [
+                ("POST", "/api/auth/login"),
+                ("GET", "/api/projects/"),
+            ],
+            [(method, path) for method, path, _ in api.calls],
+        )
+
+    def test_scope_and_target_creation_use_the_api(self):
+        api = self.RecordingApi()
+        project = {"id": 4, "project_name": "API project"}
+
+        with patch(
+            "builtins.input",
+            side_effect=["10.10.10.0/24", "10.10.10.20", "yes"],
+        ), patch("builtins.print"):
+            target, scope = _configure_target(api, project)
+
+        self.assertEqual("10.10.10.0/24", scope)
+        self.assertEqual("10.10.10.20", target["target_value"])
+        self.assertEqual(
+            [
+                "/api/scope-validation/",
+                "/api/scope-validation/check-target-scope",
+                "/api/targets/",
+            ],
+            [path for _, path, _ in api.calls],
+        )
+
     def test_start_and_report_commands_are_available(self):
         parser = build_parser()
 
-        start = parser.parse_args(["start", "--no-tmux"])
+        start = parser.parse_args(["start", "--plain"])
         report = parser.parse_args(
             ["report", "--scan-id", "7", "--output", "reports/test.json"]
         )
 
-        self.assertTrue(start.no_tmux)
-        self.assertFalse(start.plain)
+        self.assertTrue(start.plain)
         self.assertEqual(7, report.scan_id)
         self.assertEqual("reports/test.json", report.output)
 
@@ -98,11 +181,9 @@ class TerminalWorkflowTests(unittest.TestCase):
                 "/tmp/events.jsonl",
                 "--transcript",
                 "/tmp/student.typescript",
-                "--recommendations-only",
             ]
         )
         self.assertEqual("/tmp/student.typescript", dashboard.transcript)
-        self.assertTrue(dashboard.recommendations_only)
 
     def test_native_layout_uses_two_real_left_right_terminals(self):
         project = Path("/opt/ptas project")
@@ -129,13 +210,13 @@ class TerminalWorkflowTests(unittest.TestCase):
         self.assertIn("ptas project/ptas.sh", right)
         self.assertIn("dashboard --event-log", right)
         self.assertIn("--transcript /tmp/ptas-session.typescript", right)
-        self.assertIn("--recommendations-only", right)
 
     def test_qterminal_uses_native_left_right_split_with_dashboard_command(self):
         command = [
             "/opt/ptas/ptas.sh",
             "dashboard",
-            "--recommendations-only",
+            "--transcript",
+            "/tmp/session.typescript",
         ]
         completed = SimpleNamespace(returncode=0, stdout="('/terminals/right',)", stderr="")
 
@@ -156,7 +237,7 @@ class TerminalWorkflowTests(unittest.TestCase):
         self.assertIn("org.lxqt.QTerminal.Terminal.splitHorizontal", arguments)
         self.assertIn("'workingDirectory': <'/opt/ptas'>", arguments[-1])
         self.assertIn("'/opt/ptas/ptas.sh'", arguments[-1])
-        self.assertIn("'--recommendations-only'", arguments[-1])
+        self.assertIn("'/tmp/session.typescript'", arguments[-1])
 
     def test_qterminal_argument_map_escapes_paths(self):
         serialized = qterminal_argument_map(

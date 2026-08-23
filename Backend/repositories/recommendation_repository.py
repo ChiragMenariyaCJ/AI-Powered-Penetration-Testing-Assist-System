@@ -1,8 +1,12 @@
+"""Database operations for recommendation records."""
+
 from sqlalchemy.orm import Session
 
+from Backend.api_logging import trace_repository
 from Backend.models.recommendation_model import Recommendation
 
 
+@trace_repository
 class RecommendationRepository:
 
     def __init__(self, db: Session):

@@ -1,3 +1,5 @@
+"""Validated API request and response shapes for projects."""
+
 from datetime import datetime
 from typing import Literal
 

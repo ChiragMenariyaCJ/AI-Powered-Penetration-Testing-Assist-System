@@ -1,12 +1,21 @@
-# PTAS Terminal Sidecar
+# PTAS Terminal Workspace
 
 ## Complete student workflow
 
-After running `./kali-setup.sh` once, open any normal Linux terminal and type:
+After running `./kali-setup.sh` once, start the API in the VS Code terminal:
+
+```bash
+./start.sh
+```
+
+Keep it running, then open a separate normal Linux terminal and type:
 
 ```bash
 ptas
 ```
+
+The student workflow calls the FastAPI endpoints, so request and controller
+logs appear in the VS Code terminal running `./start.sh`.
 
 When run inside Kali QTerminal, PTAS automatically invokes **Actions → Split
 View Left-Right** in that same window. When run from another graphical terminal,
@@ -187,65 +196,11 @@ Setup and commands are documented in
 Exercises are shown one at a time and must be executed manually. Credentials
 are requested by the target tools and are never embedded in PTAS state.
 
-## Standalone sidecar
+## Standalone transcript watcher
 
-The PTAS sidecar watches one explicitly selected terminal source and displays
-read-only suggestions in another terminal. It never executes a suggested
-command.
-
-## Optional standalone sidecar with tmux
-
-The main `ptas` student interface does not need tmux. Advanced users can still
-use the older sidecar to watch an explicitly selected tmux pane. Install the
-project and make the launchers executable:
-
-```bash
-./kali-setup.sh
-chmod +x start.sh ptas.sh
-```
-
-Start a tmux session:
-
-```bash
-tmux new-session -s ptas
-```
-
-Split it into two panes with `Ctrl-b %`. Use the left pane for your normal
-authorized assessment and the right pane for PTAS. List the pane IDs:
-
-```bash
-tmux list-panes -F '#{pane_id}  #{pane_current_command}'
-```
-
-If the working pane is `%0`, run this in the assistant pane:
-
-```bash
-./ptas.sh watch --pane %0 --scope 10.10.10.0/24
-```
-
-Repeat `--scope` for every authorized network or domain:
-
-```bash
-./ptas.sh watch \
-  --pane %0 \
-  --scope 10.10.10.0/24 \
-  --scope lab.example.test
-```
-
-You can also maintain scope in a text file:
-
-```text
-# scope.txt
-10.10.10.0/24
-lab.example.test
-```
-
-```bash
-./ptas.sh watch --pane %0 --scope-file scope.txt
-```
-
-The watcher establishes the existing pane content as its baseline, then
-analyzes only new content. Press `Ctrl+C` in the assistant pane to stop it.
+The normal `ptas` command creates and follows its own transcript automatically.
+For a separately managed terminal, record that shell with `script` and point
+the read-only watcher at the resulting file. It never executes a suggestion.
 
 ## Optional local Ollama advice
 
@@ -255,7 +210,7 @@ installed Ollama model:
 ```bash
 ollama serve
 ./ptas.sh watch \
-  --pane %0 \
+  --file /tmp/ptas-session.log \
   --scope 10.10.10.0/24 \
   --provider ollama \
   --model YOUR_INSTALLED_MODEL
@@ -267,7 +222,7 @@ enabling that option.
 
 ## Transcript mode
 
-When tmux is unavailable, a terminal can write a transcript:
+A terminal can write a transcript with:
 
 ```bash
 script -q -f /tmp/ptas-session.log
@@ -303,7 +258,7 @@ nmap -sV 10.10.10.20 | ./ptas.sh analyze - \
 
 ```bash
 ./ptas.sh watch \
-  --pane %0 \
+  --file /tmp/ptas-session.log \
   --scope 10.10.10.0/24 \
   --audit-log .ptas/session.jsonl
 ```
@@ -324,7 +279,7 @@ the working pane but does not produce speculative findings.
 
 ## Safety boundaries
 
-- Only a pane or file named by the operator is observed.
+- Only the transcript file named by the operator is observed.
 - At least one authorized scope entry is mandatory.
 - Out-of-scope targets produce a stop warning and no testing advice.
 - Common tokens, passwords, cookies, credentials in URLs, and private keys are

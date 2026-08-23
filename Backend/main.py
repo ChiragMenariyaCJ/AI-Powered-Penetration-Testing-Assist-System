@@ -1,34 +1,75 @@
+"""Create and configure the PTAS FastAPI application."""
+
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
 
+from Backend.api_logging import LoggedRoute
 from Backend.config import settings
 from Backend.database import Base, engine
-from sqlalchemy import text
-from Backend.models.user_model import User
-from Backend.models.project_model import Project
-from Backend.models.target_model import Target
-from Backend.models.scan_model import Scan
-from Backend.models.vulnerability_model import Vulnerability
-from Backend.models.recommendation_model import Recommendation
-from Backend.models.report_model import Report
-from Backend.models.scope_validation_model import ScopeValidation
-from Backend.routes.user_routes import router as user_router
+
+# Import every model before create_all so SQLAlchemy knows about every table.
+from Backend.models.project_model import Project  # noqa: F401
+from Backend.models.recommendation_model import Recommendation  # noqa: F401
+from Backend.models.report_model import Report  # noqa: F401
+from Backend.models.scan_model import Scan  # noqa: F401
+from Backend.models.scope_validation_model import ScopeValidation  # noqa: F401
+from Backend.models.target_model import Target  # noqa: F401
+from Backend.models.user_model import User  # noqa: F401
+from Backend.models.vulnerability_model import Vulnerability  # noqa: F401
+
 from Backend.routes.auth_routes import router as auth_router
 from Backend.routes.project_routes import router as project_router
-from Backend.routes.target_routes import router as target_router
-from Backend.routes.scan_routes import router as scan_router
-from Backend.routes.scan_execution_routes import router as scan_execution_router
-from Backend.routes.vulnerability_routes import router as vulnerability_router
 from Backend.routes.recommendation_routes import router as recommendation_router
 from Backend.routes.report_routes import router as report_router
+from Backend.routes.scan_execution_routes import router as scan_execution_router
+from Backend.routes.scan_routes import router as scan_router
 from Backend.routes.scope_validation_routes import router as scope_validation_router
+from Backend.routes.target_routes import router as target_router
+from Backend.routes.user_routes import router as user_router
+from Backend.routes.vulnerability_routes import router as vulnerability_router
+
+
+logger = logging.getLogger("uvicorn.error")
+
+# Keeping route metadata in one table makes API registration easy to inspect.
+ROUTERS = (
+    (auth_router, "/api/auth", "Authentication"),
+    (user_router, "/api/users", "Users"),
+    (project_router, "/api/projects", "Projects"),
+    (target_router, "/api/targets", "Targets"),
+    (scan_router, "/api/scans", "Scans"),
+    (vulnerability_router, "/api/vulnerabilities", "Vulnerabilities"),
+    (recommendation_router, "/api/recommendations", "Recommendations"),
+    (report_router, "/api/reports", "Reports"),
+    (scan_execution_router, "/api/scan-execution", "Scan Execution"),
+    (scope_validation_router, "/api/scope-validation", "Scope Validation"),
+)
+
+
+# ---------------------------------------------------------------------------
+# Application startup and shutdown
+# ---------------------------------------------------------------------------
+
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    """Create missing tables, then keep the application available for requests."""
+
     Base.metadata.create_all(bind=engine)
+    logger.info(
+        "PTAS API ready | database tables checked | environment=%s",
+        settings.app_env,
+    )
     yield
+
+
+# ---------------------------------------------------------------------------
+# FastAPI and middleware configuration
+# ---------------------------------------------------------------------------
 
 
 app = FastAPI(
@@ -39,6 +80,9 @@ app = FastAPI(
     redoc_url=None if settings.is_production else "/redoc",
 )
 
+# Apply detailed request logging to root routes and all included routers.
+app.router.route_class = LoggedRoute
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=list(settings.cors_origins),
@@ -47,80 +91,34 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(
-    auth_router,
-    prefix="/api/auth",
-    tags=["Authentication"],
-)
+# Register every feature router with the same logging and CORS configuration.
+for router, prefix, tag in ROUTERS:
+    app.include_router(router, prefix=prefix, tags=[tag])
 
-app.include_router(
-    user_router,
-    prefix="/api/users",
-    tags=["Users"],
-)
 
-app.include_router(
-    project_router,
-    prefix="/api/projects",
-    tags=["Projects"],
-)
+# ---------------------------------------------------------------------------
+# Root and health endpoints
+# ---------------------------------------------------------------------------
 
-app.include_router(
-    target_router,
-    prefix="/api/targets",
-    tags=["Targets"],
-)
-
-app.include_router(
-    scan_router,
-    prefix="/api/scans",
-    tags=["Scans"],
-)
-
-app.include_router(
-    vulnerability_router,
-    prefix="/api/vulnerabilities",
-    tags=["Vulnerabilities"],
-)
-
-app.include_router(
-    recommendation_router,
-    prefix="/api/recommendations",
-    tags=["Recommendations"],
-)
-
-app.include_router(
-    report_router,
-    prefix="/api/reports",
-    tags=["Reports"],
-)
-
-app.include_router(
-    scan_execution_router,
-    prefix="/api/scan-execution",
-    tags=["Scan Execution"],
-)
-
-app.include_router(
-    scope_validation_router,
-    prefix="/api/scope-validation",
-    tags=["Scope Validation"],
-)
 
 @app.get("/")
 def home():
-    return {
-        "message": "PTAS Backend API is running"
-    }
+    """Return a simple response confirming that the API process is running."""
+
+    return {"message": "PTAS Backend API is running"}
 
 
 @app.get("/health/live", include_in_schema=False)
 def liveness():
+    """Confirm that the Python process can serve requests."""
+
     return {"status": "ok"}
 
 
 @app.get("/health/ready", include_in_schema=False)
 def readiness():
+    """Confirm that the API can also reach its configured database."""
+
     with engine.connect() as connection:
         connection.execute(text("SELECT 1"))
     return {"status": "ready"}

@@ -1,3 +1,5 @@
+"""Extract commands and findings from sanitized terminal transcripts."""
+
 import re
 import shlex
 

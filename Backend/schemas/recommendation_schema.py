@@ -1,3 +1,5 @@
+"""Validated API shapes for recommendations and attack scores."""
+
 from datetime import datetime
 from typing import Literal
 

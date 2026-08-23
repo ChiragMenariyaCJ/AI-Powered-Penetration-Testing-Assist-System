@@ -1,3 +1,5 @@
+"""Validated API shapes for report creation, export, and retrieval."""
+
 from datetime import datetime
 from typing import Optional
 

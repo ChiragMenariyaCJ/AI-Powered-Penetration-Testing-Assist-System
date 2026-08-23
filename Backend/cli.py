@@ -1,3 +1,5 @@
+"""Command-line entry point for the PTAS student workflow."""
+
 import argparse
 from collections import deque
 import os
@@ -11,10 +13,17 @@ from Backend.terminal_assistant.analyzer import TerminalAnalyzer
 from Backend.terminal_assistant.renderer import ConsoleRenderer, append_audit_event
 from Backend.terminal_assistant.sanitizer import sanitize_terminal_text
 from Backend.terminal_assistant.scope_guard import ScopeGuard
-from Backend.terminal_assistant.sources import FollowFileSource, TmuxPaneSource
+from Backend.terminal_assistant.sources import FollowFileSource
+
+
+# ---------------------------------------------------------------------------
+# Shared command-line options
+# ---------------------------------------------------------------------------
 
 
 def _scope_entries(args: argparse.Namespace) -> list[str]:
+    """Combine repeated scope arguments with entries from a scope file."""
+
     entries = list(args.scope or [])
     if args.scope_file:
         path = Path(args.scope_file)
@@ -23,6 +32,8 @@ def _scope_entries(args: argparse.Namespace) -> list[str]:
 
 
 def _add_scope_arguments(parser: argparse.ArgumentParser) -> None:
+    """Add authorized-target options to a command parser."""
+
     parser.add_argument(
         "--scope",
         action="append",
@@ -35,6 +46,8 @@ def _add_scope_arguments(parser: argparse.ArgumentParser) -> None:
 
 
 def _add_realtime_arguments(parser: argparse.ArgumentParser) -> None:
+    """Add realtime recommendation provider options."""
+
     parser.add_argument(
         "--provider",
         choices=("rules", "ollama"),
@@ -50,7 +63,31 @@ def _add_realtime_arguments(parser: argparse.ArgumentParser) -> None:
     )
 
 
+def _add_advisor_arguments(parser: argparse.ArgumentParser) -> None:
+    """Add recommendation options shared by analyze and watch."""
+
+    parser.add_argument(
+        "--target",
+        action="append",
+        help="Explicit observed target when it cannot be inferred from the command.",
+    )
+    parser.add_argument(
+        "--provider",
+        choices=("rules", "ollama"),
+        default=os.getenv("PTAS_LLM_PROVIDER", "rules"),
+    )
+    parser.add_argument("--model", help="Ollama model name")
+    parser.add_argument("--ollama-url", help="Ollama base URL")
+    parser.add_argument(
+        "--allow-remote-llm",
+        action="store_true",
+        help="Allow sanitized terminal excerpts to leave localhost",
+    )
+
+
 def _build_advisor(args: argparse.Namespace):
+    """Create the optional Ollama advisor selected on the command line."""
+
     if args.provider == "rules":
         return None
     model = args.model or os.getenv("OLLAMA_MODEL", "")
@@ -61,7 +98,14 @@ def _build_advisor(args: argparse.Namespace):
     )
 
 
+# ---------------------------------------------------------------------------
+# Command handlers
+# ---------------------------------------------------------------------------
+
+
 def _analyze_command(args: argparse.Namespace) -> int:
+    """Analyze one saved transcript and print safe recommendations."""
+
     try:
         guard = ScopeGuard(_scope_entries(args))
     except (OSError, ValueError) as exc:
@@ -94,13 +138,11 @@ def _analyze_command(args: argparse.Namespace) -> int:
 
 
 def _watch_command(args: argparse.Namespace) -> int:
+    """Continuously analyze new text appended to a transcript."""
+
     try:
         guard = ScopeGuard(_scope_entries(args))
-        source = (
-            TmuxPaneSource(args.pane, history_lines=args.history_lines)
-            if args.pane
-            else FollowFileSource(Path(args.file), from_start=args.from_start)
-        )
+        source = FollowFileSource(Path(args.file), from_start=args.from_start)
         advisor = _build_advisor(args)
     except (OSError, ValueError, RuntimeError) as exc:
         print(f"Startup error: {exc}", file=sys.stderr)
@@ -108,8 +150,7 @@ def _watch_command(args: argparse.Namespace) -> int:
 
     analyzer = TerminalAnalyzer(guard)
     renderer = ConsoleRenderer()
-    source_name = f"tmux pane {args.pane}" if args.pane else args.file
-    renderer.status(f"Watching {source_name}; press Ctrl+C to stop")
+    renderer.status(f"Watching {args.file}; press Ctrl+C to stop")
     renderer.status("Read-only mode: PTAS will never execute a suggestion")
 
     recent_chunks: deque[str] = deque(maxlen=12)
@@ -157,6 +198,8 @@ def _watch_command(args: argparse.Namespace) -> int:
 
 
 def _doctor_command(_: argparse.Namespace) -> int:
+    """Report whether PTAS's required and optional local tools are installed."""
+
     renderer = ConsoleRenderer()
     commands = {
         "python3": shutil.which("python3") or shutil.which("python"),
@@ -188,10 +231,12 @@ def _doctor_command(_: argparse.Namespace) -> int:
 
 
 def _start_command(args: argparse.Namespace) -> int:
+    """Start the native split workspace or the requested plain interface."""
+
     from Backend.terminal_workflow import start_terminal_workflow
 
     return start_terminal_workflow(
-        plain=args.plain or args.no_tmux,
+        plain=args.plain,
         provider=args.provider,
         model=args.model,
         ollama_url=args.ollama_url,
@@ -200,6 +245,8 @@ def _start_command(args: argparse.Namespace) -> int:
 
 
 def _student_command(args: argparse.Namespace) -> int:
+    """Run the internal left-pane student session."""
+
     from Backend.terminal_workflow import configure_realtime_advisor_env, run_student_session
 
     configure_realtime_advisor_env(
@@ -212,6 +259,8 @@ def _student_command(args: argparse.Namespace) -> int:
 
 
 def _dashboard_command(args: argparse.Namespace) -> int:
+    """Run the internal right-pane recommendation dashboard."""
+
     from Backend.terminal_workflow import configure_realtime_advisor_env, run_dashboard
 
     configure_realtime_advisor_env(
@@ -223,19 +272,21 @@ def _dashboard_command(args: argparse.Namespace) -> int:
     return run_dashboard(
         Path(args.event_log),
         interval=args.interval,
-        pane=args.pane,
-        transcript=Path(args.transcript) if args.transcript else None,
-        recommendations_only=args.recommendations_only,
+        transcript=Path(args.transcript),
     )
 
 
 def _report_command(args: argparse.Namespace) -> int:
+    """Save reports for a completed scan."""
+
     from Backend.terminal_workflow import save_report
 
     return save_report(args.scan_id, Path(args.output))
 
 
 def _recommend_command(args: argparse.Namespace) -> int:
+    """Display the next recommendation for a completed scan."""
+
     from Backend.terminal_workflow import next_recommendation
 
     return next_recommendation(
@@ -250,6 +301,8 @@ def _recommend_command(args: argparse.Namespace) -> int:
 
 
 def _render_report_command(args: argparse.Namespace) -> int:
+    """Convert an existing JSON report to HTML."""
+
     from Backend.terminal_workflow import render_existing_report
 
     return render_existing_report(
@@ -259,6 +312,8 @@ def _render_report_command(args: argparse.Namespace) -> int:
 
 
 def _lab_register_command(args: argparse.Namespace) -> int:
+    """Register an isolated training VM."""
+
     from Backend.terminal_workflow import register_metasploitable2_lab
 
     return register_metasploitable2_lab(
@@ -272,32 +327,38 @@ def _lab_register_command(args: argparse.Namespace) -> int:
 
 
 def _lab_check_command(args: argparse.Namespace) -> int:
+    """Verify a registered training VM and its network isolation."""
+
     from Backend.terminal_workflow import check_metasploitable2_lab
 
     return check_metasploitable2_lab(args.name)
 
 
 def _access_test_command(args: argparse.Namespace) -> int:
+    """Show one gated exercise for a verified training lab."""
+
     from Backend.terminal_workflow import next_access_exercise
 
     return next_access_exercise(args.scan_id, args.lab, reset=args.reset)
 
 
+# ---------------------------------------------------------------------------
+# Parser construction
+# ---------------------------------------------------------------------------
+
+
 def build_parser() -> argparse.ArgumentParser:
+    """Build the complete ``ptas`` command tree."""
+
     parser = argparse.ArgumentParser(
         prog="ptas",
-        description="PTAS terminal student workflow and read-only sidecar",
+        description="PTAS native terminal workspace and transcript analysis tools",
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     start_parser = subparsers.add_parser(
         "start",
         help="Open the native two-terminal PTAS workspace",
-    )
-    start_parser.add_argument(
-        "--no-tmux",
-        action="store_true",
-        help=argparse.SUPPRESS,
     )
     start_parser.add_argument(
         "--plain",
@@ -320,9 +381,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Run the internal monitor pane",
     )
     dashboard_parser.add_argument("--event-log", required=True)
-    dashboard_parser.add_argument("--pane")
-    dashboard_parser.add_argument("--transcript")
-    dashboard_parser.add_argument("--recommendations-only", action="store_true")
+    dashboard_parser.add_argument("--transcript", required=True)
     dashboard_parser.add_argument("--interval", type=float, default=0.5)
     _add_realtime_arguments(dashboard_parser)
     dashboard_parser.set_defaults(func=_dashboard_command)
@@ -417,14 +476,15 @@ def build_parser() -> argparse.ArgumentParser:
     analyze_parser.set_defaults(func=_analyze_command)
 
     watch_parser = subparsers.add_parser(
-        "watch", help="Watch an explicitly selected tmux pane or transcript"
+        "watch", help="Watch a growing terminal transcript"
     )
-    source = watch_parser.add_mutually_exclusive_group(required=True)
-    source.add_argument("--pane", help="tmux pane ID, for example %%0")
-    source.add_argument("--file", help="Transcript written by script -f")
+    watch_parser.add_argument(
+        "--file",
+        required=True,
+        help="Transcript written by script -f",
+    )
     watch_parser.add_argument("--from-start", action="store_true")
     watch_parser.add_argument("--interval", type=float, default=1.0)
-    watch_parser.add_argument("--history-lines", type=int, default=250)
     watch_parser.add_argument("--audit-log", help="Optional sanitized JSONL audit log")
     _add_scope_arguments(watch_parser)
     _add_advisor_arguments(watch_parser)
@@ -432,27 +492,14 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _add_advisor_arguments(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument(
-        "--target",
-        action="append",
-        help="Explicit observed target when it cannot be inferred from the command.",
-    )
-    parser.add_argument(
-        "--provider",
-        choices=("rules", "ollama"),
-        default=os.getenv("PTAS_LLM_PROVIDER", "rules"),
-    )
-    parser.add_argument("--model", help="Ollama model name")
-    parser.add_argument("--ollama-url", help="Ollama base URL")
-    parser.add_argument(
-        "--allow-remote-llm",
-        action="store_true",
-        help="Allow sanitized terminal excerpts to leave localhost",
-    )
+# ---------------------------------------------------------------------------
+# Entrypoint
+# ---------------------------------------------------------------------------
 
 
 def main() -> int:
+    """Parse arguments and execute the selected command."""
+
     parser = build_parser()
     arguments = sys.argv[1:] or ["start"]
     args = parser.parse_args(arguments)

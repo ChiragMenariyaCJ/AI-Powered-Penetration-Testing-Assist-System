@@ -1,3 +1,5 @@
+"""Create and verify signed authentication tokens."""
+
 from datetime import UTC, datetime, timedelta
 from jose import JWTError, jwt
 

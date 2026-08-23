@@ -1,3 +1,5 @@
+"""SQLAlchemy model for PTAS user accounts."""
+
 from sqlalchemy import Column, Integer, String
 from sqlalchemy.orm import relationship
 from Backend.database import Base

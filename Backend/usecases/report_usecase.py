@@ -1,7 +1,10 @@
+"""Business rules for building, retrieving, and exporting reports."""
+
 import json
 from datetime import UTC, datetime
 from sqlalchemy.orm import Session
 
+from Backend.api_logging import trace_usecase
 from Backend.models.scan_model import Scan
 from Backend.models.vulnerability_model import Vulnerability
 from Backend.models.recommendation_model import Recommendation
@@ -11,6 +14,7 @@ from Backend.repositories.scan_repository import ScanRepository
 from Backend.repositories.vulnerability_repository import VulnerabilityRepository
 
 
+@trace_usecase
 class ReportUseCase:
     @staticmethod
     def generate_report(

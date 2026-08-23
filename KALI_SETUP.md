@@ -104,8 +104,9 @@ nano .env
 
 **Student terminal interface (recommended)**
 
-The setup script installs a global launcher. Open a normal Linux terminal and
-run:
+The setup script installs a global launcher. First run `./start.sh` in the VS
+Code terminal and leave the API running. Then open a separate normal Linux
+terminal and run:
 
 ```bash
 ptas

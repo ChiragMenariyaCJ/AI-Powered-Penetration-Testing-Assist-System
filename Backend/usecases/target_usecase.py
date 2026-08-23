@@ -1,9 +1,13 @@
+"""Business rules for creating and managing assessment targets."""
+
 from fastapi import HTTPException, status
 
+from Backend.api_logging import trace_usecase
 from Backend.repositories.project_repository import ProjectRepository
 from Backend.repositories.target_repository import TargetRepository
 
 
+@trace_usecase
 class TargetUseCase:
 
     def __init__(

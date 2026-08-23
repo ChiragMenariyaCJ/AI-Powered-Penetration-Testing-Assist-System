@@ -1,13 +1,17 @@
+"""Business rules for defining and enforcing authorized target scope."""
+
 import ipaddress
 import re
 from fastapi import HTTPException, status
 
+from Backend.api_logging import trace_usecase
 from Backend.repositories.project_repository import ProjectRepository
 from Backend.repositories.scope_validation_repository import (
     ScopeValidationRepository,
 )
 
 
+@trace_usecase
 class ScopeValidationUseCase:
 
     def __init__(

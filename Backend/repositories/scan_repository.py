@@ -1,8 +1,12 @@
+"""Database operations for scan records."""
+
 from sqlalchemy.orm import Session
 
+from Backend.api_logging import trace_repository
 from Backend.models.scan_model import Scan
 
 
+@trace_repository
 class ScanRepository:
 
     def __init__(self, db: Session):

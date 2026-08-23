@@ -1,11 +1,16 @@
+"""Translate project route requests into project use-case calls."""
+
 from sqlalchemy.orm import Session
 
+from Backend.api_logging import trace_controller
 from Backend.repositories.project_repository import ProjectRepository
 from Backend.repositories.user_repository import UserRepository
 from Backend.usecases.project_usecase import ProjectUseCase
 
 
+@trace_controller
 class ProjectController:
+    """Connect project HTTP handlers to project business rules."""
 
     def __init__(self, db: Session):
         project_repository = ProjectRepository(db)

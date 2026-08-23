@@ -1,8 +1,12 @@
+"""Database operations for authorized-scope records."""
+
 from sqlalchemy.orm import Session
 
+from Backend.api_logging import trace_repository
 from Backend.models.scope_validation_model import ScopeValidation
 
 
+@trace_repository
 class ScopeValidationRepository:
 
     def __init__(self, db: Session):

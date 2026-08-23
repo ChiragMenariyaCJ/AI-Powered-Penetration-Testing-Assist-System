@@ -1,8 +1,12 @@
+"""Database operations for assessment-target records."""
+
 from sqlalchemy.orm import Session
 
+from Backend.api_logging import trace_repository
 from Backend.models.target_model import Target
 
 
+@trace_repository
 class TargetRepository:
 
     def __init__(self, db: Session):

@@ -1,6 +1,9 @@
+"""Project creation, lookup, update, and deletion endpoints."""
+
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
+from Backend.api_logging import LoggedRoute
 from Backend.controllers.project_controller import ProjectController
 from Backend.database import get_db
 from Backend.schemas.project_schema import (
@@ -9,7 +12,8 @@ from Backend.schemas.project_schema import (
     ProjectUpdateRequest,
 )
 
-router = APIRouter()
+# Every route uses the shared terminal request logger.
+router = APIRouter(route_class=LoggedRoute)
 
 
 @router.post(

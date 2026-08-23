@@ -1,3 +1,5 @@
+"""Load and validate PTAS settings from environment variables and .env."""
+
 import json
 import os
 import secrets
@@ -10,6 +12,7 @@ except ImportError:  # Environment variables still work without optional .env lo
         return False
 
 
+# Load local development values before constructing the immutable settings object.
 load_dotenv()
 
 
@@ -35,6 +38,8 @@ def _cors_origins(value: str | None) -> tuple[str, ...]:
 
 @dataclass(frozen=True)
 class Settings:
+    """Validated runtime configuration shared by the API and terminal tools."""
+
     app_env: str
     database_url: str
     api_host: str
@@ -53,6 +58,8 @@ class Settings:
 
 
 def get_settings() -> Settings:
+    """Build settings and enforce stricter secrets in production."""
+
     app_env = os.getenv("APP_ENV", "development").strip().lower()
     if app_env not in {"development", "test", "production"}:
         raise ValueError("APP_ENV must be development, test, or production")

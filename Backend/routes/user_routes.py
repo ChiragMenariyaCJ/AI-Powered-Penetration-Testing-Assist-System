@@ -1,10 +1,14 @@
+"""User lookup and deletion endpoints."""
+
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
+from Backend.api_logging import LoggedRoute
 from Backend.database import get_db
 from Backend.controllers.user_controller import UserController
 
-router = APIRouter()
+# Every route uses the shared terminal request logger.
+router = APIRouter(route_class=LoggedRoute)
 
 
 @router.get("/")

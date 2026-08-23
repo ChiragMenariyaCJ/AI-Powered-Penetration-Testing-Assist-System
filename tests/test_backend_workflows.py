@@ -1,10 +1,21 @@
+import asyncio
 import unittest
+from types import SimpleNamespace
+from unittest.mock import patch
 
-from fastapi import HTTPException
+from fastapi import HTTPException, Request, Response
+from fastapi.routing import APIRoute
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+from Backend.api_logging import (
+    LoggedRoute,
+    trace_controller,
+    trace_repository,
+    trace_usecase,
+)
 from Backend.database import Base
+from Backend.main import ROUTERS
 from Backend.models.project_model import Project
 from Backend.models.recommendation_model import Recommendation  # noqa: F401
 from Backend.models.report_model import Report  # noqa: F401
@@ -17,8 +28,10 @@ from Backend.repositories.project_repository import ProjectRepository
 from Backend.repositories.scan_repository import ScanRepository
 from Backend.repositories.scope_validation_repository import ScopeValidationRepository
 from Backend.repositories.target_repository import TargetRepository
+from Backend.repositories.user_repository import UserRepository
 from Backend.repositories.vulnerability_repository import VulnerabilityRepository
 from Backend.schemas.report_schema import ReportResponse
+from Backend.usecases.auth_usecase import AuthUseCase
 from Backend.usecases.report_usecase import ReportUseCase
 from Backend.usecases.scan_execution_usecase import ScanExecutionUseCase
 from Backend.utils.password_utils import hash_password, verify_password
@@ -99,6 +112,101 @@ class BackendWorkflowTests(unittest.TestCase):
         hashed = hash_password("safe-test-password")
         self.assertTrue(verify_password("safe-test-password", hashed))
         self.assertFalse(verify_password("wrong-password", hashed))
+
+    def test_login_returns_user_identity_for_the_terminal_api_client(self):
+        request = SimpleNamespace(
+            email="terminal@example.test",
+            password="safe-test-password",
+        )
+
+        result = AuthUseCase(UserRepository(self.session)).login(request)
+
+        self.assertEqual("terminal@example.test", result["user"]["email"])
+        self.assertEqual("Terminal Tester", result["user"]["full_name"])
+        self.assertIn("access_token", result)
+
+    def test_every_feature_endpoint_uses_controller_logging(self):
+        routes = [
+            route
+            for router, _, _ in ROUTERS
+            for route in router.routes
+            if isinstance(route, APIRoute)
+        ]
+
+        self.assertGreater(len(routes), 0)
+        self.assertTrue(all(isinstance(route, LoggedRoute) for route in routes))
+
+    def test_request_logger_reports_handler_status_and_duration(self):
+        async def endpoint():
+            return {"ok": True}
+
+        async def fake_handler(_: Request):
+            return Response(status_code=201)
+
+        scope = {
+            "type": "http",
+            "method": "POST",
+            "path": "/demo",
+            "scheme": "http",
+            "server": ("test", 80),
+            "client": ("test", 1),
+            "root_path": "",
+            "query_string": b"",
+            "headers": [],
+        }
+        with patch.object(APIRoute, "get_route_handler", return_value=fake_handler):
+            route = LoggedRoute("/demo", endpoint=endpoint, methods=["POST"])
+            with self.assertLogs("uvicorn.error", level="INFO") as captured:
+                response = asyncio.run(route.get_route_handler()(Request(scope)))
+
+        output = "\n".join(captured.output)
+        self.assertEqual(201, response.status_code)
+        self.assertIn("API request started", output)
+        self.assertIn("BackendWorkflowTests", output)
+        self.assertIn("status=201", output)
+        self.assertIn("duration=", output)
+
+    def test_controller_decorator_reports_called_method(self):
+        @trace_controller
+        class DemoController:
+            def load_record(self):
+                return {"id": 7}
+
+        with self.assertLogs("uvicorn.error", level="INFO") as captured:
+            result = DemoController().load_record()
+
+        output = "\n".join(captured.output)
+        self.assertEqual({"id": 7}, result)
+        self.assertIn("API controller calling", output)
+        self.assertIn("DemoController.load_record", output)
+        self.assertIn("API controller returned", output)
+        self.assertIn("duration=", output)
+
+    def test_usecase_and_repository_decorators_report_each_layer(self):
+        @trace_repository
+        class DemoRepository:
+            def load_record(self):
+                return {"id": 7}
+
+        @trace_usecase
+        class DemoUseCase:
+            def __init__(self):
+                self.repository = DemoRepository()
+
+            def get_record(self):
+                return self.repository.load_record()
+
+        with self.assertLogs("uvicorn.error", level="INFO") as captured:
+            result = DemoUseCase().get_record()
+
+        output = "\n".join(captured.output)
+        self.assertEqual({"id": 7}, result)
+        self.assertIn("API usecase calling", output)
+        self.assertIn("DemoUseCase.get_record", output)
+        self.assertIn("API repository calling", output)
+        self.assertIn("DemoRepository.load_record", output)
+        self.assertIn("API repository returned", output)
+        self.assertIn("API usecase returned", output)
 
     def test_scan_execution_uses_project_repository_for_scope(self):
         usecase = ScanExecutionUseCase(

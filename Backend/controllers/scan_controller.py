@@ -1,11 +1,16 @@
+"""Translate scan-record routes into scan use-case calls."""
+
 from sqlalchemy.orm import Session
 
+from Backend.api_logging import trace_controller
 from Backend.repositories.target_repository import TargetRepository
 from Backend.repositories.scan_repository import ScanRepository
 from Backend.usecases.scan_usecase import ScanUseCase
 
 
+@trace_controller
 class ScanController:
+    """Connect scan HTTP handlers to scan business rules."""
 
     def __init__(self, db: Session):
         scan_repository = ScanRepository(db)

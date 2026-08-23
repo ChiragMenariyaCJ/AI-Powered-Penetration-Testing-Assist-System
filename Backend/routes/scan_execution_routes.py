@@ -1,10 +1,14 @@
-from fastapi import APIRouter, Depends, Query, status
+"""Authorized Nmap execution and scan-result endpoints."""
+
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
+from Backend.api_logging import LoggedRoute
 from Backend.controllers.scan_execution_controller import ScanExecutionController
 from Backend.database import get_db
 
-router = APIRouter()
+# Every route uses the shared terminal request logger.
+router = APIRouter(route_class=LoggedRoute)
 
 
 @router.post("/execute/{scan_id}")

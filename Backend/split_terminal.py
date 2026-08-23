@@ -24,7 +24,14 @@ class NativeTerminalError(RuntimeError):
     """Raised when the native split-terminal window cannot be started."""
 
 
+# ---------------------------------------------------------------------------
+# QTerminal: split the current window into two native terminal panes
+# ---------------------------------------------------------------------------
+
+
 def _gvariant_string(value: str) -> str:
+    """Escape one string for QTerminal's D-Bus argument map."""
+
     return "'" + value.replace("\\", "\\\\").replace("'", "\\'") + "'"
 
 
@@ -93,6 +100,11 @@ def split_qterminal_recommendations(
     return 0
 
 
+# ---------------------------------------------------------------------------
+# Student shell: record output while preserving normal terminal behavior
+# ---------------------------------------------------------------------------
+
+
 def run_recorded_shell(project_dir: Path, transcript: Path, login_shell: str) -> int:
     """Run a normal interactive shell while flushing output for the dashboard."""
 
@@ -104,6 +116,11 @@ def run_recorded_shell(project_dir: Path, transcript: Path, login_shell: str) ->
         [script, "-q", "-f", "-a", "-c", command, str(transcript)],
         cwd=project_dir,
     ).returncode
+
+
+# ---------------------------------------------------------------------------
+# Terminator fallback: create one window containing two real terminals
+# ---------------------------------------------------------------------------
 
 
 def build_terminator_layout(
@@ -134,8 +151,7 @@ def build_terminator_layout(
     dashboard_command = (
         f"cd {quoted_project} && "
         f"{realtime_prefix}{quoted_launcher} dashboard "
-        f"--event-log {quoted_event_log} --transcript {quoted_transcript} "
-        "--recommendations-only; "
+        f"--event-log {quoted_event_log} --transcript {quoted_transcript}; "
         f"exec {quoted_shell} -l"
     )
 

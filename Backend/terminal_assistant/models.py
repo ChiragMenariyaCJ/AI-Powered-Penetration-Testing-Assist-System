@@ -1,3 +1,5 @@
+"""Data objects shared by terminal analysis and rendering."""
+
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from hashlib import sha256

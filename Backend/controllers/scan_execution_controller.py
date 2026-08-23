@@ -1,5 +1,8 @@
+"""Translate authorized scan-execution routes into use-case calls."""
+
 from sqlalchemy.orm import Session
 
+from Backend.api_logging import trace_controller
 from Backend.repositories.scan_repository import ScanRepository
 from Backend.repositories.target_repository import TargetRepository
 from Backend.repositories.scope_validation_repository import (
@@ -10,8 +13,9 @@ from Backend.repositories.vulnerability_repository import VulnerabilityRepositor
 from Backend.usecases.scan_execution_usecase import ScanExecutionUseCase
 
 
+@trace_controller
 class ScanExecutionController:
-    """Controller for scan execution"""
+    """Connect scan execution handlers to scoped Nmap orchestration."""
 
     def __init__(self, db: Session):
         scan_repository = ScanRepository(db)

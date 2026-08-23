@@ -1,6 +1,9 @@
+"""Report generation, retrieval, export, and deletion endpoints."""
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from Backend.api_logging import LoggedRoute
 from Backend.database import get_db
 from Backend.controllers.report_controller import ReportController
 from Backend.schemas.report_schema import (
@@ -12,7 +15,8 @@ from Backend.schemas.report_schema import (
     ReportExportResponse,
 )
 
-router = APIRouter()
+# Every route uses the shared terminal request logger.
+router = APIRouter(route_class=LoggedRoute)
 
 
 @router.post("/generate/{scan_id}")

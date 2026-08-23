@@ -1,3 +1,5 @@
+"""Hash passwords and verify login attempts with bcrypt."""
+
 import bcrypt
 
 

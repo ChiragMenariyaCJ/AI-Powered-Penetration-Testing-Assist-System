@@ -1,8 +1,12 @@
+"""Database operations for project records."""
+
 from sqlalchemy.orm import Session
 
+from Backend.api_logging import trace_repository
 from Backend.models.project_model import Project
 
 
+@trace_repository
 class ProjectRepository:
 
     def __init__(self, db: Session):

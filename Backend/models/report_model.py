@@ -1,3 +1,5 @@
+"""SQLAlchemy model for generated assessment reports."""
+
 from datetime import UTC, datetime
 
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text

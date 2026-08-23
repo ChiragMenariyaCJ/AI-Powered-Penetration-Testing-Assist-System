@@ -5,7 +5,7 @@ from tempfile import TemporaryDirectory
 from Backend.terminal_assistant.analyzer import TerminalAnalyzer
 from Backend.terminal_assistant.sanitizer import sanitize_terminal_text
 from Backend.terminal_assistant.scope_guard import ScopeGuard
-from Backend.terminal_assistant.sources import FollowFileSource, new_snapshot_text
+from Backend.terminal_assistant.sources import FollowFileSource
 from Backend.services.nmap_service import NmapService
 
 
@@ -91,12 +91,6 @@ class AnalyzerTests(unittest.TestCase):
 
 
 class SourceTests(unittest.TestCase):
-    def test_extracts_appended_snapshot_text(self):
-        previous = "prompt\nline one\nline two\n"
-        current = "line one\nline two\nline three\n"
-
-        self.assertEqual("line three\n", new_snapshot_text(previous, current))
-
     def test_follows_only_new_transcript_bytes(self):
         with TemporaryDirectory() as temp_directory:
             transcript = Path(temp_directory) / "session.log"

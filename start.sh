@@ -87,10 +87,12 @@ echo -e "   Swagger Docs:  ${YELLOW}http://${PTAS_API_HOST}:${PTAS_API_PORT}/doc
 echo -e "   ReDoc:         ${YELLOW}http://${PTAS_API_HOST}:${PTAS_API_PORT}/redoc${NC}"
 echo ""
 echo -e "${BLUE}⏹️  Press Ctrl+C to stop the server${NC}"
+echo -e "${BLUE}🧭 Layer tracing:${NC} route → controller → usecase → repository"
 echo ""
 
 # Start from the repository root so Backend.* imports resolve correctly.
 cd "$PROJECT_DIR"
 exec "$PYTHON" -m uvicorn Backend.main:app --reload \
     --host "$PTAS_API_HOST" \
-    --port "$PTAS_API_PORT"
+    --port "$PTAS_API_PORT" \
+    --log-level info

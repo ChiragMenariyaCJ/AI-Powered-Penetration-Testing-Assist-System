@@ -1,6 +1,9 @@
+"""Recommendation generation and review endpoints."""
+
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
+from Backend.api_logging import LoggedRoute
 from Backend.controllers.recommendation_controller import RecommendationController
 from Backend.database import get_db
 from Backend.schemas.recommendation_schema import (
@@ -11,7 +14,8 @@ from Backend.schemas.recommendation_schema import (
     RecommendationScore,
 )
 
-router = APIRouter()
+# Every route uses the shared terminal request logger.
+router = APIRouter(route_class=LoggedRoute)
 
 
 @router.post(

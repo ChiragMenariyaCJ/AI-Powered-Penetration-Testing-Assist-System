@@ -1,6 +1,10 @@
+"""Business rules for retrieving and deleting user accounts."""
+
 from fastapi import HTTPException
 
+from Backend.api_logging import trace_usecase
 
+@trace_usecase
 class UserUseCase:
 
     def __init__(self, user_repository):

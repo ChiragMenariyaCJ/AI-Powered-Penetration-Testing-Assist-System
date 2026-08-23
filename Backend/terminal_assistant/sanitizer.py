@@ -1,3 +1,5 @@
+"""Remove terminal control codes and redact secrets before analysis."""
+
 import re
 
 

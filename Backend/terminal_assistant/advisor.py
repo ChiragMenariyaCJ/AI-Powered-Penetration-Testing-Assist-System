@@ -1,3 +1,5 @@
+"""Request optional local-model advice from Ollama with safety checks."""
+
 import json
 import os
 from urllib.error import HTTPError, URLError

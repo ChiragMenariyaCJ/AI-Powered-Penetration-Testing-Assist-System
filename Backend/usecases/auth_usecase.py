@@ -1,5 +1,8 @@
+"""Authentication business rules for registration, login, and token creation."""
+
 from fastapi import HTTPException
 
+from Backend.api_logging import trace_usecase
 from Backend.utils.password_utils import (
     hash_password,
     verify_password,
@@ -8,6 +11,7 @@ from Backend.utils.password_utils import (
 from Backend.utils.jwt_utils import create_access_token
 
 
+@trace_usecase
 class AuthUseCase:
 
     def __init__(self, user_repository):
@@ -76,4 +80,9 @@ class AuthUseCase:
             "message": "Login successful.",
             "access_token": token,
             "token_type": "bearer",
+            "user": {
+                "id": user.id,
+                "full_name": user.full_name,
+                "email": user.email,
+            },
         }

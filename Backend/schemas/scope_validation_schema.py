@@ -1,3 +1,5 @@
+"""Validated API shapes for authorization boundaries and scope checks."""
+
 from datetime import datetime
 from typing import Literal
 

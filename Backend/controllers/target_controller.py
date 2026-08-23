@@ -1,11 +1,16 @@
+"""Translate target route requests into target use-case calls."""
+
 from sqlalchemy.orm import Session
 
+from Backend.api_logging import trace_controller
 from Backend.repositories.project_repository import ProjectRepository
 from Backend.repositories.target_repository import TargetRepository
 from Backend.usecases.target_usecase import TargetUseCase
 
 
+@trace_controller
 class TargetController:
+    """Connect target HTTP handlers to target business rules."""
 
     def __init__(self, db: Session):
         target_repository = TargetRepository(db)

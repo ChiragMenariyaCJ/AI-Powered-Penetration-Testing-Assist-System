@@ -15,32 +15,19 @@ from pathlib import Path
 import re
 import shlex
 import time
-
-try:
-    import readline
-
-    readline.parse_and_bind("set editing-mode emacs")
-    readline.parse_and_bind('"\\C-b": backward-char')
-    readline.parse_and_bind('"\\C-f": forward-char')
-    readline.parse_and_bind('"\\e[3~": delete-char')
-    readline.parse_and_bind('"\\eOD": backward-char')
-    readline.parse_and_bind('"\\eOC": forward-char')
-except ImportError:  # pragma: no cover - readline is available on Kali/Linux.
-    readline = None
+from types import SimpleNamespace
 
 from fastapi import HTTPException
 
+from Backend.api_client import PTASApiClient, PTASApiError
+from Backend.config import settings
 from Backend.database import Base, SessionLocal, engine
 from Backend.models.recommendation_model import Recommendation  # noqa: F401
 from Backend.models.report_model import Report  # noqa: F401
 from Backend.models.vulnerability_model import Vulnerability
-from Backend.repositories.project_repository import ProjectRepository
 from Backend.repositories.recommendation_repository import RecommendationRepository
 from Backend.repositories.report_repository import ReportRepository
 from Backend.repositories.scan_repository import ScanRepository
-from Backend.repositories.scope_validation_repository import ScopeValidationRepository
-from Backend.repositories.target_repository import TargetRepository
-from Backend.repositories.user_repository import UserRepository
 from Backend.repositories.vulnerability_repository import VulnerabilityRepository
 from Backend.services.nmap_service import NmapService
 from Backend.services.exploitdb_service import ExploitDbService
@@ -56,10 +43,8 @@ from Backend.terminal_assistant.analyzer import TerminalAnalyzer
 from Backend.terminal_assistant.advisor import AdvisorError, OllamaAdvisor
 from Backend.terminal_assistant.sanitizer import sanitize_terminal_text
 from Backend.terminal_assistant.safety import filter_safe_recommendations
-from Backend.terminal_assistant.sources import FollowFileSource, TmuxPaneSource
+from Backend.terminal_assistant.sources import FollowFileSource
 from Backend.usecases.report_usecase import ReportUseCase
-from Backend.usecases.scan_execution_usecase import ScanExecutionUseCase
-from Backend.utils.password_utils import hash_password, verify_password
 
 
 SCAN_STAGES = (
@@ -78,6 +63,11 @@ SEVERITY_PRIORITY = {
     "LOW": 3,
     "INFO": 4,
 }
+
+
+# ---------------------------------------------------------------------------
+# Output, events, and realtime-advisor configuration
+# ---------------------------------------------------------------------------
 
 
 def _say(message: str) -> None:
@@ -158,6 +148,11 @@ def _optional_realtime_advisor() -> OllamaAdvisor | None:
         return None
 
 
+# ---------------------------------------------------------------------------
+# Student input, account, project, and authorized target setup
+# ---------------------------------------------------------------------------
+
+
 def _required(prompt: str, *, secret: bool = False) -> str:
     while True:
         value = (getpass(prompt) if secret else input(prompt)).strip()
@@ -175,59 +170,83 @@ def _choose(prompt: str, choices: tuple[str, ...]) -> str:
         _say(f"Choose one of: {', '.join(choices)}")
 
 
-def _authenticate(db):
-    users = UserRepository(db)
+def _authenticate(api: PTASApiClient) -> dict:
+    """Register or log in through the FastAPI authentication endpoints."""
+
     action = _choose("Login or register", ("login", "register"))
+    email: str | None = None
+    password: str | None = None
     if action == "register":
-        full_name = _required("Full name: ")
-        email = _required("Email: ").lower()
-        if users.get_user_by_email(email):
-            _say("That email already exists; continuing with login.")
-        else:
-            while True:
-                password = _required("Password (8-72 characters): ", secret=True)
-                confirmation = _required("Confirm password: ", secret=True)
-                if password != confirmation:
-                    _say("Passwords do not match.")
-                    continue
-                if len(password) < 8:
-                    _say("Password must contain at least 8 characters.")
-                    continue
-                try:
-                    user = users.create_user(full_name, email, hash_password(password))
-                except ValueError as exc:
-                    _say(str(exc))
-                    continue
-                _say(f"Registration complete. Logged in as {user.email}.")
-                return user
+        while True:
+            full_name = _required("Full name: ")
+            email = _required("Email: ").lower()
+            password = _required("Password (8-72 characters): ", secret=True)
+            confirmation = _required("Confirm password: ", secret=True)
+            if password != confirmation:
+                _say("Passwords do not match.")
+                continue
+            try:
+                api.post(
+                    "/api/auth/register",
+                    {"full_name": full_name, "email": email, "password": password},
+                )
+            except PTASApiError as exc:
+                _say(f"Registration failed: {exc}")
+                email = None
+                password = None
+                continue
+            _say("Registration complete. Logging in through the PTAS API.")
+            break
 
     while True:
-        email = _required("Email: ").lower()
-        password = _required("Password: ", secret=True)
-        user = users.get_user_by_email(email)
-        if user and verify_password(password, user.password_hash):
-            _say(f"Login successful. Welcome, {user.full_name}.")
-            return user
-        _say("Invalid email or password. Try again.")
+        email = email or _required("Email: ").lower()
+        password = password or _required("Password: ", secret=True)
+        try:
+            result = api.post(
+                "/api/auth/login",
+                {"email": email, "password": password},
+            )
+        except PTASApiError as exc:
+            _say(f"Login failed: {exc}")
+            email = None
+            password = None
+            continue
+        api.access_token = result["access_token"]
+        user = result["user"]
+        _say(f"Login successful. Welcome, {user['full_name']}.")
+        return user
 
 
-def _select_project(db, user):
-    repository = ProjectRepository(db)
-    projects = repository.get_projects_by_user_id(user.id)
+def _select_project(api: PTASApiClient, user: dict) -> dict:
+    """Load or create the student's project through the projects API."""
+
+    result = api.get("/api/projects/", query={"user_id": user["id"]})
+    projects = result["projects"]
     if projects:
         _say("Your projects:")
         for project in projects:
-            print(f"  {project.id}: {project.project_name} ({project.status})")
+            print(f"  {project['id']}: {project['project_name']} ({project['status']})")
         selection = input("Project ID, or press Enter to create a new project: ").strip()
         if selection.isdigit():
-            selected = next((item for item in projects if item.id == int(selection)), None)
+            selected = next(
+                (item for item in projects if item["id"] == int(selection)),
+                None,
+            )
             if selected:
                 return selected
             _say("That project does not belong to this account; creating a new one.")
 
     name = _required("Project name: ")
     description = input("Project description (optional): ").strip() or None
-    return repository.create_project(user.id, name, description, "ACTIVE")
+    return api.post(
+        "/api/projects/",
+        {
+            "user_id": user["id"],
+            "project_name": name,
+            "description": description,
+            "status": "ACTIVE",
+        },
+    )
 
 
 def _scope_type(scope_value: str) -> str:
@@ -240,7 +259,9 @@ def _scope_type(scope_value: str) -> str:
     return "HOSTNAME" if any(char.isalpha() for char in scope_value) else "CIDR"
 
 
-def _configure_target(db, project):
+def _configure_target(api: PTASApiClient, project: dict) -> tuple[dict, str]:
+    """Confirm authorization, create scope, and create a target through the API."""
+
     print("\nScope setup")
     print("  Scope is the complete authorized boundary, for example:")
     print("    192.168.56.101       one authorized host")
@@ -271,7 +292,7 @@ def _configure_target(db, project):
         break
 
     print("\nAuthorization confirmation")
-    print(f"  Project: {project.project_name}")
+    print(f"  Project: {project['project_name']}")
     print(f"  Scope:   {scope_value}")
     print(f"  Target:  {target_value}")
     confirmation = input(
@@ -280,25 +301,41 @@ def _configure_target(db, project):
     if confirmation not in {"yes", "y"}:
         raise RuntimeError("Authorization was not confirmed; no scan was run")
 
-    scope_repository = ScopeValidationRepository(db)
-    scope_repository.create_scope_validation(
-        project.id,
-        "Student-confirmed training scope",
-        _scope_type(scope_value),
-        scope_value,
-        "Created by the terminal-first student workflow",
-        True,
-        "ACTIVE",
+    api.post(
+        "/api/scope-validation/",
+        {
+            "project_id": project["id"],
+            "scope_rule_name": "Student-confirmed training scope",
+            "scope_type": _scope_type(scope_value),
+            "scope_value": scope_value,
+            "description": "Created by the terminal-first student workflow",
+            "is_inclusive": True,
+            "status": "ACTIVE",
+        },
     )
-    target = TargetRepository(db).create_target(
-        project.id,
-        f"Training target {target_value}",
-        "NETWORK" if "/" in target_value else "HOST",
-        target_value,
-        scope_value,
-        "ACTIVE",
+    scope_check = api.post(
+        "/api/scope-validation/check-target-scope",
+        {"project_id": project["id"], "target_value": target_value},
+    )
+    if not scope_check["is_in_scope"]:
+        raise RuntimeError("The API rejected the target as outside the authorized scope")
+    target = api.post(
+        "/api/targets/",
+        {
+            "project_id": project["id"],
+            "target_name": f"Training target {target_value}",
+            "target_type": "NETWORK" if "/" in target_value else "HOST",
+            "target_value": target_value,
+            "scope": scope_value,
+            "status": "ACTIVE",
+        },
     )
     return target, scope_value
+
+
+# ---------------------------------------------------------------------------
+# Evidence-based recommendation generation and persistence
+# ---------------------------------------------------------------------------
 
 
 def _finding_sort_key(finding: Vulnerability) -> tuple[int, int, int]:
@@ -509,6 +546,8 @@ def run_service_aware_checks(
     target: str,
     event_log: Path | None,
 ) -> int:
+    """Run installed, non-destructive checks that match discovered services."""
+
     repository = VulnerabilityRepository(db)
     base_findings = repository.get_vulnerabilities_by_scan_id(scan_id)
     scanner = ServiceScanService()
@@ -547,7 +586,14 @@ def run_service_aware_checks(
     return persisted
 
 
+# ---------------------------------------------------------------------------
+# Main student session and live recommendation dashboard
+# ---------------------------------------------------------------------------
+
+
 def run_student_session(event_log: Path | None = None) -> int:
+    """Guide a student through login, scope confirmation, and safe assessment."""
+
     _say("Terminal-first student workflow")
     _say("Only explicitly authorized training targets may be scanned.")
     _say("PTAS runs scoped Nmap stages; realtime recommendations are never auto-executed.")
@@ -557,18 +603,20 @@ def run_student_session(event_log: Path | None = None) -> int:
             _say(f"Realtime recommendations enabled with local Ollama model '{advisor.model}'.")
         else:
             _say("Realtime model not configured; using evidence-only fallback recommendations.")
-        Base.metadata.create_all(bind=engine)
+        api = PTASApiClient()
+        api.get("/health/ready")
+        _say(f"Connected to backend API at {api.base_url}; calls will appear in ./start.sh.")
         with SessionLocal() as db:
-            user = _authenticate(db)
-            _event(event_log, "auth", f"Logged in as {user.email}")
-            project = _select_project(db, user)
-            _event(event_log, "project", f"Project selected: {project.project_name}")
-            target, scope_value = _configure_target(db, project)
+            user = _authenticate(api)
+            _event(event_log, "auth", f"Logged in as {user['email']}")
+            project = _select_project(api, user)
+            _event(event_log, "project", f"Project selected: {project['project_name']}")
+            target, scope_value = _configure_target(api, project)
             _event(
                 event_log,
                 "target",
-                f"Authorized target configured: {target.target_value}",
-                target=target.target_value,
+                f"Authorized target configured: {target['target_value']}",
+                target=target["target_value"],
                 scope=scope_value,
             )
             cve_lookup = _choose(
@@ -586,102 +634,108 @@ def run_student_session(event_log: Path | None = None) -> int:
                 else "External Vulners CVE correlation skipped",
             )
 
-            scan_repository = ScanRepository(db)
-            execution = ScanExecutionUseCase(
-                scan_repository,
-                TargetRepository(db),
-                ScopeValidationRepository(db),
-                ProjectRepository(db),
-                VulnerabilityRepository(db),
-            )
             completed_scan = None
             for index, (scan_type, description) in enumerate(scan_stages, start=1):
                 _say(f"Scan stage {index}/{len(scan_stages)}: {description}")
                 _event(event_log, "scan_started", description, scan_type=scan_type)
-                scan = scan_repository.create_scan(
-                    target.id,
-                    f"Terminal session {scan_type.lower()} scan",
-                    scan_type,
-                    "PENDING",
+                scan = api.post(
+                    "/api/scans/",
+                    {
+                        "target_id": target["id"],
+                        "scan_name": f"Terminal session {scan_type.lower()} scan",
+                        "scan_type": scan_type,
+                        "status": "PENDING",
+                    },
                 )
-                result = execution.execute_scan_on_target(scan.id, project.id)
+                result = api.post(
+                    f"/api/scan-execution/execute/{scan['id']}",
+                    query={"project_id": project["id"]},
+                    timeout=settings.nmap_timeout + 30,
+                )
                 completed_scan = scan
                 _say(f"{scan_type} completed; {result['findings_persisted']} findings stored.")
                 _event(
                     event_log,
                     "scan_completed",
                     f"{scan_type} completed",
-                    scan_id=scan.id,
+                    scan_id=scan["id"],
                     findings=result["findings_persisted"],
                 )
-                stage_findings = (
-                    VulnerabilityRepository(db).get_vulnerabilities_by_scan_id(scan.id)
+                stage_result = api.get(
+                    "/api/vulnerabilities/",
+                    query={"scan_id": scan["id"]},
                 )
+                stage_findings = stage_result["vulnerabilities"]
                 if not stage_findings:
                     _say(f"{scan_type}: no exposed-service findings were identified.")
                     _event(
                         event_log,
                         "finding",
                         f"{scan_type}: no exposed-service findings identified",
-                        scan_id=scan.id,
+                        scan_id=scan["id"],
                     )
                 for finding in stage_findings:
                     evidence = (
-                        f"{finding.host}:{finding.port} {finding.service or 'unknown'}"
-                        if finding.port is not None
-                        else f"{finding.host} {finding.description}"
+                        f"{finding['host']}:{finding['port']} {finding.get('service') or 'unknown'}"
+                        if finding.get("port") is not None
+                        else f"{finding['host']} {finding['description']}"
                     )
-                    message = f"[{finding.severity}] {finding.description} — {evidence}"
+                    message = f"[{finding['severity']}] {finding['description']} — {evidence}"
                     _say(message)
                     _event(
                         event_log,
                         "finding",
                         message,
-                        scan_id=scan.id,
-                        finding_id=finding.id,
-                        severity=finding.severity,
+                        scan_id=scan["id"],
+                        finding_id=finding["id"],
+                        severity=finding["severity"],
                     )
 
             if completed_scan is None:
                 raise RuntimeError("No scan stage completed")
             tool_observations = run_service_aware_checks(
                 db,
-                completed_scan.id,
-                target.target_value,
+                completed_scan["id"],
+                target["target_value"],
                 event_log,
             )
             exploitdb_count = persist_exploitdb_references(
-                db, completed_scan.id, target.target_value
+                db, completed_scan["id"], target["target_value"]
             )
             _event(
                 event_log,
                 "exploitdb",
                 f"Exploit-DB enrichment added {exploitdb_count} version-specific CVE reference(s)",
-                scan_id=completed_scan.id,
+                scan_id=completed_scan["id"],
                 references=exploitdb_count,
                 tool_observations=tool_observations,
             )
-            findings = VulnerabilityRepository(db).get_vulnerabilities_by_scan_id(
-                completed_scan.id
+            final_result = api.get(
+                "/api/vulnerabilities/",
+                query={"scan_id": completed_scan["id"]},
             )
+            findings = [
+                SimpleNamespace(**finding)
+                for finding in final_result["vulnerabilities"]
+            ]
             suggestions = validation_suggestions(
                 findings,
-                target.target_value,
+                target["target_value"],
                 advisor=advisor,
-                scan_id=completed_scan.id,
+                scan_id=completed_scan["id"],
             )
             saved_suggestions = persist_validation_suggestions(db, suggestions)
             _event(
                 event_log,
                 "assessment_completed",
                 f"Assessment completed with {len(findings)} findings",
-                scan_id=completed_scan.id,
-                target=target.target_value,
+                scan_id=completed_scan["id"],
+                target=target["target_value"],
                 recommendations=saved_suggestions,
             )
-            output = Path("reports") / f"ptas-scan-{completed_scan.id}.json"
+            output = Path("reports") / f"ptas-scan-{completed_scan['id']}.json"
             report_command = (
-                f"./ptas.sh report --scan-id {completed_scan.id} "
+                f"./ptas.sh report --scan-id {completed_scan['id']} "
                 f"--output {shlex.quote(str(output))}"
             )
             for number, suggestion in enumerate(suggestions, start=1):
@@ -703,14 +757,14 @@ def run_student_session(event_log: Path | None = None) -> int:
                         print(f"     {suggestion['command']}")
                     print(f"     Report: {report_command}")
             recommendation_command = (
-                f"./ptas.sh recommend --scan-id {completed_scan.id}"
+                f"./ptas.sh recommend --scan-id {completed_scan['id']}"
             )
             _event(
                 event_log,
                 "recommendation_ready",
                 "Request one validation recommendation at a time",
                 command=recommendation_command,
-                scan_id=completed_scan.id,
+                scan_id=completed_scan["id"],
             )
             _event(
                 event_log,
@@ -718,7 +772,7 @@ def run_student_session(event_log: Path | None = None) -> int:
                 "A report can now be generated",
                 command=report_command,
                 output=str(output),
-                scan_id=completed_scan.id,
+                scan_id=completed_scan["id"],
             )
             print("\nAssessment complete.")
             if event_log is None:
@@ -745,23 +799,15 @@ def run_student_session(event_log: Path | None = None) -> int:
 
 def run_dashboard(
     event_log: Path,
+    transcript: Path,
     interval: float = 0.5,
-    pane: str | None = None,
-    transcript: Path | None = None,
-    recommendations_only: bool = False,
 ) -> int:
-    if recommendations_only:
-        _say("Live recommendation assistant")
-        _say("Waiting for assessment evidence from the left terminal...")
-    else:
-        _say("Student-session monitor")
-        _say("Waiting for login, scope, scan, finding, and report events...")
+    """Show recommendations and review new commands from the left transcript."""
+
+    _say("Live recommendation assistant")
+    _say("Waiting for assessment evidence from the left terminal...")
     position = 0
-    terminal_source = None
-    if pane:
-        terminal_source = TmuxPaneSource(pane)
-    elif transcript:
-        terminal_source = FollowFileSource(transcript)
+    terminal_source = FollowFileSource(transcript)
     advisor = _optional_realtime_advisor()
     if advisor:
         _say(f"Realtime monitor recommendations enabled with local Ollama model '{advisor.model}'.")
@@ -774,7 +820,7 @@ def run_dashboard(
     current_scan_id: int | None = None
     try:
         while True:
-            pane_chunk = terminal_source.read_new() if terminal_source else ""
+            transcript_chunk = terminal_source.read_new()
             if event_log.exists():
                 with event_log.open("r", encoding="utf-8") as handle:
                     handle.seek(position)
@@ -792,12 +838,11 @@ def run_dashboard(
                         elif kind == "REPORT_READY":
                             current_report_command = event.get("command")
                             current_scan_id = event.get("scan_id") or current_scan_id
-                        visible_event = not recommendations_only or kind in {
+                        if kind in {
                             "SUGGESTION",
                             "RECOMMENDATION_READY",
                             "REPORT_READY",
-                        }
-                        if visible_event:
+                        }:
                             print(f"\n[{kind}] {event.get('message', '')}")
                             if event.get("command"):
                                 print(f"  Command: {event['command']}")
@@ -806,8 +851,8 @@ def run_dashboard(
                                 if event.get("report_command"):
                                     print(f"  Report: {event['report_command']}")
                     position = handle.tell()
-            if pane_chunk and assessment_completed and scope_value:
-                clean = sanitize_terminal_text(pane_chunk)
+            if transcript_chunk and assessment_completed and scope_value:
+                clean = sanitize_terminal_text(transcript_chunk)
                 analyzer = TerminalAnalyzer(ScopeGuard([scope_value]))
                 detected_command = analyzer.extract_latest_prompt_command(clean)
                 if detected_command:
@@ -870,6 +915,8 @@ def start_terminal_workflow(
     ollama_url: str | None = None,
     allow_remote_llm: bool = False,
 ) -> int:
+    """Open PTAS in native terminal panes, with a plain-mode fallback."""
+
     configure_realtime_advisor_env(provider, model, ollama_url, allow_remote_llm)
     if plain:
         return run_student_session()
@@ -908,7 +955,6 @@ def start_terminal_workflow(
             str(event_log),
             "--transcript",
             str(transcript),
-            "--recommendations-only",
         ]
         if provider:
             dashboard_command.extend(["--provider", provider])
@@ -956,7 +1002,14 @@ def start_terminal_workflow(
     return result
 
 
+# ---------------------------------------------------------------------------
+# Reports and step-by-step recommendations
+# ---------------------------------------------------------------------------
+
+
 def save_report(scan_id: int, output: Path) -> int:
+    """Generate JSON and HTML reports for a completed scan."""
+
     Base.metadata.create_all(bind=engine)
     with SessionLocal() as db:
         scan = ScanRepository(db).get_scan_by_id(scan_id)
@@ -1167,6 +1220,11 @@ def render_existing_report(json_report: Path, output: Path | None = None) -> int
     return 0
 
 
+# ---------------------------------------------------------------------------
+# Restricted Metasploitable 2 lab access exercises
+# ---------------------------------------------------------------------------
+
+
 def register_metasploitable2_lab(
     name: str,
     target: str,
@@ -1175,6 +1233,8 @@ def register_metasploitable2_lab(
     interface: str = "vmnet1",
     kali_source: str | None = None,
 ) -> int:
+    """Register an isolated Metasploitable 2 VM as an approved lab target."""
+
     project_dir = Path(__file__).resolve().parents[1]
     service = Metasploitable2LabService(project_dir)
     try:
@@ -1201,6 +1261,8 @@ def register_metasploitable2_lab(
 
 
 def check_metasploitable2_lab(name: str) -> int:
+    """Verify the registered VM identity and host-only network safeguards."""
+
     project_dir = Path(__file__).resolve().parents[1]
     service = Metasploitable2LabService(project_dir)
     try:
@@ -1217,10 +1279,14 @@ def check_metasploitable2_lab(name: str) -> int:
 
 
 def select_next_access_exercise(exercises: list[AccessExercise], shown_keys: set[str]):
+    """Select the first allowlisted exercise not already presented."""
+
     return next((item for item in exercises if item.key not in shown_keys), None)
 
 
 def next_access_exercise(scan_id: int, lab_name: str, reset: bool = False) -> int:
+    """Present one gated lab exercise after rechecking all safeguards."""
+
     project_dir = Path(__file__).resolve().parents[1]
     service = Metasploitable2LabService(project_dir)
     state_path = project_dir / ".ptas" / "access-state.json"

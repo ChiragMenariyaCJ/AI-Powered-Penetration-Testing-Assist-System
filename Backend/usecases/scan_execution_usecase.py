@@ -1,6 +1,9 @@
+"""Safely orchestrate scoped Nmap execution and finding persistence."""
+
 from datetime import UTC, datetime
 from fastapi import HTTPException, status
 
+from Backend.api_logging import trace_usecase
 from Backend.repositories.scan_repository import ScanRepository
 from Backend.repositories.target_repository import TargetRepository
 from Backend.repositories.scope_validation_repository import (
@@ -13,6 +16,7 @@ from Backend.services.nmap_service import NmapService
 from Backend.services.vulnerability_parser import VulnerabilityParser
 
 
+@trace_usecase
 class ScanExecutionUseCase:
     """Execute scans with Nmap and parse results"""
 

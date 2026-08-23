@@ -21,7 +21,13 @@ This will:
 - ✅ Install all dependencies
 - ✅ Install the global `ptas` command
 
-Then open a normal Linux terminal and run:
+Start the backend in the VS Code terminal and leave it running:
+
+```bash
+./start.sh
+```
+
+Then open a separate normal Linux terminal and run:
 
 ```bash
 ptas

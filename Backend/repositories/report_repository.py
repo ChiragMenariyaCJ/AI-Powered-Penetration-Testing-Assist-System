@@ -1,8 +1,12 @@
+"""Database operations for generated report records."""
+
 from sqlalchemy.orm import Session
 
+from Backend.api_logging import trace_repository
 from Backend.models.report_model import Report
 
 
+@trace_repository
 class ReportRepository:
     @staticmethod
     def create_report(db: Session, report_data: dict) -> Report:

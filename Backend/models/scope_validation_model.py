@@ -1,3 +1,5 @@
+"""SQLAlchemy model for explicit project authorization boundaries."""
+
 from datetime import UTC, datetime
 
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text, Boolean

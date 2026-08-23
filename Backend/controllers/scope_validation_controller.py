@@ -1,5 +1,8 @@
+"""Translate authorized-scope routes into scope-validation use-case calls."""
+
 from sqlalchemy.orm import Session
 
+from Backend.api_logging import trace_controller
 from Backend.repositories.project_repository import ProjectRepository
 from Backend.repositories.scope_validation_repository import (
     ScopeValidationRepository,
@@ -7,7 +10,9 @@ from Backend.repositories.scope_validation_repository import (
 from Backend.usecases.scope_validation_usecase import ScopeValidationUseCase
 
 
+@trace_controller
 class ScopeValidationController:
+    """Connect scope HTTP handlers to authorization-boundary rules."""
 
     def __init__(self, db: Session):
         scope_validation_repository = ScopeValidationRepository(db)

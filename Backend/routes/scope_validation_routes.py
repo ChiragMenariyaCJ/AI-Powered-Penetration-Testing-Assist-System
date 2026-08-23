@@ -1,6 +1,9 @@
+"""Authorized-scope configuration and target validation endpoints."""
+
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
+from Backend.api_logging import LoggedRoute
 from Backend.controllers.scope_validation_controller import (
     ScopeValidationController,
 )
@@ -14,7 +17,8 @@ from Backend.schemas.scope_validation_schema import (
     ScopeCheckResponse,
 )
 
-router = APIRouter()
+# Every route uses the shared terminal request logger.
+router = APIRouter(route_class=LoggedRoute)
 
 
 @router.post(

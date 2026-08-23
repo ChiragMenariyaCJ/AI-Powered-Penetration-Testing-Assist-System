@@ -1,3 +1,5 @@
+"""Configure SQLAlchemy's engine, sessions, and declarative model base."""
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 
@@ -19,6 +21,8 @@ Base = declarative_base()
 
 
 def get_db():
+    """Provide one database session per API request and always close it."""
+
     db = SessionLocal()
 
     try:
