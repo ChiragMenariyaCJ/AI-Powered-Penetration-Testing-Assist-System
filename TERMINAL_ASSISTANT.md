@@ -2,19 +2,23 @@
 
 ## Complete student workflow
 
-From the repository root, start the terminal-first workflow with:
+After running `./kali-setup.sh` once, open any normal Linux terminal and type:
 
 ```bash
-./ptas.sh start
+ptas
 ```
 
-When tmux is available, PTAS creates two panes:
+When run inside Kali QTerminal, PTAS automatically invokes **Actions → Split
+View Left-Right** in that same window. When run from another graphical terminal,
+it opens the equivalent two-pane Terminator layout. Both sides are genuine VTE
+terminals; PTAS does not require tmux or manual split shortcuts:
 
-- The left pane asks the student to register or log in, select or create a
-  project, enter the authorized scope, and enter the training target.
-- The right pane displays authentication state, scope confirmation, scan
-  progress, completed findings, hard-coded validation suggestions, and the
-  final report command.
+- The left terminal introduces PTAS, asks the student to register or log in,
+  select or create a project, enter the authorized scope, and enter the training
+  target. After setup it becomes a normal shell with native cursor, history,
+  completion, and command editing.
+- The right terminal is read-only guidance. It displays evidence-based
+  recommendations, the next recommended command, and the final report command.
 
 The student must answer `yes` to the authorization confirmation before a scan
 can start. PTAS then runs a quick discovery stage followed by a detailed service
@@ -22,8 +26,8 @@ assessment. Suggestions do not appear until the final scan stage completes.
 Suggested commands are non-destructive validation steps and are never run
 automatically.
 
-Each scan stage prints its completed findings in the left pane and publishes
-them to the right monitor pane. Nmap findings become available when that stage
+Each scan stage prints its completed findings in the left terminal. The right
+terminal stays focused on recommendations and report handoff. Nmap findings become available when that stage
 finishes; they are not inferred from partial output while Nmap is still running.
 Final validation suggestions are saved as recommendation records, so they also
 appear inside the generated JSON report.
@@ -95,10 +99,11 @@ Training target inside that scope: 192.168.56.101
 
 Invalid input is requested again without cancelling the complete session.
 
-To run without tmux:
+For redirected output, accessibility tools, or a very small terminal, use plain
+mode instead of the split screen:
 
 ```bash
-./ptas.sh start --no-tmux
+ptas start --plain
 ```
 
 At the end, PTAS prints a scan-specific command similar to:
@@ -126,10 +131,9 @@ again to receive the next recommendation:
 ./ptas.sh recommend --scan-id 12
 ```
 
-In the two-pane workflow, after the student executes the displayed validation
-command and the left shell prompt returns, the monitor automatically advances
-and displays the next stored recommendation. Manual `recommend` commands remain
-available when a command is skipped or when using single-terminal mode.
+The right terminal shows recommendations produced during the assessment. After
+the session closes, manual `recommend` commands remain available to step through
+the stored recommendations one at a time.
 
 Progress is stored locally in `.ptas/recommendation-state.json`. Restart the
 sequence with:
@@ -160,10 +164,9 @@ The HTML file contains summary cards, severity breakdowns, finding evidence,
 CVE links, recommendations, commands, and print styling. Open it in a browser
 and use the browser's Print dialog to save a PDF when needed.
 
-After the guided scan completes, the left pane intentionally returns to a
-normal shell so the student can run the displayed validation and report
-commands. The tmux session remains open. Press `Ctrl-b`, then `d`, to detach;
-later use `tmux attach` to return.
+After the guided scan completes, the left terminal automatically becomes a
+normal shell. You can run any displayed validation or report command there.
+Press `Ctrl+C` during setup to cancel the active workflow safely.
 
 ## Restricted Metasploitable 2 access testing
 
@@ -190,9 +193,11 @@ The PTAS sidecar watches one explicitly selected terminal source and displays
 read-only suggestions in another terminal. It never executes a suggested
 command.
 
-## Recommended Kali workflow: tmux
+## Optional standalone sidecar with tmux
 
-Install the project and make the launchers executable:
+The main `ptas` student interface does not need tmux. Advanced users can still
+use the older sidecar to watch an explicitly selected tmux pane. Install the
+project and make the launchers executable:
 
 ```bash
 ./kali-setup.sh

@@ -19,6 +19,18 @@ This will:
 - ✅ Install and start MariaDB
 - ✅ Create Python virtual environment
 - ✅ Install all dependencies
+- ✅ Install the global `ptas` command
+
+Then open a normal Linux terminal and run:
+
+```bash
+ptas
+```
+
+In Kali QTerminal, PTAS automatically performs **Actions → Split View
+Left-Right**: login/register and a normal command shell stay on the left, while
+live recommendations run on the right. Terminator supplies the same native
+two-terminal layout when PTAS is started elsewhere. No tmux is required.
 
 ---
 

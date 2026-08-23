@@ -14,10 +14,19 @@ import os
 from pathlib import Path
 import re
 import shlex
-import shutil
-import subprocess
-import sys
 import time
+
+try:
+    import readline
+
+    readline.parse_and_bind("set editing-mode emacs")
+    readline.parse_and_bind('"\\C-b": backward-char')
+    readline.parse_and_bind('"\\C-f": forward-char')
+    readline.parse_and_bind('"\\e[3~": delete-char')
+    readline.parse_and_bind('"\\eOD": backward-char')
+    readline.parse_and_bind('"\\eOC": forward-char')
+except ImportError:  # pragma: no cover - readline is available on Kali/Linux.
+    readline = None
 
 from fastapi import HTTPException
 
@@ -47,7 +56,7 @@ from Backend.terminal_assistant.analyzer import TerminalAnalyzer
 from Backend.terminal_assistant.advisor import AdvisorError, OllamaAdvisor
 from Backend.terminal_assistant.sanitizer import sanitize_terminal_text
 from Backend.terminal_assistant.safety import filter_safe_recommendations
-from Backend.terminal_assistant.sources import TmuxPaneSource
+from Backend.terminal_assistant.sources import FollowFileSource, TmuxPaneSource
 from Backend.usecases.report_usecase import ReportUseCase
 from Backend.usecases.scan_execution_usecase import ScanExecutionUseCase
 from Backend.utils.password_utils import hash_password, verify_password
@@ -712,13 +721,16 @@ def run_student_session(event_log: Path | None = None) -> int:
                 scan_id=completed_scan.id,
             )
             print("\nAssessment complete.")
-            print("Suggestions are displayed in the PTAS monitor pane.")
+            if event_log is None:
+                print("Suggestions are displayed above.")
+            else:
+                print("Suggestions are displayed in the right-hand PTAS panel.")
             print("To generate and save the report, run:")
             print(f"  {report_command}")
             print("To display the next validation recommendation, run:")
             print(f"  {recommendation_command}")
-            print("PTAS setup is complete. Your left terminal remains open for the")
-            print("displayed validation and report commands; use Ctrl+b then d to detach.")
+            print("PTAS setup is complete. This left pane will now become your normal")
+            print("shell, where you can run the displayed validation and report commands.")
             return 0
     except (EOFError, KeyboardInterrupt):
         _say("Session cancelled.")
@@ -735,11 +747,21 @@ def run_dashboard(
     event_log: Path,
     interval: float = 0.5,
     pane: str | None = None,
+    transcript: Path | None = None,
+    recommendations_only: bool = False,
 ) -> int:
-    _say("Student-session monitor")
-    _say("Waiting for login, scope, scan, finding, and report events...")
+    if recommendations_only:
+        _say("Live recommendation assistant")
+        _say("Waiting for assessment evidence from the left terminal...")
+    else:
+        _say("Student-session monitor")
+        _say("Waiting for login, scope, scan, finding, and report events...")
     position = 0
-    pane_source = TmuxPaneSource(pane) if pane else None
+    terminal_source = None
+    if pane:
+        terminal_source = TmuxPaneSource(pane)
+    elif transcript:
+        terminal_source = FollowFileSource(transcript)
     advisor = _optional_realtime_advisor()
     if advisor:
         _say(f"Realtime monitor recommendations enabled with local Ollama model '{advisor.model}'.")
@@ -752,7 +774,7 @@ def run_dashboard(
     current_scan_id: int | None = None
     try:
         while True:
-            pane_chunk = pane_source.read_new() if pane_source else ""
+            pane_chunk = terminal_source.read_new() if terminal_source else ""
             if event_log.exists():
                 with event_log.open("r", encoding="utf-8") as handle:
                     handle.seek(position)
@@ -770,13 +792,19 @@ def run_dashboard(
                         elif kind == "REPORT_READY":
                             current_report_command = event.get("command")
                             current_scan_id = event.get("scan_id") or current_scan_id
-                        print(f"\n[{kind}] {event.get('message', '')}")
-                        if event.get("command"):
-                            print(f"  Command: {event['command']}")
-                        if kind == "SUGGESTION":
-                            print("  Copy this command to the left pane only if you want to run it.")
-                            if event.get("report_command"):
-                                print(f"  Report: {event['report_command']}")
+                        visible_event = not recommendations_only or kind in {
+                            "SUGGESTION",
+                            "RECOMMENDATION_READY",
+                            "REPORT_READY",
+                        }
+                        if visible_event:
+                            print(f"\n[{kind}] {event.get('message', '')}")
+                            if event.get("command"):
+                                print(f"  Command: {event['command']}")
+                            if kind == "SUGGESTION":
+                                print("  Run this in the left terminal only if you choose to.")
+                                if event.get("report_command"):
+                                    print(f"  Report: {event['report_command']}")
                     position = handle.tell()
             if pane_chunk and assessment_completed and scope_value:
                 clean = sanitize_terminal_text(pane_chunk)
@@ -806,7 +834,7 @@ def run_dashboard(
                 fingerprint = result.fingerprint()
                 if (result.command or result.findings) and fingerprint not in seen_observations:
                     seen_observations.add(fingerprint)
-                    print("\n[LEFT PANE OBSERVATION]")
+                    print("\n[COMMAND REVIEW]")
                     if result.command:
                         print(f"  Command: {result.command}")
                     print(
@@ -836,59 +864,96 @@ def run_dashboard(
 
 
 def start_terminal_workflow(
-    no_tmux: bool = False,
+    plain: bool = False,
     provider: str | None = None,
     model: str | None = None,
     ollama_url: str | None = None,
     allow_remote_llm: bool = False,
 ) -> int:
     configure_realtime_advisor_env(provider, model, ollama_url, allow_remote_llm)
-    if no_tmux or not shutil.which("tmux") or not sys.stdout.isatty():
-        if not no_tmux and not shutil.which("tmux"):
-            _say("tmux is unavailable; continuing in one terminal.")
+    if plain:
         return run_student_session()
-    if "TMUX" in os.environ:
-        _say("Already inside tmux; use ./ptas.sh student in this pane and")
-        _say("./ptas.sh dashboard --event-log PATH in a second pane.")
-        return 2
+    if not (os.getenv("DISPLAY") or os.getenv("WAYLAND_DISPLAY")):
+        _say("Graphical desktop unavailable; continuing in plain mode.")
+        return run_student_session()
 
     project_dir = Path(__file__).resolve().parents[1]
-    launcher = project_dir / "ptas.sh"
     timestamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
-    event_log = project_dir / ".ptas" / f"student-{timestamp}.jsonl"
-    session = f"ptas-{timestamp}"
-    login_shell = os.environ.get("SHELL", "/bin/bash")
-    realtime_prefix = _realtime_env_prefix(provider, model, ollama_url, allow_remote_llm)
-    left = (
-        f"{realtime_prefix}{shlex.quote(str(launcher))} student "
-        f"--event-log {shlex.quote(str(event_log))}; "
-        f"exec {shlex.quote(login_shell)}"
+    state_dir = project_dir / ".ptas"
+    event_log = state_dir / f"student-{timestamp}.jsonl"
+    transcript = state_dir / f"student-{timestamp}.typescript"
+    layout_path = state_dir / f"student-{timestamp}.terminator.json"
+    realtime_prefix = _realtime_env_prefix(
+        provider,
+        model,
+        ollama_url,
+        allow_remote_llm,
     )
+    from Backend.split_terminal import (
+        NativeTerminalError,
+        launch_split_terminals,
+        run_recorded_shell,
+        split_qterminal_recommendations,
+    )
+
+    qterminal_service = os.getenv("QTERM_DBUS_SERVICE")
+    qterminal_object = os.getenv("QTERM_DBUS_OBJECT")
+    if qterminal_service and qterminal_object:
+        state_dir.mkdir(parents=True, exist_ok=True)
+        transcript.touch(exist_ok=True)
+        dashboard_command = [
+            str(project_dir / "ptas.sh"),
+            "dashboard",
+            "--event-log",
+            str(event_log),
+            "--transcript",
+            str(transcript),
+            "--recommendations-only",
+        ]
+        if provider:
+            dashboard_command.extend(["--provider", provider])
+        if model:
+            dashboard_command.extend(["--model", model])
+        if ollama_url:
+            dashboard_command.extend(["--ollama-url", ollama_url])
+        if allow_remote_llm:
+            dashboard_command.append("--allow-remote-llm")
+        try:
+            split_qterminal_recommendations(
+                qterminal_service,
+                qterminal_object,
+                project_dir,
+                dashboard_command,
+            )
+        except NativeTerminalError as exc:
+            _say(f"Native QTerminal split unavailable: {exc}")
+        else:
+            _say("Opened Actions → Split View Left-Right in this QTerminal window.")
+            session_result = run_student_session(event_log)
+            if session_result != 0:
+                return session_result
+            _say("Student setup finished. Starting a normal recorded shell on the left.")
+            return run_recorded_shell(
+                project_dir,
+                transcript,
+                os.getenv("SHELL", "/bin/bash"),
+            )
+
     try:
-        subprocess.run(
-            ["tmux", "new-session", "-d", "-s", session, "-c", str(project_dir), left],
-            check=True,
+        result = launch_split_terminals(
+            project_dir,
+            event_log,
+            transcript,
+            layout_path,
+            realtime_prefix,
+            os.getenv("SHELL", "/bin/bash"),
         )
-        pane_result = subprocess.run(
-            ["tmux", "list-panes", "-t", session, "-F", "#{pane_id}"],
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-        left_pane = pane_result.stdout.strip().splitlines()[0]
-        right = (
-            f"{realtime_prefix}{shlex.quote(str(launcher))} dashboard "
-            f"--event-log {shlex.quote(str(event_log))} --pane {shlex.quote(left_pane)}"
-        )
-        subprocess.run(
-            ["tmux", "split-window", "-h", "-t", session, "-c", str(project_dir), right],
-            check=True,
-        )
-        subprocess.run(["tmux", "select-layout", "-t", session, "even-horizontal"], check=True)
-        return subprocess.run(["tmux", "attach-session", "-t", session]).returncode
-    except subprocess.CalledProcessError as exc:
-        _say(f"Could not create tmux workspace: {exc}")
-        return 1
+    except NativeTerminalError as exc:
+        _say(str(exc))
+        _say("Falling back to the current terminal.")
+        return run_student_session()
+    _say("Opened two native PTAS terminals in one Terminator window.")
+    return result
 
 
 def save_report(scan_id: int, output: Path) -> int:

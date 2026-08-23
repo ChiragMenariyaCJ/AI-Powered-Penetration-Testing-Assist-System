@@ -43,14 +43,17 @@ http://127.0.0.1:8000
 
 ## Terminal Sidecar
 
-PTAS can also run beside an explicitly selected Kali terminal and provide
-scope-aware, read-only suggestions:
+When started in Kali's QTerminal, PTAS automatically invokes **Actions → Split
+View Left-Right** in the current window. The left side runs the interactive
+workflow and then becomes a normal shell; the right side displays live,
+read-only recommendations. Terminator provides the same two-real-terminal
+layout as a fallback. PTAS does not require tmux:
 
 Start the complete terminal-first student workflow (login/register, project,
 authorized target, sequential scans, monitor pane, and report handoff):
 
 ```bash
-./ptas.sh start
+ptas
 ```
 
 Or use the sidecar by itself:
@@ -59,8 +62,9 @@ Or use the sidecar by itself:
 ./ptas.sh watch --pane %0 --scope 10.10.10.0/24
 ```
 
-See [TERMINAL_ASSISTANT.md](TERMINAL_ASSISTANT.md) for the complete two-pane
-tmux workflow, transcript mode, local Ollama integration, and safety controls.
+Run `./kali-setup.sh` once to install the global `ptas` command. See
+[TERMINAL_ASSISTANT.md](TERMINAL_ASSISTANT.md) for the split-screen workflow,
+plain/transcript modes, local Ollama integration, and safety controls.
 
 Restricted, credential-based access exercises are available only for a locally
 registered host-only Metasploitable 2 VM. See

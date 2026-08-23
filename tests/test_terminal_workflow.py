@@ -27,6 +27,11 @@ from Backend.services.lab_profile_service import (
     Metasploitable2LabService,
 )
 from Backend.services.vulnerability_parser import VulnerabilityParser
+from Backend.split_terminal import (
+    build_terminator_layout,
+    qterminal_argument_map,
+    split_qterminal_recommendations,
+)
 from Backend.terminal_workflow import (
     CVE_SCAN_STAGE,
     SHELL_READY_PATTERN,
@@ -49,6 +54,7 @@ class TerminalWorkflowTests(unittest.TestCase):
         )
 
         self.assertTrue(start.no_tmux)
+        self.assertFalse(start.plain)
         self.assertEqual(7, report.scan_id)
         self.assertEqual("reports/test.json", report.output)
 
@@ -84,6 +90,82 @@ class TerminalWorkflowTests(unittest.TestCase):
         self.assertEqual("vmware", vmware.provider)
         self.assertEqual("vmnet1", vmware.interface)
         self.assertEqual("192.168.178.129", vmware.kali_source)
+
+        dashboard = parser.parse_args(
+            [
+                "dashboard",
+                "--event-log",
+                "/tmp/events.jsonl",
+                "--transcript",
+                "/tmp/student.typescript",
+                "--recommendations-only",
+            ]
+        )
+        self.assertEqual("/tmp/student.typescript", dashboard.transcript)
+        self.assertTrue(dashboard.recommendations_only)
+
+    def test_native_layout_uses_two_real_left_right_terminals(self):
+        project = Path("/opt/ptas project")
+        layout = build_terminator_layout(
+            project,
+            Path("/tmp/ptas-events.jsonl"),
+            Path("/tmp/ptas-session.typescript"),
+            "env PTAS_LLM_PROVIDER=rules ",
+            "/bin/zsh",
+        )
+
+        definition = layout["layout"]
+        panes = definition["ptas"]
+        left = panes[0]["command"]
+        right = panes[1]["command"]
+
+        self.assertFalse(definition["vertical"])
+        self.assertEqual(2, len(panes))
+        self.assertEqual(0.62, panes[0]["ratio"])
+        self.assertIn("script -q -f", left)
+        self.assertIn("ptas project/ptas.sh", left)
+        self.assertIn("student --event-log", left)
+        self.assertIn("exec /bin/zsh -l", left)
+        self.assertIn("ptas project/ptas.sh", right)
+        self.assertIn("dashboard --event-log", right)
+        self.assertIn("--transcript /tmp/ptas-session.typescript", right)
+        self.assertIn("--recommendations-only", right)
+
+    def test_qterminal_uses_native_left_right_split_with_dashboard_command(self):
+        command = [
+            "/opt/ptas/ptas.sh",
+            "dashboard",
+            "--recommendations-only",
+        ]
+        completed = SimpleNamespace(returncode=0, stdout="('/terminals/right',)", stderr="")
+
+        with patch(
+            "Backend.split_terminal.shutil.which", return_value="/usr/bin/gdbus"
+        ), patch(
+            "Backend.split_terminal.subprocess.run", return_value=completed
+        ) as run:
+            result = split_qterminal_recommendations(
+                "org.lxqt.QTerminal-1234",
+                "/terminals/aabbcc",
+                Path("/opt/ptas"),
+                command,
+            )
+
+        arguments = run.call_args_list[0].args[0]
+        self.assertEqual(0, result)
+        self.assertIn("org.lxqt.QTerminal.Terminal.splitHorizontal", arguments)
+        self.assertIn("'workingDirectory': <'/opt/ptas'>", arguments[-1])
+        self.assertIn("'/opt/ptas/ptas.sh'", arguments[-1])
+        self.assertIn("'--recommendations-only'", arguments[-1])
+
+    def test_qterminal_argument_map_escapes_paths(self):
+        serialized = qterminal_argument_map(
+            Path("/opt/student's ptas"),
+            ["/bin/example", "student's value"],
+        )
+
+        self.assertIn("student\\'s ptas", serialized)
+        self.assertIn("student\\'s value", serialized)
 
     def test_recommendation_sequence_skips_previously_shown_items(self):
         recommendations = [SimpleNamespace(id=10), SimpleNamespace(id=11)]

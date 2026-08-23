@@ -102,6 +102,20 @@ nano .env
 
 ### Step 10: Run the Application
 
+**Student terminal interface (recommended)**
+
+The setup script installs a global launcher. Open a normal Linux terminal and
+run:
+
+```bash
+ptas
+```
+
+In Kali QTerminal this automatically performs **Actions → Split View
+Left-Right** in the current window. Login/register followed by a normal command
+shell stays on the left, and live recommendations stay on the right. Terminator
+provides an equivalent two-terminal fallback. PTAS does not use tmux.
+
 **Option A: Project launcher**
 ```bash
 ./start.sh

@@ -2,7 +2,9 @@
 
 set -euo pipefail
 
-PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")"; pwd)"
+# Resolve the real script path so a global /usr/local/bin/ptas symlink works.
+SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}")"
+PROJECT_DIR="$(cd "$(dirname "$SCRIPT_PATH")"; pwd)"
 
 if [ -x "$PROJECT_DIR/.venv/bin/python" ]; then
     PYTHON="$PROJECT_DIR/.venv/bin/python"

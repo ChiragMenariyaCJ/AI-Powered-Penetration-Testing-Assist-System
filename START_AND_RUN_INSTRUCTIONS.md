@@ -12,7 +12,7 @@ The current repository contains:
 - A MariaDB/MySQL persistence layer using SQLAlchemy
 - Nmap scan execution and vulnerability parsing services
 - Project, target, scope, scan, vulnerability, recommendation, and report APIs
-- A read-only terminal sidecar that watches a selected tmux pane or transcript
+- A one-terminal split-screen student workflow plus an optional advanced sidecar
 - Optional local Ollama integration for terminal advice
 - Automated backend and terminal-assistant tests
 - Kali setup and start scripts
@@ -43,7 +43,7 @@ cd ~/Projects/AI-Powered-Penetration-Testing-Assist-System
 
 ## 3. Fastest first-time setup on Kali Linux
 
-The automated installer installs Python, MariaDB, Nmap, and tmux; creates the database and application user; creates `.venv/`; installs Python packages; and creates `.env` from the template when necessary.
+The automated installer installs Python, MariaDB, Nmap, and Terminator; creates the database and application user; creates `.venv/`; installs Python packages; installs the global `ptas` command; and creates `.env` from the template when necessary.
 
 ```bash
 chmod +x kali-setup.sh start.sh ptas.sh
@@ -64,7 +64,13 @@ python3 -c "import secrets; print(secrets.token_urlsafe(48))"
 
 Copy that output into `SECRET_KEY=` in `.env`. Never commit `.env` or expose its passwords and secret key.
 
-Start PTAS:
+Start the student terminal interface from any directory:
+
+```bash
+ptas
+```
+
+Start only the backend API:
 
 ```bash
 ./start.sh
@@ -87,7 +93,7 @@ Stop the development server with `Ctrl+C`.
 
 ```bash
 sudo apt update
-sudo apt install -y python3 python3-pip python3-venv nmap tmux mariadb-server mariadb-client
+sudo apt install -y python3 python3-pip python3-venv nmap mariadb-server mariadb-client
 ```
 
 Verify the main tools:
@@ -95,7 +101,6 @@ Verify the main tools:
 ```bash
 python3 --version
 nmap --version
-tmux -V
 mariadb --version
 ```
 
@@ -278,19 +283,25 @@ Current route groups are:
 
 Only create targets and execute scans within explicit authorization and the scope recorded for the project.
 
-## 8. Terminal assistant (read-only sidecar)
+## 8. Terminal assistant
 
-The sidecar analyzes new output from one explicitly selected tmux pane or transcript. It sanitizes common secrets, enforces the supplied scope, and displays suggestions. It never executes suggested commands.
+In Kali QTerminal, the main workflow automatically invokes **Actions → Split
+View Left-Right** in the current window. Both sides are genuine terminals: the
+left becomes a normal shell after setup and the right displays recommendations
+only. Terminator provides the equivalent native layout when PTAS is launched
+outside QTerminal. PTAS never requires tmux or executes a recommendation
+automatically.
 
 ### Complete terminal-first student workflow
 
-To use PTAS without Swagger or another browser interface, run:
+To use PTAS without Swagger or another browser interface, open a normal
+terminal and run:
 
 ```bash
-./ptas.sh start
+ptas
 ```
 
-PTAS creates a two-pane tmux workspace. The left pane guides the student
+PTAS creates two real terminals in one window without tmux. The left terminal guides the student
 through registration or login, project selection, authorized scope and target
 entry, and a `yes` authorization confirmation. The scope is the complete
 allowed boundary (for example `192.168.56.0/24`), while the target is one host
@@ -304,7 +315,7 @@ these stages:
 4. Service-aware checks using applicable installed tools such as WhatWeb,
    curl, Nikto, Gobuster, SSLScan, enum4linux-ng, and dig.
 5. Finding persistence and completion checks.
-6. Realtime, evidence-based validation recommendations in the right pane.
+6. Realtime, evidence-based validation recommendations in the right terminal.
 7. A scan-specific report command and output path.
 
 The optional stage asks for consent because the bundled Vulners script sends
@@ -317,20 +328,19 @@ are stored as `EXPLOIT_DB_REFERENCE` findings, including multiple EDB entries
 and CVEs when available. Generic service-only searches are intentionally
 skipped to avoid unrelated or fabricated CVE results.
 
-The findings are printed after each Nmap stage completes in both panes. Realtime
+The findings are printed after each Nmap stage completes on the left. Realtime
 recommendations are generated from the current evidence and persisted as report
-recommendations. When the guided workflow finishes, the left pane returns to a
-normal shell on purpose so the student can continue under PTAS guidance; PTAS
-has not closed the tmux session.
+recommendations appear on the right. When the guided workflow finishes, the
+left terminal automatically becomes a normal interactive shell.
 
 Recommendations are never executed automatically. With `--provider ollama`,
 PTAS asks the local model for fresh next steps as scan evidence and terminal
 output change, then filters the response before showing or saving it.
 
-For a single-terminal session:
+To disable the visual split and use plain output:
 
 ```bash
-./ptas.sh start --no-tmux
+ptas start --plain
 ```
 
 For realtime model-backed recommendations, start a local Ollama model and pass
@@ -338,7 +348,7 @@ it to PTAS:
 
 ```bash
 ollama serve
-./ptas.sh start --provider ollama --model YOUR_INSTALLED_MODEL
+ptas start --provider ollama --model YOUR_INSTALLED_MODEL
 ```
 
 The completed session displays a command similar to:
@@ -378,7 +388,11 @@ Existing JSON reports can be formatted without database access:
 ./ptas.sh --help
 ```
 
-### Recommended two-pane tmux workflow
+### Optional advanced tmux sidecar workflow
+
+The main student interface above does not require this section. The standalone
+`watch` command still supports tmux for advanced users who want PTAS to observe
+a separately managed shell.
 
 Start tmux:
 

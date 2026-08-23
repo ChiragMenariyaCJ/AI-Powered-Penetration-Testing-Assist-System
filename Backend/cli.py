@@ -160,7 +160,7 @@ def _doctor_command(_: argparse.Namespace) -> int:
     renderer = ConsoleRenderer()
     commands = {
         "python3": shutil.which("python3") or shutil.which("python"),
-        "tmux": shutil.which("tmux"),
+        "terminator": shutil.which("terminator"),
         "nmap": shutil.which("nmap"),
         "mariadb/mysql": shutil.which("mariadb") or shutil.which("mysql"),
         "ollama (optional)": shutil.which("ollama"),
@@ -191,7 +191,7 @@ def _start_command(args: argparse.Namespace) -> int:
     from Backend.terminal_workflow import start_terminal_workflow
 
     return start_terminal_workflow(
-        no_tmux=args.no_tmux,
+        plain=args.plain or args.no_tmux,
         provider=args.provider,
         model=args.model,
         ollama_url=args.ollama_url,
@@ -220,7 +220,13 @@ def _dashboard_command(args: argparse.Namespace) -> int:
         args.ollama_url,
         args.allow_remote_llm,
     )
-    return run_dashboard(Path(args.event_log), interval=args.interval, pane=args.pane)
+    return run_dashboard(
+        Path(args.event_log),
+        interval=args.interval,
+        pane=args.pane,
+        transcript=Path(args.transcript) if args.transcript else None,
+        recommendations_only=args.recommendations_only,
+    )
 
 
 def _report_command(args: argparse.Namespace) -> int:
@@ -286,12 +292,17 @@ def build_parser() -> argparse.ArgumentParser:
 
     start_parser = subparsers.add_parser(
         "start",
-        help="Start the interactive two-pane student workflow",
+        help="Open the native two-terminal PTAS workspace",
     )
     start_parser.add_argument(
         "--no-tmux",
         action="store_true",
-        help="Run the student workflow in the current terminal",
+        help=argparse.SUPPRESS,
+    )
+    start_parser.add_argument(
+        "--plain",
+        action="store_true",
+        help="Disable the split screen and use plain terminal output",
     )
     _add_realtime_arguments(start_parser)
     start_parser.set_defaults(func=_start_command)
@@ -310,6 +321,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     dashboard_parser.add_argument("--event-log", required=True)
     dashboard_parser.add_argument("--pane")
+    dashboard_parser.add_argument("--transcript")
+    dashboard_parser.add_argument("--recommendations-only", action="store_true")
     dashboard_parser.add_argument("--interval", type=float, default=0.5)
     _add_realtime_arguments(dashboard_parser)
     dashboard_parser.set_defaults(func=_dashboard_command)
@@ -441,7 +454,8 @@ def _add_advisor_arguments(parser: argparse.ArgumentParser) -> None:
 
 def main() -> int:
     parser = build_parser()
-    args = parser.parse_args()
+    arguments = sys.argv[1:] or ["start"]
+    args = parser.parse_args(arguments)
     if getattr(args, "interval", 1.0) <= 0:
         parser.error("--interval must be greater than zero")
     return int(args.func(args))
