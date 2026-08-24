@@ -21,6 +21,7 @@ from Backend.schemas.scope_validation_schema import (
 router = APIRouter(route_class=LoggedRoute)
 
 
+# Validate HTTP inputs and delegate the create scope validation request to the scope validation controller.
 @router.post(
     "/",
     response_model=ScopeValidationResponse,
@@ -39,6 +40,7 @@ def create_scope_validation(
     return controller.create_scope_validation(request)
 
 
+# Validate HTTP inputs and delegate the get all scope validations request to the scope validation controller.
 @router.get("/", response_model=ScopeValidationListResponse)
 def get_all_scope_validations(
     project_id: int | None = Query(default=None, gt=0),
@@ -53,6 +55,7 @@ def get_all_scope_validations(
     return controller.get_all_scope_validations(project_id)
 
 
+# Validate HTTP inputs and delegate the get scope validation by id request to the scope validation controller.
 @router.get("/{scope_validation_id}", response_model=ScopeValidationResponse)
 def get_scope_validation_by_id(
     scope_validation_id: int,
@@ -67,6 +70,7 @@ def get_scope_validation_by_id(
     return controller.get_scope_validation_by_id(scope_validation_id)
 
 
+# Validate HTTP inputs and delegate the update scope validation request to the scope validation controller.
 @router.put("/{scope_validation_id}", response_model=ScopeValidationResponse)
 def update_scope_validation(
     scope_validation_id: int,
@@ -82,6 +86,7 @@ def update_scope_validation(
     return controller.update_scope_validation(scope_validation_id, request)
 
 
+# Validate HTTP inputs and delegate the delete scope validation request to the scope validation controller.
 @router.delete("/{scope_validation_id}")
 def delete_scope_validation(
     scope_validation_id: int,
@@ -96,6 +101,7 @@ def delete_scope_validation(
     return controller.delete_scope_validation(scope_validation_id)
 
 
+# Validate HTTP inputs and delegate the check target scope request to the scope validation controller.
 @router.post("/check-target-scope", response_model=ScopeCheckResponse)
 def check_target_scope(
     request: ScopeCheckRequest,

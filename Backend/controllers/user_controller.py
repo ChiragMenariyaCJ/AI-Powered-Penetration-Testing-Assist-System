@@ -14,15 +14,12 @@ class UserController:
     The controller constructs dependencies and delegates without performing SQL itself.
     """
 
+    # Build the repositories and use case this controller delegates to for one API request.
     def __init__(self, db: Session):
-        """Initialize the object with the dependencies required by its public operations.
-
-        Dependencies are stored once so each call uses the same request-scoped
-        collaborators.
-        """
         repository = UserRepository(db)
         self.user_usecase = UserUseCase(repository)
 
+    # Forward get all users to the user use case so this controller contains no business or SQL logic.
     def get_all_users(self):
         """Delegate the request to get all users through the configured use case.
 
@@ -31,6 +28,7 @@ class UserController:
         """
         return self.user_usecase.get_all_users()
 
+    # Forward get user by id to the user use case so this controller contains no business or SQL logic.
     def get_user_by_id(self, user_id: int):
         """Delegate the request to get user by id through the configured use case.
 
@@ -39,6 +37,7 @@ class UserController:
         """
         return self.user_usecase.get_user_by_id(user_id)
 
+    # Forward delete user to the user use case so this controller contains no business or SQL logic.
     def delete_user(self, user_id: int):
         """Delegate the request to delete user through the configured use case.
 

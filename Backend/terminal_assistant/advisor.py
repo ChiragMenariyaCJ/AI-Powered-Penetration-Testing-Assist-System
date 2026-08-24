@@ -31,6 +31,7 @@ class OllamaAdvisor:
     recommendations.
     """
 
+    # Store local-model settings and reject remote Ollama URLs unless explicitly allowed.
     def __init__(
         self,
         model: str,
@@ -38,11 +39,6 @@ class OllamaAdvisor:
         allow_remote: bool = False,
         timeout: int = 90,
     ):
-        """Initialize the object with the dependencies required by its public operations.
-
-        Dependencies are stored once so each call uses the same request-scoped
-        collaborators.
-        """
         if not model:
             raise ValueError("An Ollama model name is required")
         self.model = model
@@ -64,6 +60,7 @@ class OllamaAdvisor:
                 "Use --allow-remote-llm only after reviewing the privacy impact."
             )
 
+    # Send sanitised terminal evidence to Ollama and return parsed recommendation prose.
     def advise(self, result: AnalysisResult, excerpt: str) -> list[str]:
         """Perform the advise step of the terminal guidance pipeline.
 
@@ -76,6 +73,7 @@ class OllamaAdvisor:
         prompt = self._prompt(result, excerpt)
         return self.advise_prompt(prompt, result.targets)
 
+    # Ask Ollama for recommendations using a prebuilt evidence prompt.
     def advise_prompt(
         self,
         prompt: str,
@@ -91,6 +89,7 @@ class OllamaAdvisor:
         suggestions = self._parse_suggestions(response_text, limit=limit * 2)
         return filter_safe_recommendations(suggestions, authorized_targets, limit)
 
+    # Call Ollama’s local generate endpoint with low-temperature structured-output settings.
     def complete(self, prompt: str, json_mode: bool = False) -> str:
         """Perform the complete step of the terminal guidance pipeline.
 
@@ -123,6 +122,7 @@ class OllamaAdvisor:
 
         return str(body.get("response", "")).strip()
 
+    # Verify that the local Ollama server has the configured model.
     def ensure_model_available(self, timeout: int = 3) -> None:
         """Verify that the local Ollama server has the configured model.
 
@@ -150,6 +150,7 @@ class OllamaAdvisor:
                 f"ollama pull {self.model}"
             )
 
+    # Generate one new command from completed, in-scope terminal evidence.
     def advise_next_command(
         self,
         result: AnalysisResult,
@@ -234,6 +235,7 @@ class OllamaAdvisor:
                 )
         return None
 
+    # Generate and validate structured commands from scan evidence.
     def advise_commands(
         self,
         prompt: str,
@@ -276,6 +278,7 @@ class OllamaAdvisor:
                 break
         return recommendations
 
+    # Extract the first JSON object from a model response.
     @staticmethod
     def _parse_json_object(response_text: str) -> dict | None:
         """Extract the first JSON object from a model response."""
@@ -290,6 +293,7 @@ class OllamaAdvisor:
             return None
         return parsed if isinstance(parsed, dict) else None
 
+    # Build the strict structured prompt for an adaptive next command.
     @staticmethod
     def _next_command_prompt(
         result: AnalysisResult,
@@ -332,6 +336,7 @@ Sanitized completed terminal output:
 {excerpt[-5000:]}
 """
 
+    # Parse model JSON defensively and keep only non-empty suggestion strings.
     @staticmethod
     def _parse_suggestions(response_text: str, limit: int = 5) -> list[str]:
         """Perform the parse suggestions step of the terminal guidance pipeline.
@@ -348,6 +353,7 @@ Sanitized completed terminal output:
                 break
         return suggestions
 
+    # Build the safety-bounded recommendation prompt from the current analysis and transcript.
     @staticmethod
     def _prompt(result: AnalysisResult, excerpt: str) -> str:
         """Perform the prompt step of the terminal guidance pipeline.

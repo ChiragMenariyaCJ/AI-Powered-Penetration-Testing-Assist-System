@@ -20,16 +20,14 @@ from fastapi.routing import APIRoute
 logger = logging.getLogger("uvicorn.error")
 
 
+# Wrap one controller, use-case, or repository method with start, return, error, and duration logs.
 def _logged_layer_method(method, layer: str):
-    """Implement the internal logged layer method step used by this module's public workflow.
-
-    It remains private so callers depend on the supported public interface.
-    """
 
     method_name = f"{method.__module__}.{method.__qualname__}"
 
     if inspect.iscoroutinefunction(method):
 
+        # Await an asynchronous layer method while logging its duration, return, or exception.
         @wraps(method)
         async def async_wrapper(*args, **kwargs):
             started_at = perf_counter()
@@ -57,6 +55,7 @@ def _logged_layer_method(method, layer: str):
 
         return async_wrapper
 
+    # Trace a normal synchronous layer method and preserve its original metadata.
     @wraps(method)
     def sync_wrapper(*args, **kwargs):
         started_at = perf_counter()
@@ -85,11 +84,8 @@ def _logged_layer_method(method, layer: str):
     return sync_wrapper
 
 
+# Decorate each public method on a layer class while leaving private helpers unchanged.
 def _trace_class(application_class, layer: str):
-    """Implement the internal trace class step used by this module's public workflow.
-
-    It remains private so callers depend on the supported public interface.
-    """
 
     for name, attribute in vars(application_class).items():
         if name.startswith("_"):
@@ -106,6 +102,7 @@ def _trace_class(application_class, layer: str):
     return application_class
 
 
+# Apply controller tracing to every public method on the supplied controller class.
 def trace_controller(controller_class):
     """Perform the trace controller operation.
 
@@ -115,6 +112,7 @@ def trace_controller(controller_class):
     return _trace_class(controller_class, "controller")
 
 
+# Apply use-case tracing to every public method on the supplied business-layer class.
 def trace_usecase(usecase_class):
     """Perform the trace usecase operation.
 
@@ -124,6 +122,7 @@ def trace_usecase(usecase_class):
     return _trace_class(usecase_class, "usecase")
 
 
+# Apply repository tracing to every public method on the supplied persistence class.
 def trace_repository(repository_class):
     """Perform the trace repository operation.
 
@@ -139,6 +138,7 @@ class LoggedRoute(APIRoute):
     Its public methods provide the supported interface used by the rest of PTAS.
     """
 
+    # Wrap FastAPI route execution so each request logs its handler, status, and duration.
     def get_route_handler(self):
         """Perform the get route handler operation for LoggedRoute.
 
@@ -148,6 +148,7 @@ class LoggedRoute(APIRoute):
         original_handler = super().get_route_handler()
         endpoint_name = f"{self.endpoint.__module__}.{self.endpoint.__qualname__}"
 
+        # Trace a synchronous route handler and return its response unchanged.
         async def logged_handler(request: Request) -> Response:
             started_at = perf_counter()
             logger.info(

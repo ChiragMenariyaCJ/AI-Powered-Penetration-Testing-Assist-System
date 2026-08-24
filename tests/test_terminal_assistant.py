@@ -22,15 +22,19 @@ from Backend.services.nmap_service import NmapService
 class _JsonResponse:
     """Provide a minimal context-managed HTTP response for advisor tests."""
 
+    # Store the dependencies and state required by this helper.
     def __init__(self, body: bytes):
         self.body = body
 
+    # Return this fake response when the mocked HTTP context manager is entered.
     def __enter__(self):
         return self
 
+    # Leave the mocked HTTP context without suppressing unexpected exceptions.
     def __exit__(self, *_args):
         return False
 
+    # Return the encoded fake response body expected by the HTTP client.
     def read(self) -> bytes:
         return self.body
 
@@ -38,6 +42,7 @@ class _JsonResponse:
 class AdvisorTests(unittest.TestCase):
     """Verify Ollama readiness is based on the server's installed models."""
 
+    # Reject configuration that names a model absent from Ollama.
     def test_configured_ollama_model_must_be_installed(self):
         """Reject configuration that names a model absent from Ollama."""
 
@@ -48,6 +53,7 @@ class AdvisorTests(unittest.TestCase):
             with self.assertRaisesRegex(AdvisorError, "ollama pull qwen2.5:3b-instruct"):
                 advisor.ensure_model_available()
 
+    # Accept a reachable Ollama server containing the configured model.
     def test_configured_ollama_model_is_accepted_when_installed(self):
         """Accept a reachable Ollama server containing the configured model."""
 
@@ -57,6 +63,7 @@ class AdvisorTests(unittest.TestCase):
         with patch("Backend.terminal_assistant.advisor.urlopen", return_value=response):
             advisor.ensure_model_available()
 
+    # Accept one structured, in-scope command returned by the local model.
     def test_adaptive_command_is_generated_from_completed_evidence(self):
         """Accept one structured, in-scope command returned by the local model."""
 
@@ -90,6 +97,7 @@ class AdvisorTests(unittest.TestCase):
         self.assertEqual("curl -I http://10.10.10.20/", recommendation["command"])
         self.assertIn("real terminal output", complete.call_args.args[0])
 
+    # Reject a model response that hides another operation after a separator.
     def test_adaptive_command_rejects_model_shell_chaining(self):
         """Reject a model response that hides another operation after a separator."""
 
@@ -113,6 +121,7 @@ class AdvisorTests(unittest.TestCase):
             advisor.last_rejection_reason,
         )
 
+    # Expose a useful reason without displaying an unsafe model command.
     def test_manual_command_rejection_explains_disallowed_nmap_script(self):
         """Expose a useful reason without displaying an unsafe model command."""
 
@@ -126,6 +135,7 @@ class AdvisorTests(unittest.TestCase):
             reason,
         )
 
+    # Do not accept an allowlisted script when its service port is wrong.
     def test_manual_command_rejects_script_for_wrong_service_port(self):
         """Do not accept an allowlisted script when its service port is wrong."""
 
@@ -139,6 +149,7 @@ class AdvisorTests(unittest.TestCase):
             reason,
         )
 
+    # Ask the local model once to correct a service/script mismatch.
     def test_adaptive_command_retries_one_rejected_model_response(self):
         """Ask the local model once to correct a service/script mismatch."""
 
@@ -170,6 +181,7 @@ class AdvisorTests(unittest.TestCase):
         self.assertIn("telnet-encryption", recommendation["command"])
         self.assertIsNone(advisor.last_rejection_reason)
 
+    # Allow the exact gate command supplied by verified lab context.
     def test_verified_lab_gate_command_is_accepted_exactly(self):
         """Allow the exact gate command supplied by verified lab context."""
 
@@ -201,6 +213,7 @@ class AdvisorTests(unittest.TestCase):
             advisor._next_command_prompt(result, "output", set(), gate),
         )
 
+    # Keep valid model commands while dropping out-of-scope JSON items.
     def test_scan_commands_are_model_generated_and_scope_filtered(self):
         """Keep valid model commands while dropping out-of-scope JSON items."""
 
@@ -229,6 +242,7 @@ class SanitizerTests(unittest.TestCase):
     Each test documents one externally observable behavior that future changes must
     preserve.
     """
+    # Verify that redacts secrets and terminal codes.
     def test_redacts_secrets_and_terminal_codes(self):
         """Verify that redacts secrets and terminal codes.
 
@@ -248,6 +262,7 @@ class SanitizerTests(unittest.TestCase):
         self.assertNotIn("\x1b", sanitized)
         self.assertIn("[REDACTED]", sanitized)
 
+    # Verify adjacent QTerminal OSC messages preserve the text between them.
     def test_qterminal_osc_sequences_do_not_consume_command_output(self):
         """Verify adjacent QTerminal OSC messages preserve the text between them."""
 
@@ -275,6 +290,7 @@ class ScopeGuardTests(unittest.TestCase):
     Each test documents one externally observable behavior that future changes must
     preserve.
     """
+    # Verify that ip network scope.
     def test_ip_network_scope(self):
         """Verify that ip network scope.
 
@@ -285,6 +301,7 @@ class ScopeGuardTests(unittest.TestCase):
         self.assertTrue(guard.is_allowed("10.10.10.20"))
         self.assertFalse(guard.is_allowed("10.10.11.20"))
 
+    # Verify that domain scope includes subdomains only.
     def test_domain_scope_includes_subdomains_only(self):
         """Verify that domain scope includes subdomains only.
 
@@ -296,6 +313,7 @@ class ScopeGuardTests(unittest.TestCase):
         self.assertTrue(guard.is_allowed("api.example.test"))
         self.assertFalse(guard.is_allowed("badexample.test"))
 
+    # Verify that single label lab hostname scope.
     def test_single_label_lab_hostname_scope(self):
         """Verify that single label lab hostname scope.
 
@@ -306,6 +324,7 @@ class ScopeGuardTests(unittest.TestCase):
         self.assertTrue(guard.is_allowed("metasploitable"))
         self.assertFalse(guard.is_allowed("another-lab-host"))
 
+    # Verify that scope is required.
     def test_scope_is_required(self):
         """Verify that scope is required.
 
@@ -321,6 +340,7 @@ class AnalyzerTests(unittest.TestCase):
     Each test documents one externally observable behavior that future changes must
     preserve.
     """
+    # Verify that prompt only extraction ignores printed recommendation commands.
     def test_prompt_only_extraction_ignores_printed_recommendation_commands(self):
         """Verify that prompt only extraction ignores printed recommendation commands.
 
@@ -335,6 +355,7 @@ class AnalyzerTests(unittest.TestCase):
             TerminalAnalyzer.extract_latest_prompt_command(executed),
         )
 
+    # Do not mistake Nmap's final status line for an executed command.
     def test_standalone_command_extraction_ignores_nmap_completion_text(self):
         """Do not mistake Nmap's final status line for an executed command."""
 
@@ -349,6 +370,7 @@ class AnalyzerTests(unittest.TestCase):
             TerminalAnalyzer.extract_latest_command(transcript),
         )
 
+    # Verify that parses authorized nmap output.
     def test_parses_authorized_nmap_output(self):
         """Verify that parses authorized nmap output.
 
@@ -367,6 +389,7 @@ class AnalyzerTests(unittest.TestCase):
         self.assertEqual(2, len(result.findings))
         self.assertTrue(any("open-service evidence" in item for item in result.suggestions))
 
+    # Verify that blocks out of scope target without scan advice.
     def test_blocks_out_of_scope_target_without_scan_advice(self):
         """Verify that blocks out of scope target without scan advice.
 
@@ -391,6 +414,7 @@ class SourceTests(unittest.TestCase):
     Each test documents one externally observable behavior that future changes must
     preserve.
     """
+    # Verify that follows only new transcript bytes.
     def test_follows_only_new_transcript_bytes(self):
         """Verify that follows only new transcript bytes.
 
@@ -413,6 +437,7 @@ class NmapSafetyTests(unittest.TestCase):
     Each test documents one externally observable behavior that future changes must
     preserve.
     """
+    # Verify that accepts normal targets.
     def test_accepts_normal_targets(self):
         """Verify that accepts normal targets.
 
@@ -427,6 +452,7 @@ class NmapSafetyTests(unittest.TestCase):
             NmapService._validate_target("lab.example.test"),
         )
 
+    # Verify that rejects option and multi target injection.
     def test_rejects_option_and_multi_target_injection(self):
         """Verify that rejects option and multi target injection.
 
@@ -437,6 +463,7 @@ class NmapSafetyTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     NmapService._validate_target(target)
 
+    # Allow scoped metadata collection and reject unsafe command composition.
     def test_model_command_requires_one_safe_tool_and_in_scope_target(self):
         """Allow scoped metadata collection and reject unsafe command composition."""
 

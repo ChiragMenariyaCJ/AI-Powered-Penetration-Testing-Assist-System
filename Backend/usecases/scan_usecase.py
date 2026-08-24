@@ -14,19 +14,16 @@ class ScanUseCase:
 
     The use case validates related state and coordinates repositories or services.
     """
+    # Store the repositories and services used to enforce this feature’s business rules.
     def __init__(
         self,
         scan_repository: ScanRepository,
         target_repository: TargetRepository,
     ):
-        """Initialize the object with the dependencies required by its public operations.
-
-        Dependencies are stored once so each call uses the same request-scoped
-        collaborators.
-        """
         self.scan_repository = scan_repository
         self.target_repository = target_repository
 
+    # Validate related records and coordinate repositories to create scan.
     def create_scan(self, request):
         """Apply business validation and orchestration needed to create scan.
 
@@ -48,6 +45,7 @@ class ScanUseCase:
             status=request.status,
         )
 
+    # Validate related records and coordinate repositories to get all scans.
     def get_all_scans(self, target_id: int | None = None):
         """Apply business validation and orchestration needed to get all scans.
 
@@ -72,6 +70,7 @@ class ScanUseCase:
             "scans": scans,
         }
 
+    # Validate related records and coordinate repositories to get scan by id.
     def get_scan_by_id(self, scan_id: int):
         """Apply business validation and orchestration needed to get scan by id.
 
@@ -88,6 +87,7 @@ class ScanUseCase:
 
         return scan
 
+    # Validate related records and coordinate repositories to update scan.
     def update_scan(self, scan_id: int, request):
         """Apply business validation and orchestration needed to update scan.
 
@@ -115,6 +115,7 @@ class ScanUseCase:
             update_data,
         )
 
+    # Validate related records and coordinate repositories to delete scan.
     def delete_scan(self, scan_id: int):
         """Apply business validation and orchestration needed to delete scan.
 

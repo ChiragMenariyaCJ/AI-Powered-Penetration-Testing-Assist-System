@@ -62,6 +62,7 @@ SECRET_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
 )
 
 
+# Remove control sequences and redact likely secrets before terminal evidence reaches analysis or an LLM.
 def sanitize_terminal_text(text: str, max_chars: int = 12000) -> str:
     """Perform the sanitize terminal text step of the terminal guidance pipeline.
 

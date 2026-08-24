@@ -15,20 +15,17 @@ class RecommendationUseCase:
 
     The use case validates related state and coordinates repositories or services.
     """
+    # Store the repositories and services used to enforce this feature’s business rules.
     def __init__(
         self,
         recommendation_repository: RecommendationRepository,
         vulnerability_repository: VulnerabilityRepository,
     ):
-        """Initialize the object with the dependencies required by its public operations.
-
-        Dependencies are stored once so each call uses the same request-scoped
-        collaborators.
-        """
         self.recommendation_repository = recommendation_repository
         self.vulnerability_repository = vulnerability_repository
         self.ai_engine = AIRecommendationEngine()
 
+    # Generate AI recommendations for a vulnerability.
     def generate_recommendations_for_vulnerability(
         self, vulnerability_id: int
     ) -> dict:
@@ -90,6 +87,7 @@ class RecommendationUseCase:
             "recommendations": created_recommendations,
         }
 
+    # Validate related records and coordinate repositories to get recommendation by id.
     def get_recommendation_by_id(self, recommendation_id: int):
         """Apply business validation and orchestration needed to get recommendation by id.
 
@@ -108,6 +106,7 @@ class RecommendationUseCase:
 
         return recommendation
 
+    # Validate related records and coordinate repositories to get all recommendations.
     def get_all_recommendations(self, vulnerability_id: int | None = None):
         """Apply business validation and orchestration needed to get all recommendations.
 
@@ -142,6 +141,7 @@ class RecommendationUseCase:
             "recommendations": recommendations,
         }
 
+    # Validate related records and coordinate repositories to update recommendation.
     def update_recommendation(self, recommendation_id: int, request):
         """Apply business validation and orchestration needed to update recommendation.
 
@@ -173,6 +173,7 @@ class RecommendationUseCase:
             update_data,
         )
 
+    # Validate related records and coordinate repositories to delete recommendation.
     def delete_recommendation(self, recommendation_id: int):
         """Apply business validation and orchestration needed to delete recommendation.
 
@@ -204,6 +205,7 @@ class RecommendationUseCase:
             "recommendation": deleted_rec,
         }
 
+    # Validate related records and coordinate repositories to approve recommendation.
     def approve_recommendation(self, recommendation_id: int, approved_by: str):
         """Apply business validation and orchestration needed to approve recommendation.
 
@@ -226,6 +228,7 @@ class RecommendationUseCase:
             recommendation, approved_by
         )
 
+    # Validate related records and coordinate repositories to reject recommendation.
     def reject_recommendation(self, recommendation_id: int):
         """Apply business validation and orchestration needed to reject recommendation.
 
@@ -246,6 +249,7 @@ class RecommendationUseCase:
 
         return self.recommendation_repository.reject_recommendation(recommendation)
 
+    # Validate related records and coordinate repositories to get recommendations by status.
     def get_recommendations_by_status(self, status_filter: str):
         """Apply business validation and orchestration needed to get recommendations by status.
 
@@ -276,6 +280,7 @@ class RecommendationUseCase:
             "recommendations": recommendations,
         }
 
+    # Validate related records and coordinate repositories to get attack score.
     def get_attack_score(self, vulnerability_id: int) -> dict:
         """Apply business validation and orchestration needed to get attack score.
 

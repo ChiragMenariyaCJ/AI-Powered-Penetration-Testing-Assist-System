@@ -14,19 +14,16 @@ class ProjectUseCase:
 
     The use case validates related state and coordinates repositories or services.
     """
+    # Store the repositories and services used to enforce this feature’s business rules.
     def __init__(
         self,
         project_repository: ProjectRepository,
         user_repository: UserRepository,
     ):
-        """Initialize the object with the dependencies required by its public operations.
-
-        Dependencies are stored once so each call uses the same request-scoped
-        collaborators.
-        """
         self.project_repository = project_repository
         self.user_repository = user_repository
 
+    # Validate related records and coordinate repositories to create project.
     def create_project(self, request):
         """Apply business validation and orchestration needed to create project.
 
@@ -48,6 +45,7 @@ class ProjectUseCase:
             status=request.status,
         )
 
+    # Validate related records and coordinate repositories to get all projects.
     def get_all_projects(self, user_id: int | None = None):
         """Apply business validation and orchestration needed to get all projects.
 
@@ -74,6 +72,7 @@ class ProjectUseCase:
             "projects": projects,
         }
 
+    # Validate related records and coordinate repositories to get project by id.
     def get_project_by_id(self, project_id: int):
         """Apply business validation and orchestration needed to get project by id.
 
@@ -90,6 +89,7 @@ class ProjectUseCase:
 
         return project
 
+    # Validate related records and coordinate repositories to update project.
     def update_project(self, project_id: int, request):
         """Apply business validation and orchestration needed to update project.
 
@@ -117,6 +117,7 @@ class ProjectUseCase:
             update_data,
         )
 
+    # Validate related records and coordinate repositories to delete project.
     def delete_project(self, project_id: int):
         """Apply business validation and orchestration needed to delete project.
 

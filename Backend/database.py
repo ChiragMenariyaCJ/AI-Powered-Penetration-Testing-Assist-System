@@ -20,6 +20,7 @@ SessionLocal = sessionmaker(
 Base = declarative_base()
 
 
+# Yield one SQLAlchemy session to a FastAPI request and always close it afterward.
 def get_db():
     """Perform the get db operation.
 

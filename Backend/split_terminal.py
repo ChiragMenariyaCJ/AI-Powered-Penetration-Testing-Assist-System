@@ -33,15 +33,13 @@ class NativeTerminalError(RuntimeError):
 # ---------------------------------------------------------------------------
 
 
+# Escape a command as a GLib variant string for QTerminal D-Bus calls.
 def _gvariant_string(value: str) -> str:
-    """Implement the internal gvariant string step used by this module's public workflow.
-
-    It remains private so callers depend on the supported public interface.
-    """
 
     return "'" + value.replace("\\", "\\\\").replace("'", "\\'") + "'"
 
 
+# Build the escaped QTerminal D-Bus argument map used to start the recommendation pane.
 def qterminal_argument_map(project_dir: Path, command: list[str]) -> str:
     """Perform the qterminal argument map operation.
 
@@ -58,6 +56,7 @@ def qterminal_argument_map(project_dir: Path, command: list[str]) -> str:
     )
 
 
+# Ask the current QTerminal window to create a native left/right pane and run the dashboard.
 def split_qterminal_recommendations(
     service: str,
     terminal_object: str,
@@ -118,6 +117,7 @@ def split_qterminal_recommendations(
 # ---------------------------------------------------------------------------
 
 
+# Run the student’s normal interactive shell through script so its transcript can be monitored.
 def run_recorded_shell(project_dir: Path, transcript: Path, login_shell: str) -> int:
     """Perform the run recorded shell operation.
 
@@ -139,6 +139,7 @@ def run_recorded_shell(project_dir: Path, transcript: Path, login_shell: str) ->
 # ---------------------------------------------------------------------------
 
 
+# Write a two-pane Terminator layout containing an interactive shell and read-only dashboard.
 def build_terminator_layout(
     project_dir: Path,
     event_log: Path,
@@ -193,6 +194,7 @@ def build_terminator_layout(
     }
 
 
+# Prefer QTerminal native splitting and fall back to Terminator when native splitting is unavailable.
 def launch_split_terminals(
     project_dir: Path,
     event_log: Path,

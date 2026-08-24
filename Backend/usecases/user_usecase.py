@@ -11,14 +11,11 @@ class UserUseCase:
 
     The use case validates related state and coordinates repositories or services.
     """
+    # Store the repositories and services used to enforce this feature’s business rules.
     def __init__(self, user_repository):
-        """Initialize the object with the dependencies required by its public operations.
-
-        Dependencies are stored once so each call uses the same request-scoped
-        collaborators.
-        """
         self.user_repository = user_repository
 
+    # Validate related records and coordinate repositories to get all users.
     def get_all_users(self):
         """Apply business validation and orchestration needed to get all users.
 
@@ -39,6 +36,7 @@ class UserUseCase:
             ]
         }
 
+    # Validate related records and coordinate repositories to get user by id.
     def get_user_by_id(self, user_id: int):
         """Apply business validation and orchestration needed to get user by id.
 
@@ -59,6 +57,7 @@ class UserUseCase:
             "email": user.email
         }
 
+    # Validate related records and coordinate repositories to delete user.
     def delete_user(self, user_id: int):
         """Apply business validation and orchestration needed to delete user.
 

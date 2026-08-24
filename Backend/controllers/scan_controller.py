@@ -15,12 +15,8 @@ class ScanController:
     The controller constructs dependencies and delegates without performing SQL itself.
     """
 
+    # Build the repositories and use case this controller delegates to for one API request.
     def __init__(self, db: Session):
-        """Initialize the object with the dependencies required by its public operations.
-
-        Dependencies are stored once so each call uses the same request-scoped
-        collaborators.
-        """
         scan_repository = ScanRepository(db)
         target_repository = TargetRepository(db)
 
@@ -29,6 +25,7 @@ class ScanController:
             target_repository,
         )
 
+    # Forward create scan to the scan use case so this controller contains no business or SQL logic.
     def create_scan(self, request):
         """Delegate the request to create scan through the configured use case.
 
@@ -37,6 +34,7 @@ class ScanController:
         """
         return self.scan_usecase.create_scan(request)
 
+    # Forward get all scans to the scan use case so this controller contains no business or SQL logic.
     def get_all_scans(self, target_id: int | None = None):
         """Delegate the request to get all scans through the configured use case.
 
@@ -45,6 +43,7 @@ class ScanController:
         """
         return self.scan_usecase.get_all_scans(target_id)
 
+    # Forward get scan by id to the scan use case so this controller contains no business or SQL logic.
     def get_scan_by_id(self, scan_id: int):
         """Delegate the request to get scan by id through the configured use case.
 
@@ -53,6 +52,7 @@ class ScanController:
         """
         return self.scan_usecase.get_scan_by_id(scan_id)
 
+    # Forward update scan to the scan use case so this controller contains no business or SQL logic.
     def update_scan(self, scan_id: int, request):
         """Delegate the request to update scan through the configured use case.
 
@@ -61,6 +61,7 @@ class ScanController:
         """
         return self.scan_usecase.update_scan(scan_id, request)
 
+    # Forward delete scan to the scan use case so this controller contains no business or SQL logic.
     def delete_scan(self, scan_id: int):
         """Delegate the request to delete scan through the configured use case.
 

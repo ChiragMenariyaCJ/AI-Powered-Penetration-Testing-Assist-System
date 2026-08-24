@@ -11,6 +11,7 @@ from Backend.database import get_db
 router = APIRouter(route_class=LoggedRoute)
 
 
+# Execute a pending scan using Nmap.
 @router.post("/execute/{scan_id}")
 def execute_scan(
     scan_id: int,
@@ -28,6 +29,7 @@ def execute_scan(
     return controller.execute_scan(scan_id, project_id)
 
 
+# Validate HTTP inputs and delegate the get scan results request to the scan execution controller.
 @router.get("/results/{scan_id}")
 def get_scan_results(
     scan_id: int,
@@ -42,6 +44,7 @@ def get_scan_results(
     return controller.get_scan_results(scan_id)
 
 
+# Validate HTTP inputs and delegate the check nmap availability request to the scan execution controller.
 @router.get("/status/nmap-availability")
 def check_nmap_availability(db: Session = Depends(get_db)):
     """Handle the HTTP request that asks PTAS to check nmap availability.

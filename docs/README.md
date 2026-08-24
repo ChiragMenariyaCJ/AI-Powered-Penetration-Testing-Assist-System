@@ -22,6 +22,8 @@ maintained source.
 - [Functionality index](functionalities/README.md) — feature-by-feature guides
   for authentication, projects, targets, scanning, findings, recommendations,
   and reports.
+- [Viva explanation guide](viva-guide.md) — the smallest code map, research
+  question evidence, limitations, and likely presentation questions.
 
 ## Suggested reading order
 
@@ -29,5 +31,5 @@ maintained source.
 2. Read **Architecture and request flow** to understand the folder layers.
 3. Open the relevant functionality guide before explaining or modifying a
    feature.
-4. Use the detailed Python docstrings in VS Code for the behavior of an
-   individual class or function.
+4. Use descriptive function names and nearby comments in VS Code to follow an
+   individual operation.

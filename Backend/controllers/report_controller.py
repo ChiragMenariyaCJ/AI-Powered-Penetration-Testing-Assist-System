@@ -12,6 +12,7 @@ class ReportController:
 
     The controller constructs dependencies and delegates without performing SQL itself.
     """
+    # Forward generate report to the report use case so this controller contains no business or SQL logic.
     @staticmethod
     def generate_report(
         db: Session, scan_id: int, title: str, description: str = None, generated_by: str = None
@@ -23,6 +24,7 @@ class ReportController:
         """
         return ReportUseCase.generate_report(db, scan_id, title, description, generated_by)
 
+    # Forward get report to the report use case so this controller contains no business or SQL logic.
     @staticmethod
     def get_report(db: Session, report_id: int):
         """Delegate the request to get report through the configured use case.
@@ -32,6 +34,7 @@ class ReportController:
         """
         return ReportUseCase.get_report(db, report_id)
 
+    # Forward get reports by scan to the report use case so this controller contains no business or SQL logic.
     @staticmethod
     def get_reports_by_scan(db: Session, scan_id: int):
         """Delegate the request to get reports by scan through the configured use case.
@@ -41,6 +44,7 @@ class ReportController:
         """
         return ReportUseCase.get_reports_by_scan(db, scan_id)
 
+    # Forward export report to the report use case so this controller contains no business or SQL logic.
     @staticmethod
     def export_report(db: Session, report_id: int, format_type: str, exported_by: str = None):
         """Delegate the request to export report through the configured use case.
@@ -50,6 +54,7 @@ class ReportController:
         """
         return ReportUseCase.export_report(db, report_id, format_type, exported_by)
 
+    # Forward list all reports to the report use case so this controller contains no business or SQL logic.
     @staticmethod
     def list_all_reports(db: Session, skip: int = 0, limit: int = 10):
         """Delegate the request to list all reports through the configured use case.

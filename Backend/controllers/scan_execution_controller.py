@@ -20,12 +20,8 @@ class ScanExecutionController:
     The controller constructs dependencies and delegates without performing SQL itself.
     """
 
+    # Build the repositories and use case this controller delegates to for one API request.
     def __init__(self, db: Session):
-        """Initialize the object with the dependencies required by its public operations.
-
-        Dependencies are stored once so each call uses the same request-scoped
-        collaborators.
-        """
         scan_repository = ScanRepository(db)
         target_repository = TargetRepository(db)
         scope_validation_repository = ScopeValidationRepository(db)
@@ -40,6 +36,7 @@ class ScanExecutionController:
             vulnerability_repository,
         )
 
+    # Forward execute scan to the scan execution use case so this controller contains no business or SQL logic.
     def execute_scan(self, scan_id: int, project_id: int):
         """Delegate the request to execute scan through the configured use case.
 
@@ -50,6 +47,7 @@ class ScanExecutionController:
             scan_id, project_id
         )
 
+    # Forward get scan results to the scan execution use case so this controller contains no business or SQL logic.
     def get_scan_results(self, scan_id: int):
         """Delegate the request to get scan results through the configured use case.
 
@@ -58,6 +56,7 @@ class ScanExecutionController:
         """
         return self.scan_execution_usecase.get_scan_results(scan_id)
 
+    # Forward validate nmap availability to the scan execution use case so this controller contains no business or SQL logic.
     def validate_nmap_availability(self):
         """Delegate the request to validate nmap availability through the configured use case.
 

@@ -37,6 +37,7 @@ class AnalysisResult:
         default_factory=lambda: datetime.now(timezone.utc).isoformat()
     )
 
+    # Convert an analysis result and its nested findings into JSON-serialisable dictionaries.
     def to_dict(self) -> dict:
         """Perform the to dict step of the terminal guidance pipeline.
 
@@ -45,6 +46,7 @@ class AnalysisResult:
         """
         return asdict(self)
 
+    # Hash the meaningful analysis fields so the live dashboard can suppress repeated output.
     def fingerprint(self) -> str:
         """Perform the fingerprint step of the terminal guidance pipeline.
 

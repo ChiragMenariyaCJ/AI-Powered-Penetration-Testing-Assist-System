@@ -20,6 +20,7 @@ class ReportUseCase:
 
     The use case validates related state and coordinates repositories or services.
     """
+    # Generate a comprehensive penetration test report for a scan.
     @staticmethod
     def generate_report(
         db: Session, scan_id: int, title: str, description: str = None, generated_by: str = None
@@ -103,6 +104,7 @@ class ReportUseCase:
             },
         }
 
+    # Validate related records and coordinate repositories to calculate vulnerability summary.
     @staticmethod
     def _calculate_vulnerability_summary(vulnerabilities: list[Vulnerability]) -> dict:
         """Apply business validation and orchestration needed to calculate vulnerability summary.
@@ -132,6 +134,7 @@ class ReportUseCase:
             "info": severity_map["INFO"],
         }
 
+    # Validate related records and coordinate repositories to calculate recommendation summary.
     @staticmethod
     def _calculate_recommendation_summary(
         db: Session, vulnerabilities: list[Vulnerability]
@@ -172,6 +175,7 @@ class ReportUseCase:
 
         return status_count
 
+    # Validate related records and coordinate repositories to gather scan metadata.
     @staticmethod
     def _gather_scan_metadata(db: Session, scan: Scan) -> dict:
         """Apply business validation and orchestration needed to gather scan metadata.
@@ -196,6 +200,7 @@ class ReportUseCase:
             "end_time": scan.completed_at,
         }
 
+    # Validate related records and coordinate repositories to generate report content.
     @staticmethod
     def _generate_report_content(
         scan: Scan,
@@ -268,6 +273,7 @@ class ReportUseCase:
 
         return json.dumps(report_data, indent=2)
 
+    # Validate related records and coordinate repositories to get report.
     @staticmethod
     def get_report(db: Session, report_id: int) -> dict:
         """Apply business validation and orchestration needed to get report.
@@ -313,6 +319,7 @@ class ReportUseCase:
             },
         }
 
+    # Validate related records and coordinate repositories to get reports by scan.
     @staticmethod
     def get_reports_by_scan(db: Session, scan_id: int) -> dict:
         """Apply business validation and orchestration needed to get reports by scan.
@@ -335,6 +342,7 @@ class ReportUseCase:
             "total": len(reports),
         }
 
+    # Validate related records and coordinate repositories to export report.
     @staticmethod
     def export_report(db: Session, report_id: int, format_type: str, exported_by: str = None) -> dict:
         """Apply business validation and orchestration needed to export report.
@@ -364,6 +372,7 @@ class ReportUseCase:
             "exported_at": datetime.now(UTC),
         }
 
+    # Validate related records and coordinate repositories to list all reports.
     @staticmethod
     def list_all_reports(db: Session, skip: int = 0, limit: int = 10) -> dict:
         """Apply business validation and orchestration needed to list all reports.

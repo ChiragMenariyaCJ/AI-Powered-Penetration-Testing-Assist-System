@@ -6,6 +6,7 @@ from jose import JWTError, jwt
 from Backend.config import settings
 
 
+# Create a signed JWT containing the user identity and an expiry timestamp.
 def create_access_token(data: dict) -> str:
     """Perform the token operation needed to create access token.
 
@@ -24,6 +25,7 @@ def create_access_token(data: dict) -> str:
     )
 
 
+# Verify a JWT signature and expiry before returning its decoded claims.
 def decode_access_token(token: str) -> dict | None:
     """Perform the token operation needed to decode access token.
 

@@ -13,14 +13,11 @@ class TargetRepository:
 
     This layer owns SQLAlchemy queries and transaction boundaries for the feature.
     """
+    # Store the request-scoped SQLAlchemy session used by this repository’s queries.
     def __init__(self, db: Session):
-        """Initialize the object with the dependencies required by its public operations.
-
-        Dependencies are stored once so each call uses the same request-scoped
-        collaborators.
-        """
         self.db = db
 
+    # Create and commit the requested target record.
     def create_target(
         self,
         project_id: int,
@@ -50,6 +47,7 @@ class TargetRepository:
 
         return target
 
+    # Query all targets with SQLAlchemy without changing stored database state.
     def get_all_targets(self) -> list[Target]:
         """Query target data for get all targets.
 
@@ -58,6 +56,7 @@ class TargetRepository:
         """
         return self.db.query(Target).order_by(Target.id.desc()).all()
 
+    # Query targets by project id with SQLAlchemy without changing stored database state.
     def get_targets_by_project_id(self, project_id: int) -> list[Target]:
         """Query target data for get targets by project id.
 
@@ -71,6 +70,7 @@ class TargetRepository:
             .all()
         )
 
+    # Query target by id with SQLAlchemy without changing stored database state.
     def get_target_by_id(self, target_id: int) -> Target | None:
         """Query target data for get target by id.
 
@@ -83,6 +83,7 @@ class TargetRepository:
             .first()
         )
 
+    # Persist the state change required to update target.
     def update_target(
         self,
         target: Target,
@@ -101,6 +102,7 @@ class TargetRepository:
 
         return target
 
+    # Delete the supplied target record and commit the transaction.
     def delete_target(self, target: Target) -> None:
         """Delete the supplied target record and commit the transaction.
 

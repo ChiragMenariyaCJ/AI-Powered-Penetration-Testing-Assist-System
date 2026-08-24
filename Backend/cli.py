@@ -32,11 +32,8 @@ from Backend.terminal_assistant.sources import FollowFileSource
 # ---------------------------------------------------------------------------
 
 
+# Combine repeated --scope values and scope-file lines into one clean authorised-scope list.
 def _scope_entries(args: argparse.Namespace) -> list[str]:
-    """Implement the internal scope entries step used by this module's public workflow.
-
-    It remains private so callers depend on the supported public interface.
-    """
 
     entries = list(args.scope or [])
     if args.scope_file:
@@ -45,11 +42,8 @@ def _scope_entries(args: argparse.Namespace) -> list[str]:
     return [entry.strip() for entry in entries if entry.strip() and not entry.startswith("#")]
 
 
+# Add the shared authorised target and scope-file options to a CLI subcommand.
 def _add_scope_arguments(parser: argparse.ArgumentParser) -> None:
-    """Implement the internal add scope arguments step used by this module's public workflow.
-
-    It remains private so callers depend on the supported public interface.
-    """
 
     parser.add_argument(
         "--scope",
@@ -62,11 +56,8 @@ def _add_scope_arguments(parser: argparse.ArgumentParser) -> None:
     )
 
 
+# Add provider, model, Ollama URL, and remote-model permission options to a subcommand.
 def _add_realtime_arguments(parser: argparse.ArgumentParser) -> None:
-    """Implement the internal add realtime arguments step used by this module's public workflow.
-
-    It remains private so callers depend on the supported public interface.
-    """
 
     parser.add_argument(
         "--provider",
@@ -83,11 +74,8 @@ def _add_realtime_arguments(parser: argparse.ArgumentParser) -> None:
     )
 
 
+# Add evidence-analysis and model options used by the standalone advisor commands.
 def _add_advisor_arguments(parser: argparse.ArgumentParser) -> None:
-    """Implement the internal add advisor arguments step used by this module's public workflow.
-
-    It remains private so callers depend on the supported public interface.
-    """
 
     parser.add_argument(
         "--target",
@@ -108,11 +96,8 @@ def _add_advisor_arguments(parser: argparse.ArgumentParser) -> None:
     )
 
 
+# Create an Ollama advisor only when the selected provider is the local model.
 def _build_advisor(args: argparse.Namespace):
-    """Implement the internal build advisor step used by this module's public workflow.
-
-    It remains private so callers depend on the supported public interface.
-    """
 
     if args.provider == "rules":
         return None
@@ -129,11 +114,8 @@ def _build_advisor(args: argparse.Namespace):
 # ---------------------------------------------------------------------------
 
 
+# Read one terminal transcript, enforce scope, analyse evidence, and print recommendations.
 def _analyze_command(args: argparse.Namespace) -> int:
-    """Implement the internal analyze command step used by this module's public workflow.
-
-    It remains private so callers depend on the supported public interface.
-    """
 
     try:
         guard = ScopeGuard(_scope_entries(args))
@@ -166,11 +148,8 @@ def _analyze_command(args: argparse.Namespace) -> int:
     return 1 if result.scope_allowed is False else 0
 
 
+# Continuously follow a transcript and display each new deduplicated analysis result.
 def _watch_command(args: argparse.Namespace) -> int:
-    """Implement the internal watch command step used by this module's public workflow.
-
-    It remains private so callers depend on the supported public interface.
-    """
 
     try:
         guard = ScopeGuard(_scope_entries(args))
@@ -229,11 +208,8 @@ def _watch_command(args: argparse.Namespace) -> int:
         return 1
 
 
+# Check required executables and report whether the local PTAS environment is ready.
 def _doctor_command(_: argparse.Namespace) -> int:
-    """Implement the internal doctor command step used by this module's public workflow.
-
-    It remains private so callers depend on the supported public interface.
-    """
 
     renderer = ConsoleRenderer()
     commands = {
@@ -265,11 +241,8 @@ def _doctor_command(_: argparse.Namespace) -> int:
     return 0 if required_ok else 1
 
 
+# Start the guided two-pane terminal workflow with the selected realtime-model settings.
 def _start_command(args: argparse.Namespace) -> int:
-    """Implement the internal start command step used by this module's public workflow.
-
-    It remains private so callers depend on the supported public interface.
-    """
 
     from Backend.terminal_workflow import start_terminal_workflow
 
@@ -282,11 +255,8 @@ def _start_command(args: argparse.Namespace) -> int:
     )
 
 
+# Run only the interactive student session in the current terminal process.
 def _student_command(args: argparse.Namespace) -> int:
-    """Implement the internal student command step used by this module's public workflow.
-
-    It remains private so callers depend on the supported public interface.
-    """
 
     from Backend.terminal_workflow import configure_realtime_advisor_env, run_student_session
 
@@ -299,11 +269,8 @@ def _student_command(args: argparse.Namespace) -> int:
     return run_student_session(Path(args.event_log) if args.event_log else None)
 
 
+# Run the read-only live recommendation dashboard for an existing transcript.
 def _dashboard_command(args: argparse.Namespace) -> int:
-    """Implement the internal dashboard command step used by this module's public workflow.
-
-    It remains private so callers depend on the supported public interface.
-    """
 
     from Backend.terminal_workflow import configure_realtime_advisor_env, run_dashboard
 
@@ -320,22 +287,16 @@ def _dashboard_command(args: argparse.Namespace) -> int:
     )
 
 
+# Generate and save the structured JSON report requested on the command line.
 def _report_command(args: argparse.Namespace) -> int:
-    """Implement the internal report command step used by this module's public workflow.
-
-    It remains private so callers depend on the supported public interface.
-    """
 
     from Backend.terminal_workflow import save_report
 
     return save_report(args.scan_id, Path(args.output))
 
 
+# Display the next stored validation recommendation for a completed scan.
 def _recommend_command(args: argparse.Namespace) -> int:
-    """Implement the internal recommend command step used by this module's public workflow.
-
-    It remains private so callers depend on the supported public interface.
-    """
 
     from Backend.terminal_workflow import next_recommendation
 
@@ -350,11 +311,8 @@ def _recommend_command(args: argparse.Namespace) -> int:
     )
 
 
+# Convert an existing structured report into the standalone HTML presentation.
 def _render_report_command(args: argparse.Namespace) -> int:
-    """Implement the internal render report command step used by this module's public workflow.
-
-    It remains private so callers depend on the supported public interface.
-    """
 
     from Backend.terminal_workflow import render_existing_report
 
@@ -364,11 +322,8 @@ def _render_report_command(args: argparse.Namespace) -> int:
     )
 
 
+# Register an isolated Metasploitable 2 target using the selected virtualisation provider.
 def _lab_register_command(args: argparse.Namespace) -> int:
-    """Implement the internal lab register command step used by this module's public workflow.
-
-    It remains private so callers depend on the supported public interface.
-    """
 
     from Backend.terminal_workflow import register_metasploitable2_lab
 
@@ -382,22 +337,16 @@ def _lab_register_command(args: argparse.Namespace) -> int:
     )
 
 
+# Recheck a registered lab identity, network isolation, and optional scan fingerprint.
 def _lab_check_command(args: argparse.Namespace) -> int:
-    """Implement the internal lab check command step used by this module's public workflow.
-
-    It remains private so callers depend on the supported public interface.
-    """
 
     from Backend.terminal_workflow import check_metasploitable2_lab
 
     return check_metasploitable2_lab(args.name)
 
 
+# Display the next gated access exercise for an exactly verified Metasploitable 2 lab.
 def _access_test_command(args: argparse.Namespace) -> int:
-    """Implement the internal access test command step used by this module's public workflow.
-
-    It remains private so callers depend on the supported public interface.
-    """
 
     from Backend.terminal_workflow import next_access_exercise
 
@@ -409,6 +358,7 @@ def _access_test_command(args: argparse.Namespace) -> int:
 # ---------------------------------------------------------------------------
 
 
+# Define every PTAS subcommand, option, default, and command-handler mapping.
 def build_parser() -> argparse.ArgumentParser:
     """Perform the build parser operation.
 
@@ -566,6 +516,7 @@ def build_parser() -> argparse.ArgumentParser:
 # ---------------------------------------------------------------------------
 
 
+# Parse command-line arguments and run the selected PTAS command handler.
 def main() -> int:
     """Perform the main operation.
 

@@ -15,6 +15,7 @@ from Backend.schemas.auth_schema import (
 router = APIRouter(route_class=LoggedRoute)
 
 
+# Validate HTTP inputs and delegate the register request to the auth controller.
 @router.post("/register")
 def register(
     request: UserRegisterRequest,
@@ -29,6 +30,7 @@ def register(
     return controller.register(request)
 
 
+# Validate HTTP inputs and delegate the login request to the auth controller.
 @router.post("/login")
 def login(
     request: UserLoginRequest,

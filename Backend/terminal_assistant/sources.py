@@ -10,17 +10,14 @@ class FollowFileSource:
     recommendations.
     """
 
+    # Open a transcript follower that remembers its byte offset between dashboard reads.
     def __init__(self, path: Path, from_start: bool = False):
-        """Initialize the object with the dependencies required by its public operations.
-
-        Dependencies are stored once so each call uses the same request-scoped
-        collaborators.
-        """
         if not path.exists() or not path.is_file():
             raise RuntimeError(f"Transcript file does not exist: {path}")
         self.path = path
         self.position = 0 if from_start else path.stat().st_size
 
+    # Read only transcript bytes appended since the previous dashboard poll.
     def read_new(self) -> str:
         """Perform the read new step of the terminal guidance pipeline.
 

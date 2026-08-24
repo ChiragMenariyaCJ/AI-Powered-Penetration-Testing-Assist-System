@@ -17,12 +17,8 @@ class ScopeValidationController:
     The controller constructs dependencies and delegates without performing SQL itself.
     """
 
+    # Build the repositories and use case this controller delegates to for one API request.
     def __init__(self, db: Session):
-        """Initialize the object with the dependencies required by its public operations.
-
-        Dependencies are stored once so each call uses the same request-scoped
-        collaborators.
-        """
         scope_validation_repository = ScopeValidationRepository(db)
         project_repository = ProjectRepository(db)
 
@@ -31,6 +27,7 @@ class ScopeValidationController:
             project_repository,
         )
 
+    # Forward create scope validation to the scope validation use case so this controller contains no business or SQL logic.
     def create_scope_validation(self, request):
         """Delegate the request to create scope validation through the configured use case.
 
@@ -39,6 +36,7 @@ class ScopeValidationController:
         """
         return self.scope_validation_usecase.create_scope_validation(request)
 
+    # Forward get all scope validations to the scope validation use case so this controller contains no business or SQL logic.
     def get_all_scope_validations(self, project_id: int | None = None):
         """Delegate the request to get all scope validations through the configured use case.
 
@@ -47,6 +45,7 @@ class ScopeValidationController:
         """
         return self.scope_validation_usecase.get_all_scope_validations(project_id)
 
+    # Forward get scope validation by id to the scope validation use case so this controller contains no business or SQL logic.
     def get_scope_validation_by_id(self, scope_validation_id: int):
         """Delegate the request to get scope validation by id through the configured use case.
 
@@ -57,6 +56,7 @@ class ScopeValidationController:
             scope_validation_id
         )
 
+    # Forward update scope validation to the scope validation use case so this controller contains no business or SQL logic.
     def update_scope_validation(self, scope_validation_id: int, request):
         """Delegate the request to update scope validation through the configured use case.
 
@@ -67,6 +67,7 @@ class ScopeValidationController:
             scope_validation_id, request
         )
 
+    # Forward delete scope validation to the scope validation use case so this controller contains no business or SQL logic.
     def delete_scope_validation(self, scope_validation_id: int):
         """Delegate the request to delete scope validation through the configured use case.
 
@@ -77,6 +78,7 @@ class ScopeValidationController:
             scope_validation_id
         )
 
+    # Forward check target in scope to the scope validation use case so this controller contains no business or SQL logic.
     def check_target_in_scope(self, project_id: int, target_value: str):
         """Delegate the request to check target in scope through the configured use case.
 

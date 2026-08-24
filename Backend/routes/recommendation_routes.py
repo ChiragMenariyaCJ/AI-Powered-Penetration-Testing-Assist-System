@@ -18,6 +18,7 @@ from Backend.schemas.recommendation_schema import (
 router = APIRouter(route_class=LoggedRoute)
 
 
+# Validate HTTP inputs and delegate the generate recommendations request to the recommendation controller.
 @router.post(
     "/generate/{vulnerability_id}",
     response_model=RecommendationListResponse,
@@ -40,6 +41,7 @@ def generate_recommendations(
     }
 
 
+# Validate HTTP inputs and delegate the get all recommendations request to the recommendation controller.
 @router.get("/", response_model=RecommendationListResponse)
 def get_all_recommendations(
     vulnerability_id: int | None = Query(default=None, gt=0),
@@ -54,6 +56,7 @@ def get_all_recommendations(
     return controller.get_all_recommendations(vulnerability_id)
 
 
+# Validate HTTP inputs and delegate the get recommendation by id request to the recommendation controller.
 @router.get("/{recommendation_id}", response_model=RecommendationResponse)
 def get_recommendation_by_id(
     recommendation_id: int,
@@ -68,6 +71,7 @@ def get_recommendation_by_id(
     return controller.get_recommendation_by_id(recommendation_id)
 
 
+# Validate HTTP inputs and delegate the update recommendation request to the recommendation controller.
 @router.put("/{recommendation_id}", response_model=RecommendationResponse)
 def update_recommendation(
     recommendation_id: int,
@@ -83,6 +87,7 @@ def update_recommendation(
     return controller.update_recommendation(recommendation_id, request)
 
 
+# Validate HTTP inputs and delegate the delete recommendation request to the recommendation controller.
 @router.delete("/{recommendation_id}")
 def delete_recommendation(
     recommendation_id: int,
@@ -97,6 +102,7 @@ def delete_recommendation(
     return controller.delete_recommendation(recommendation_id)
 
 
+# Validate HTTP inputs and delegate the approve recommendation request to the recommendation controller.
 @router.post("/{recommendation_id}/approve")
 def approve_recommendation(
     recommendation_id: int,
@@ -112,6 +118,7 @@ def approve_recommendation(
     return controller.approve_recommendation(recommendation_id, approved_by)
 
 
+# Validate HTTP inputs and delegate the reject recommendation request to the recommendation controller.
 @router.post("/{recommendation_id}/reject")
 def reject_recommendation(
     recommendation_id: int,
@@ -126,6 +133,7 @@ def reject_recommendation(
     return controller.reject_recommendation(recommendation_id)
 
 
+# Validate HTTP inputs and delegate the get recommendations by status request to the recommendation controller.
 @router.get("/status/{status_filter}", response_model=RecommendationListResponse)
 def get_recommendations_by_status(
     status_filter: str,
@@ -140,6 +148,7 @@ def get_recommendations_by_status(
     return controller.get_recommendations_by_status(status_filter)
 
 
+# Validate HTTP inputs and delegate the get attack score request to the recommendation controller.
 @router.get("/attack-score/{vulnerability_id}", response_model=RecommendationScore)
 def get_attack_score(
     vulnerability_id: int,

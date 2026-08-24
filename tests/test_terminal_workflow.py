@@ -79,6 +79,7 @@ class TerminalWorkflowTests(unittest.TestCase):
         process.
         """
 
+        # Support the test scenario by providing the init behavior.
         def __init__(self):
             """Support the test scenario by providing the init behavior.
 
@@ -88,6 +89,7 @@ class TerminalWorkflowTests(unittest.TestCase):
             self.access_token = None
             self.calls = []
 
+        # Support the test scenario by providing the get behavior.
         def get(self, path, *, query=None, timeout=15):
             """Support the test scenario by providing the get behavior.
 
@@ -106,6 +108,7 @@ class TerminalWorkflowTests(unittest.TestCase):
                 ]
             }
 
+        # Support the test scenario by providing the post behavior.
         def post(self, path, payload=None, *, query=None, timeout=15):
             """Support the test scenario by providing the post behavior.
 
@@ -128,6 +131,7 @@ class TerminalWorkflowTests(unittest.TestCase):
                 return {"id": 9, **payload}
             return {"id": 8, **(payload or {})}
 
+    # Verify that login and project selection use the api.
     def test_login_and_project_selection_use_the_api(self):
         """Verify that login and project selection use the api.
 
@@ -155,6 +159,7 @@ class TerminalWorkflowTests(unittest.TestCase):
             [(method, path) for method, path, _ in api.calls],
         )
 
+    # Verify that scope and target creation use the api.
     def test_scope_and_target_creation_use_the_api(self):
         """Verify that scope and target creation use the api.
 
@@ -180,6 +185,7 @@ class TerminalWorkflowTests(unittest.TestCase):
             [path for _, path, _ in api.calls],
         )
 
+    # Verify that start and report commands are available.
     def test_start_and_report_commands_are_available(self):
         """Verify that start and report commands are available.
 
@@ -240,6 +246,7 @@ class TerminalWorkflowTests(unittest.TestCase):
         )
         self.assertEqual("/tmp/student.typescript", dashboard.transcript)
 
+    # Verify that native layout uses two real left right terminals.
     def test_native_layout_uses_two_real_left_right_terminals(self):
         """Verify that native layout uses two real left right terminals.
 
@@ -270,6 +277,7 @@ class TerminalWorkflowTests(unittest.TestCase):
         self.assertIn("dashboard --event-log", right)
         self.assertIn("--transcript /tmp/ptas-session.typescript", right)
 
+    # Verify that qterminal uses native left right split with dashboard command.
     def test_qterminal_uses_native_left_right_split_with_dashboard_command(self):
         """Verify that qterminal uses native left right split with dashboard command.
 
@@ -302,6 +310,7 @@ class TerminalWorkflowTests(unittest.TestCase):
         self.assertIn("'/opt/ptas/ptas.sh'", arguments[-1])
         self.assertIn("'/tmp/session.typescript'", arguments[-1])
 
+    # Verify that qterminal argument map escapes paths.
     def test_qterminal_argument_map_escapes_paths(self):
         """Verify that qterminal argument map escapes paths.
 
@@ -315,6 +324,7 @@ class TerminalWorkflowTests(unittest.TestCase):
         self.assertIn("student\\'s ptas", serialized)
         self.assertIn("student\\'s value", serialized)
 
+    # Verify that recommendation sequence skips previously shown items.
     def test_recommendation_sequence_skips_previously_shown_items(self):
         """Verify that recommendation sequence skips previously shown items.
 
@@ -328,6 +338,7 @@ class TerminalWorkflowTests(unittest.TestCase):
         self.assertEqual(11, selected.id)
         self.assertIsNone(exhausted)
 
+    # Select the next unexecuted command after the student's chosen item.
     def test_follow_up_advances_after_the_command_actually_executed(self):
         """Select the next unexecuted command after the student's chosen item."""
 
@@ -346,6 +357,7 @@ class TerminalWorkflowTests(unittest.TestCase):
 
         self.assertEqual("nmap -p 80 10.10.10.20", selected["command"])
 
+    # Verify that shell ready detection waits for command completion prompt.
     def test_shell_ready_detection_waits_for_command_completion_prompt(self):
         """Verify that shell ready detection waits for command completion prompt.
 
@@ -357,6 +369,7 @@ class TerminalWorkflowTests(unittest.TestCase):
         self.assertIsNone(SHELL_READY_PATTERN.search(running))
         self.assertIsNotNone(SHELL_READY_PATTERN.search(completed))
 
+    # Verify dashboard detection works with Kali QTerminal control sequences.
     def test_qterminal_transcript_preserves_command_and_completion_prompt(self):
         """Verify dashboard detection works with Kali QTerminal control sequences."""
 
@@ -380,6 +393,7 @@ class TerminalWorkflowTests(unittest.TestCase):
         )
         self.assertIsNotNone(SHELL_READY_PATTERN.search(clean))
 
+    # Verify live command tracking survives QTerminal's chunk boundaries.
     def test_dashboard_joins_prompt_and_command_from_separate_file_reads(self):
         """Verify live command tracking survives QTerminal's chunk boundaries."""
 
@@ -404,6 +418,7 @@ class TerminalWorkflowTests(unittest.TestCase):
         )
         self.assertIsNotNone(SHELL_READY_PATTERN.search(command_read))
 
+    # Verify zsh cursor rewinds do not hide an actually executed command.
     def test_dashboard_detects_kali_zsh_repainted_standalone_command(self):
         """Verify zsh cursor rewinds do not hide an actually executed command."""
 
@@ -424,12 +439,14 @@ class TerminalWorkflowTests(unittest.TestCase):
             _extract_live_executed_command(analyzer, clean),
         )
 
+    # Verify the live pane turns completed output into a new model command.
     def test_dashboard_analyzes_completion_before_showing_model_follow_up(self):
         """Verify the live pane turns completed output into a new model command."""
 
         class StubSource:
             """Return one complete command transcript to the dashboard."""
 
+            # Supply one completed HTTP command transcript to the dashboard loop.
             def read_new(self):
                 return (
                     "└─$ nmap -sV -p 80 10.10.10.20\n"
@@ -443,6 +460,7 @@ class TerminalWorkflowTests(unittest.TestCase):
 
             model = "test-model"
 
+            # Capture analysed evidence and return a deterministic model-style command.
             def advise_next_command(self, result, excerpt, completed_commands):
                 self.result = result
                 self.excerpt = excerpt
@@ -497,10 +515,12 @@ class TerminalWorkflowTests(unittest.TestCase):
         self.assertIn("curl -I http://10.10.10.20/", rendered)
         self.assertIn("nmap -sV -p 80 10.10.10.20", advisor.completed_commands)
 
+    # Keep the recommendation loop moving when local-model output is rejected.
     def test_dashboard_advances_with_safe_fallback_after_model_rejection(self):
         """Keep the recommendation loop moving when local-model output is rejected."""
 
         class StubSource:
+            # Supply one completed Telnet command transcript to the dashboard loop.
             def read_new(self):
                 return (
                     "└─$ nmap -sV -p 23 --script banner 10.10.10.20\n"
@@ -513,6 +533,7 @@ class TerminalWorkflowTests(unittest.TestCase):
             model = "test-model"
             last_rejection_reason = "the model repeated a command that was already completed"
 
+            # Simulate a model response that PTAS cannot accept as a new recommendation.
             def advise_next_command(self, result, excerpt, completed_commands):
                 return None
 
@@ -556,10 +577,12 @@ class TerminalWorkflowTests(unittest.TestCase):
         self.assertIn("[NEXT SAFETY FALLBACK]", rendered)
         self.assertIn("--script telnet-encryption", rendered)
 
+    # Transition an exact verified lab target when model guidance ends.
     def test_dashboard_uses_registered_lab_gate_instead_of_safe_fallback(self):
         """Transition an exact verified lab target when model guidance ends."""
 
         class StubSource:
+            # Supply completed MySQL evidence for an exactly registered lab target.
             def read_new(self):
                 return (
                     "└─$ nmap -p 3306 --script mysql-info 10.10.10.20\n"
@@ -572,6 +595,7 @@ class TerminalWorkflowTests(unittest.TestCase):
             model = "test-model"
             last_rejection_reason = "the model returned an empty command"
 
+            # Record the verified lab gate command while returning no model recommendation.
             def advise_next_command(
                 self,
                 result,
@@ -636,6 +660,7 @@ class TerminalWorkflowTests(unittest.TestCase):
         self.assertIn(gate, rendered)
         self.assertEqual(gate, advisor.lab_access_command)
 
+    # Verify that access sequence skips previously shown exercises.
     def test_access_sequence_skips_previously_shown_exercises(self):
         """Verify that access sequence skips previously shown exercises.
 
@@ -651,6 +676,7 @@ class TerminalWorkflowTests(unittest.TestCase):
         self.assertEqual("ftp", selected.key)
         self.assertIsNone(select_next_access_exercise(exercises, {"ssh", "ftp"}))
 
+    # Verify that metasploitable profile rejects loopback cidr and weak fingerprint.
     def test_metasploitable_profile_rejects_loopback_cidr_and_weak_fingerprint(self):
         """Verify that metasploitable profile rejects loopback cidr and weak fingerprint.
 
@@ -675,6 +701,7 @@ class TerminalWorkflowTests(unittest.TestCase):
             with self.assertRaises(LabVerificationError):
                 service.verify_scan(manifest, scan, findings)
 
+    # Verify that metasploitable profile builds only exercises for observed ports.
     def test_metasploitable_profile_builds_only_exercises_for_observed_ports(self):
         """Verify that metasploitable profile builds only exercises for observed ports.
 
@@ -688,6 +715,7 @@ class TerminalWorkflowTests(unittest.TestCase):
         self.assertTrue(all("192.168.56.101" in item.command for item in exercises))
         self.assertTrue(all("msfadmin:msfadmin" not in item.command for item in exercises))
 
+    # Verify that metasploitable registration rejects nat even with hostonly adapter.
     def test_metasploitable_registration_rejects_nat_even_with_hostonly_adapter(self):
         """Verify that metasploitable registration rejects nat even with hostonly adapter.
 
@@ -712,6 +740,7 @@ class TerminalWorkflowTests(unittest.TestCase):
                         "msf2", "192.168.56.101", "Metasploitable2"
                     )
 
+    # Verify that vmware registration requires hostonly route and adapter.
     def test_vmware_registration_requires_hostonly_route_and_adapter(self):
         """Verify that vmware registration requires hostonly route and adapter.
 
@@ -747,6 +776,7 @@ class TerminalWorkflowTests(unittest.TestCase):
         self.assertEqual("192.168.178.128", manifest.target)
         self.assertEqual("00:0c:29:aa:bb:cc", manifest.expected_mac)
 
+    # Verify that vmware registration rejects bridged adapter.
     def test_vmware_registration_rejects_bridged_adapter(self):
         """Verify that vmware registration rejects bridged adapter.
 
@@ -774,6 +804,7 @@ class TerminalWorkflowTests(unittest.TestCase):
                 with self.assertRaises(LabVerificationError):
                     service.register_vmware("msf2", "192.168.178.128", str(vmx))
 
+    # Register two VMware guests using their isolated network identity.
     def test_vmware_network_registration_uses_ip_without_vmx_path(self):
         """Register two VMware guests using their isolated network identity."""
 
@@ -802,6 +833,7 @@ class TerminalWorkflowTests(unittest.TestCase):
         self.assertEqual("eth1", manifest.interface)
         self.assertEqual("00:0c:29:55:bc:f0", manifest.expected_mac)
 
+    # Do not treat Kali's internet-facing/default interface as lab isolation.
     def test_vmware_network_registration_rejects_default_route(self):
         """Do not treat Kali's internet-facing/default interface as lab isolation."""
 
@@ -825,6 +857,7 @@ class TerminalWorkflowTests(unittest.TestCase):
                         "192.168.121.130",
                     )
 
+    # Verify that ai recommendations exclude exploit dos and persistence language.
     def test_ai_recommendations_exclude_exploit_dos_and_persistence_language(self):
         """Verify that ai recommendations exclude exploit dos and persistence language.
 
@@ -850,6 +883,7 @@ class TerminalWorkflowTests(unittest.TestCase):
         self.assertEqual("Realtime guided validation", recommendation["attack_technique"])
         self.assertFalse(any(term in combined for term in forbidden))
 
+    # Verify that scan stages progress from quick to detailed.
     def test_scan_stages_progress_from_quick_to_detailed(self):
         """Verify that scan stages progress from quick to detailed.
 
@@ -858,6 +892,7 @@ class TerminalWorkflowTests(unittest.TestCase):
         self.assertEqual(("QUICK", "FULL"), tuple(stage[0] for stage in SCAN_STAGES))
         self.assertEqual("VULNERABILITY", CVE_SCAN_STAGE[0])
 
+    # Verify failed response data is reported without a missing-key traceback.
     def test_failed_scan_response_becomes_a_readable_terminal_error(self):
         """Verify failed response data is reported without a missing-key traceback."""
 
@@ -873,6 +908,7 @@ class TerminalWorkflowTests(unittest.TestCase):
                 },
             )
 
+    # Verify a fresh terminal-only process can query without importing main.py.
     def test_terminal_process_registers_all_sqlalchemy_relationships(self):
         """Verify a fresh terminal-only process can query without importing main.py."""
 
@@ -902,6 +938,7 @@ with SessionLocal() as session:
 
         self.assertEqual(0, result.returncode, result.stderr)
 
+    # Verify CVE correlation uses one bounded script and the fast port set.
     def test_vulnerability_stage_uses_safe_external_vulners_script(self):
         """Verify CVE correlation uses one bounded script and the fast port set."""
 
@@ -918,6 +955,7 @@ with SessionLocal() as session:
             command[command.index("--script-timeout") + 1],
         )
 
+    # Verify terminal output does not present every observation as proven.
     def test_terminal_labels_observations_and_cve_candidates_differently(self):
         """Verify terminal output does not present every observation as proven."""
 
@@ -931,6 +969,7 @@ with SessionLocal() as session:
         self.assertEqual("[OBSERVED SERVICE] [REVIEW: MEDIUM]", observed)
         self.assertEqual("[CVE CANDIDATE] [REVIEW: INFO]", candidate)
 
+    # Verify that cve correlation is candidate unless explicitly vulnerable.
     def test_cve_correlation_is_candidate_unless_explicitly_vulnerable(self):
         """Verify that cve correlation is candidate unless explicitly vulnerable.
 
@@ -973,6 +1012,7 @@ with SessionLocal() as session:
             any(item["type"] == "CONFIRMED_CVE" for item in confirmed_findings)
         )
 
+    # Verify that exploitdb enrichment returns multiple cve references.
     def test_exploitdb_enrichment_returns_multiple_cve_references(self):
         """Verify that exploitdb enrichment returns multiple cve references.
 
@@ -1015,6 +1055,7 @@ with SessionLocal() as session:
         )
         self.assertTrue(references[0]["verified"])
 
+    # Verify that exploitdb enrichment requires a detected version.
     def test_exploitdb_enrichment_requires_a_detected_version(self):
         """Verify that exploitdb enrichment requires a detected version.
 
@@ -1027,6 +1068,7 @@ with SessionLocal() as session:
 
         run.assert_not_called()
 
+    # Verify that service scanner selects tools by detected service.
     def test_service_scanner_selects_tools_by_detected_service(self):
         """Verify that service scanner selects tools by detected service.
 
@@ -1071,6 +1113,7 @@ with SessionLocal() as session:
         self.assertNotIn("nuclei", selected)
         self.assertNotIn("ffuf", selected)
 
+    # Verify that service scanner does not guess from unrelated findings.
     def test_service_scanner_does_not_guess_from_unrelated_findings(self):
         """Verify that service scanner does not guess from unrelated findings.
 
@@ -1090,6 +1133,7 @@ with SessionLocal() as session:
 
         self.assertEqual([], checks)
 
+    # Verify that html report is standalone escaped and print friendly.
     def test_html_report_is_standalone_escaped_and_print_friendly(self):
         """Verify that html report is standalone escaped and print friendly.
 
@@ -1146,6 +1190,7 @@ with SessionLocal() as session:
             self.assertEqual(0, render_existing_report(json_path))
             self.assertTrue(json_path.with_suffix(".html").is_file())
 
+    # Verify that realtime fallback suggestions are non destructive and deduplicated.
     def test_realtime_fallback_suggestions_are_non_destructive_and_deduplicated(self):
         """Verify that realtime fallback suggestions are non destructive and deduplicated.
 
@@ -1175,6 +1220,7 @@ with SessionLocal() as session:
         forbidden = ("hydra", "password", "metasploit", "exploit", "--script vuln")
         self.assertFalse(any(term in combined for term in forbidden))
 
+    # Verify old prose and unsafe/out-of-scope steps are not shown as commands.
     def test_only_allowlisted_scoped_steps_are_treated_as_manual_commands(self):
         """Verify old prose and unsafe/out-of-scope steps are not shown as commands."""
 
@@ -1199,6 +1245,7 @@ with SessionLocal() as session:
             )
         )
 
+    # Verify that realtime model suggestions are filtered before persistence.
     def test_realtime_model_suggestions_are_filtered_before_persistence(self):
         """Verify that realtime model suggestions are filtered before persistence.
 
@@ -1210,6 +1257,7 @@ with SessionLocal() as session:
             It records or returns deterministic data so the tests do not require an
             external process.
             """
+            # Support the test scenario by providing structured commands.
             def advise_commands(self, *_args, **_kwargs):
                 """Support the test scenario by providing structured commands.
 
@@ -1245,6 +1293,7 @@ with SessionLocal() as session:
         self.assertIn("nmap -sV", suggestions[0]["command"])
         self.assertEqual("realtime-ollama", suggestions[0]["source"])
 
+    # Verify that suggestions are persisted for report generation.
     def test_suggestions_are_persisted_for_report_generation(self):
         """Verify that suggestions are persisted for report generation.
 

@@ -15,12 +15,8 @@ class RecommendationController:
     The controller constructs dependencies and delegates without performing SQL itself.
     """
 
+    # Build the repositories and use case this controller delegates to for one API request.
     def __init__(self, db: Session):
-        """Initialize the object with the dependencies required by its public operations.
-
-        Dependencies are stored once so each call uses the same request-scoped
-        collaborators.
-        """
         recommendation_repository = RecommendationRepository(db)
         vulnerability_repository = VulnerabilityRepository(db)
 
@@ -29,6 +25,7 @@ class RecommendationController:
             vulnerability_repository,
         )
 
+    # Forward generate recommendations to the recommendation use case so this controller contains no business or SQL logic.
     def generate_recommendations(self, vulnerability_id: int):
         """Delegate the request to generate recommendations through the configured use case.
 
@@ -39,6 +36,7 @@ class RecommendationController:
             vulnerability_id
         )
 
+    # Forward get recommendation by id to the recommendation use case so this controller contains no business or SQL logic.
     def get_recommendation_by_id(self, recommendation_id: int):
         """Delegate the request to get recommendation by id through the configured use case.
 
@@ -49,6 +47,7 @@ class RecommendationController:
             recommendation_id
         )
 
+    # Forward get all recommendations to the recommendation use case so this controller contains no business or SQL logic.
     def get_all_recommendations(self, vulnerability_id: int | None = None):
         """Delegate the request to get all recommendations through the configured use case.
 
@@ -57,6 +56,7 @@ class RecommendationController:
         """
         return self.recommendation_usecase.get_all_recommendations(vulnerability_id)
 
+    # Forward update recommendation to the recommendation use case so this controller contains no business or SQL logic.
     def update_recommendation(self, recommendation_id: int, request):
         """Delegate the request to update recommendation through the configured use case.
 
@@ -67,6 +67,7 @@ class RecommendationController:
             recommendation_id, request
         )
 
+    # Forward delete recommendation to the recommendation use case so this controller contains no business or SQL logic.
     def delete_recommendation(self, recommendation_id: int):
         """Delegate the request to delete recommendation through the configured use case.
 
@@ -77,6 +78,7 @@ class RecommendationController:
             recommendation_id
         )
 
+    # Forward approve recommendation to the recommendation use case so this controller contains no business or SQL logic.
     def approve_recommendation(self, recommendation_id: int, approved_by: str):
         """Delegate the request to approve recommendation through the configured use case.
 
@@ -87,6 +89,7 @@ class RecommendationController:
             recommendation_id, approved_by
         )
 
+    # Forward reject recommendation to the recommendation use case so this controller contains no business or SQL logic.
     def reject_recommendation(self, recommendation_id: int):
         """Delegate the request to reject recommendation through the configured use case.
 
@@ -95,6 +98,7 @@ class RecommendationController:
         """
         return self.recommendation_usecase.reject_recommendation(recommendation_id)
 
+    # Forward get recommendations by status to the recommendation use case so this controller contains no business or SQL logic.
     def get_recommendations_by_status(self, status: str):
         """Delegate the request to get recommendations by status through the configured use case.
 
@@ -103,6 +107,7 @@ class RecommendationController:
         """
         return self.recommendation_usecase.get_recommendations_by_status(status)
 
+    # Forward get attack score to the recommendation use case so this controller contains no business or SQL logic.
     def get_attack_score(self, vulnerability_id: int):
         """Delegate the request to get attack score through the configured use case.
 

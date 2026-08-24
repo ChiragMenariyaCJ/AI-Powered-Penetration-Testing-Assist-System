@@ -45,6 +45,7 @@ class FakeNmapService:
     It records or returns deterministic data so the tests do not require an external
     process.
     """
+    # Support the test scenario by providing the execute scan behavior.
     def execute_scan(self, target: str, scan_type: str) -> dict:
         """Support the test scenario by providing the execute scan behavior.
 
@@ -77,6 +78,7 @@ class FakeNmapService:
 class TimedOutNmapService:
     """Return the same controlled timeout result produced by the real Nmap adapter."""
 
+    # Simulate Nmap reaching its configured execution deadline.
     def execute_scan(self, target: str, scan_type: str) -> dict:
         """Simulate Nmap reaching its configured execution deadline."""
 
@@ -92,6 +94,7 @@ class BackendWorkflowTests(unittest.TestCase):
     Each test documents one externally observable behavior that future changes must
     preserve.
     """
+    # Create the isolated records and collaborators required by each test.
     def setUp(self):
         """Create the isolated records and collaborators required by each test.
 
@@ -137,6 +140,7 @@ class BackendWorkflowTests(unittest.TestCase):
         self.session.add_all([self.scan, self.scope])
         self.session.commit()
 
+    # Release database and temporary resources created for the completed test.
     def tearDown(self):
         """Release database and temporary resources created for the completed test.
 
@@ -145,6 +149,7 @@ class BackendWorkflowTests(unittest.TestCase):
         self.session.close()
         self.engine.dispose()
 
+    # Verify that password hashing works with supported bcrypt.
     def test_password_hashing_works_with_supported_bcrypt(self):
         """Verify that password hashing works with supported bcrypt.
 
@@ -154,6 +159,7 @@ class BackendWorkflowTests(unittest.TestCase):
         self.assertTrue(verify_password("safe-test-password", hashed))
         self.assertFalse(verify_password("wrong-password", hashed))
 
+    # Verify that login returns user identity for the terminal api client.
     def test_login_returns_user_identity_for_the_terminal_api_client(self):
         """Verify that login returns user identity for the terminal api client.
 
@@ -170,6 +176,7 @@ class BackendWorkflowTests(unittest.TestCase):
         self.assertEqual("Terminal Tester", result["user"]["full_name"])
         self.assertIn("access_token", result)
 
+    # Verify that every feature endpoint uses controller logging.
     def test_every_feature_endpoint_uses_controller_logging(self):
         """Verify that every feature endpoint uses controller logging.
 
@@ -185,14 +192,17 @@ class BackendWorkflowTests(unittest.TestCase):
         self.assertGreater(len(routes), 0)
         self.assertTrue(all(isinstance(route, LoggedRoute) for route in routes))
 
+    # Verify that request logger reports handler status and duration.
     def test_request_logger_reports_handler_status_and_duration(self):
         """Verify that request logger reports handler status and duration.
 
         This regression test fails if a future change breaks the described contract.
         """
+        # Provide the endpoint whose qualified name should appear in the request log.
         async def endpoint():
             return {"ok": True}
 
+        # Return a fixed response so the test can assert the logged HTTP status.
         async def fake_handler(_: Request):
             return Response(status_code=201)
 
@@ -219,6 +229,7 @@ class BackendWorkflowTests(unittest.TestCase):
         self.assertIn("status=201", output)
         self.assertIn("duration=", output)
 
+    # Verify that controller decorator reports called method.
     def test_controller_decorator_reports_called_method(self):
         """Verify that controller decorator reports called method.
 
@@ -231,6 +242,7 @@ class BackendWorkflowTests(unittest.TestCase):
             It records or returns deterministic data so the tests do not require an
             external process.
             """
+            # Support the test scenario by providing the load record behavior.
             def load_record(self):
                 """Support the test scenario by providing the load record behavior.
 
@@ -249,6 +261,7 @@ class BackendWorkflowTests(unittest.TestCase):
         self.assertIn("API controller returned", output)
         self.assertIn("duration=", output)
 
+    # Verify that usecase and repository decorators report each layer.
     def test_usecase_and_repository_decorators_report_each_layer(self):
         """Verify that usecase and repository decorators report each layer.
 
@@ -261,6 +274,7 @@ class BackendWorkflowTests(unittest.TestCase):
             It records or returns deterministic data so the tests do not require an
             external process.
             """
+            # Support the test scenario by providing the load record behavior.
             def load_record(self):
                 """Support the test scenario by providing the load record behavior.
 
@@ -276,6 +290,7 @@ class BackendWorkflowTests(unittest.TestCase):
             It records or returns deterministic data so the tests do not require an
             external process.
             """
+            # Support the test scenario by providing the init behavior.
             def __init__(self):
                 """Support the test scenario by providing the init behavior.
 
@@ -284,6 +299,7 @@ class BackendWorkflowTests(unittest.TestCase):
                 """
                 self.repository = DemoRepository()
 
+            # Support the test scenario by providing the get record behavior.
             def get_record(self):
                 """Support the test scenario by providing the get record behavior.
 
@@ -304,6 +320,7 @@ class BackendWorkflowTests(unittest.TestCase):
         self.assertIn("API repository returned", output)
         self.assertIn("API usecase returned", output)
 
+    # Verify that scan execution uses project repository for scope.
     def test_scan_execution_uses_project_repository_for_scope(self):
         """Verify that scan execution uses project repository for scope.
 
@@ -329,6 +346,7 @@ class BackendWorkflowTests(unittest.TestCase):
         ).get_vulnerabilities_by_scan_id(self.scan.id)
         self.assertEqual(1, len(persisted))
 
+    # Verify a subprocess timeout becomes HTTP 504 instead of a false 200 OK.
     def test_scan_timeout_returns_gateway_timeout_and_persists_the_error(self):
         """Verify a subprocess timeout becomes HTTP 504 instead of a false 200 OK."""
 
@@ -353,6 +371,7 @@ class BackendWorkflowTests(unittest.TestCase):
         self.assertEqual("FAILED", self.scan.status)
         self.assertEqual("Scan timeout after 300 seconds", self.scan.scan_result)
 
+    # Verify that scan rejects mismatched project.
     def test_scan_rejects_mismatched_project(self):
         """Verify that scan rejects mismatched project.
 
@@ -377,6 +396,7 @@ class BackendWorkflowTests(unittest.TestCase):
 
         self.assertEqual(400, raised.exception.status_code)
 
+    # Verify that report generation and response schema.
     def test_report_generation_and_response_schema(self):
         """Verify that report generation and response schema.
 

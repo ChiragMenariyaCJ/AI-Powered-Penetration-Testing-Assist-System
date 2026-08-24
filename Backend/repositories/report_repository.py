@@ -12,6 +12,7 @@ class ReportRepository:
 
     This layer owns SQLAlchemy queries and transaction boundaries for the feature.
     """
+    # Create and commit the requested report record.
     @staticmethod
     def create_report(db: Session, report_data: dict) -> Report:
         """Create and commit the requested report record.
@@ -25,6 +26,7 @@ class ReportRepository:
         db.refresh(report)
         return report
 
+    # Query report by id with SQLAlchemy without changing stored database state.
     @staticmethod
     def get_report_by_id(db: Session, report_id: int) -> Report | None:
         """Query report data for get report by id.
@@ -34,6 +36,7 @@ class ReportRepository:
         """
         return db.query(Report).filter(Report.id == report_id).first()
 
+    # Query reports by scan id with SQLAlchemy without changing stored database state.
     @staticmethod
     def get_reports_by_scan_id(db: Session, scan_id: int) -> list[Report]:
         """Query report data for get reports by scan id.
@@ -43,6 +46,7 @@ class ReportRepository:
         """
         return db.query(Report).filter(Report.scan_id == scan_id).all()
 
+    # Query all reports with SQLAlchemy without changing stored database state.
     @staticmethod
     def get_all_reports(db: Session, skip: int = 0, limit: int = 10) -> list[Report]:
         """Query report data for get all reports.
@@ -52,6 +56,7 @@ class ReportRepository:
         """
         return db.query(Report).offset(skip).limit(limit).all()
 
+    # Query reports by status with SQLAlchemy without changing stored database state.
     @staticmethod
     def get_reports_by_status(db: Session, status: str) -> list[Report]:
         """Query report data for get reports by status.
@@ -61,6 +66,7 @@ class ReportRepository:
         """
         return db.query(Report).filter(Report.status == status).all()
 
+    # Persist the state change required to update report.
     @staticmethod
     def update_report(db: Session, report_id: int, report_data: dict) -> Report | None:
         """Persist the state change required to update report.
@@ -77,6 +83,7 @@ class ReportRepository:
             db.refresh(report)
         return report
 
+    # Delete the supplied report record and commit the transaction.
     @staticmethod
     def delete_report(db: Session, report_id: int) -> bool:
         """Delete the supplied report record and commit the transaction.
@@ -91,6 +98,7 @@ class ReportRepository:
             return True
         return False
 
+    # Query report data for count reports.
     @staticmethod
     def count_reports(db: Session) -> int:
         """Query report data for count reports.
@@ -100,6 +108,7 @@ class ReportRepository:
         """
         return db.query(Report).count()
 
+    # Query latest report for scan with SQLAlchemy without changing stored database state.
     @staticmethod
     def get_latest_report_for_scan(db: Session, scan_id: int) -> Report | None:
         """Query report data for get latest report for scan.

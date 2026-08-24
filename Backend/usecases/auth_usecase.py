@@ -18,14 +18,11 @@ class AuthUseCase:
 
     The use case validates related state and coordinates repositories or services.
     """
+    # Store the repositories and services used to enforce this feature’s business rules.
     def __init__(self, user_repository):
-        """Initialize the object with the dependencies required by its public operations.
-
-        Dependencies are stored once so each call uses the same request-scoped
-        collaborators.
-        """
         self.user_repository = user_repository
 
+    # Validate related records and coordinate repositories to register.
     def register(self, request):
 
         """Apply business validation and orchestration needed to register.
@@ -62,6 +59,7 @@ class AuthUseCase:
             "user_id": user.id,
         }
 
+    # Validate related records and coordinate repositories to login.
     def login(self, request):
 
         """Apply business validation and orchestration needed to login.

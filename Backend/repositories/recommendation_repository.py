@@ -13,14 +13,11 @@ class RecommendationRepository:
 
     This layer owns SQLAlchemy queries and transaction boundaries for the feature.
     """
+    # Store the request-scoped SQLAlchemy session used by this repository’s queries.
     def __init__(self, db: Session):
-        """Initialize the object with the dependencies required by its public operations.
-
-        Dependencies are stored once so each call uses the same request-scoped
-        collaborators.
-        """
         self.db = db
 
+    # Create and commit the requested recommendation record.
     def create_recommendation(
         self,
         vulnerability_id: int,
@@ -66,6 +63,7 @@ class RecommendationRepository:
 
         return recommendation
 
+    # Query all recommendations with SQLAlchemy without changing stored database state.
     def get_all_recommendations(self) -> list[Recommendation]:
         """Query recommendation data for get all recommendations.
 
@@ -78,6 +76,7 @@ class RecommendationRepository:
             .all()
         )
 
+    # Query recommendations by vulnerability id with SQLAlchemy without changing stored database state.
     def get_recommendations_by_vulnerability_id(
         self, vulnerability_id: int
     ) -> list[Recommendation]:
@@ -93,6 +92,7 @@ class RecommendationRepository:
             .all()
         )
 
+    # Query recommendations by status with SQLAlchemy without changing stored database state.
     def get_recommendations_by_status(self, status: str) -> list[Recommendation]:
         """Query recommendation data for get recommendations by status.
 
@@ -106,6 +106,7 @@ class RecommendationRepository:
             .all()
         )
 
+    # Query recommendation by id with SQLAlchemy without changing stored database state.
     def get_recommendation_by_id(self, recommendation_id: int) -> Recommendation | None:
         """Query recommendation data for get recommendation by id.
 
@@ -118,6 +119,7 @@ class RecommendationRepository:
             .first()
         )
 
+    # Persist the state change required to update recommendation.
     def update_recommendation(
         self,
         recommendation: Recommendation,
@@ -136,6 +138,7 @@ class RecommendationRepository:
 
         return recommendation
 
+    # Delete the supplied recommendation record and commit the transaction.
     def delete_recommendation(self, recommendation: Recommendation) -> None:
         """Delete the supplied recommendation record and commit the transaction.
 
@@ -145,6 +148,7 @@ class RecommendationRepository:
         self.db.delete(recommendation)
         self.db.commit()
 
+    # Query recommendations by risk level with SQLAlchemy without changing stored database state.
     def get_recommendations_by_risk_level(self, risk_level: str) -> list[Recommendation]:
         """Query recommendation data for get recommendations by risk level.
 
@@ -158,6 +162,7 @@ class RecommendationRepository:
             .all()
         )
 
+    # Persist the state change required to approve recommendation.
     def approve_recommendation(
         self, recommendation: Recommendation, approved_by: str
     ) -> Recommendation:
@@ -172,6 +177,7 @@ class RecommendationRepository:
         self.db.refresh(recommendation)
         return recommendation
 
+    # Persist the state change required to reject recommendation.
     def reject_recommendation(self, recommendation: Recommendation) -> Recommendation:
         """Persist the state change required to reject recommendation.
 

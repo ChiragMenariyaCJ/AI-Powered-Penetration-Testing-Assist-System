@@ -37,12 +37,8 @@ class ScopeGuard:
     recommendations.
     """
 
+    # Parse authorised IP, network, hostname, and domain entries into searchable scope rules.
     def __init__(self, entries: list[str]):
-        """Initialize the object with the dependencies required by its public operations.
-
-        Dependencies are stored once so each call uses the same request-scoped
-        collaborators.
-        """
         if not entries:
             raise ValueError("At least one authorized scope entry is required")
 
@@ -58,6 +54,7 @@ class ScopeGuard:
         if not self.networks and not self.domains:
             raise ValueError("No valid scope entries were supplied")
 
+    # Parse one configured scope value into an IP network, exact hostname, or domain suffix rule.
     def _add_entry(self, entry: str) -> None:
         """Perform the add entry step of the terminal guidance pipeline.
 
@@ -91,6 +88,7 @@ class ScopeGuard:
             raise ValueError(f"Invalid scope entry: {entry}")
         self.domains.append(domain)
 
+    # Normalise a hostname by removing brackets, ports, trailing dots, and letter-case differences.
     @staticmethod
     def _hostname(value: str) -> str | None:
         """Perform the hostname step of the terminal guidance pipeline.
@@ -104,6 +102,7 @@ class ScopeGuard:
         except ValueError:
             return None
 
+    # Return whether one extracted target matches any configured IP, network, or hostname rule.
     def is_allowed(self, target: str) -> bool:
         """Perform the is allowed step of the terminal guidance pipeline.
 
@@ -130,6 +129,7 @@ class ScopeGuard:
                 for domain in self.domains
             )
 
+    # Check all targets together and return the rejected values for a clear scope decision.
     def check(self, targets: list[str]) -> ScopeDecision:
         """Perform the check step of the terminal guidance pipeline.
 
@@ -139,6 +139,7 @@ class ScopeGuard:
         blocked = [target for target in targets if not self.is_allowed(target)]
         return ScopeDecision(allowed=not blocked, blocked_targets=blocked)
 
+    # Extract candidate IP addresses and hostnames from a command without resolving DNS.
     @staticmethod
     def extract_targets(text: str) -> list[str]:
         """Perform the extract targets step of the terminal guidance pipeline.

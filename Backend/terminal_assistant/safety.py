@@ -73,6 +73,7 @@ FORBIDDEN_PATTERNS = tuple(
 SHELL_CONTROL_SYNTAX = re.compile(r"(?:[;&|`<>]|\$\(|\r|\n)")
 
 
+# Return whether recommendation prose avoids blocked exploitation, credential, and persistence actions.
 def is_safe_recommendation(text: str, authorized_targets: list[str] | None = None) -> bool:
     """Perform the is safe recommendation step of the terminal guidance pipeline.
 
@@ -108,6 +109,7 @@ def is_safe_recommendation(text: str, authorized_targets: list[str] | None = Non
     return True
 
 
+# Remove unsafe, blank, and duplicate recommendations before display or persistence.
 def filter_safe_recommendations(
     suggestions: list[str],
     authorized_targets: list[str] | None = None,
@@ -131,6 +133,7 @@ def filter_safe_recommendations(
     return filtered
 
 
+# Explain why an LLM-produced command cannot be shown as runnable.
 def manual_command_rejection_reason(
     command: str,
     authorized_targets: list[str],
@@ -233,6 +236,7 @@ def manual_command_rejection_reason(
     return None
 
 
+# Return whether a model command passes every manual-command guard.
 def is_safe_manual_command(command: str, authorized_targets: list[str]) -> bool:
     """Return whether a model command passes every manual-command guard."""
 

@@ -19,6 +19,7 @@ class PTASApiError(RuntimeError):
     """
 
 
+# Return a client-safe URL for the host and port used by start.sh.
 def default_api_url() -> str:
     """Return a client-safe URL for the host and port used by start.sh."""
 
@@ -37,15 +38,12 @@ class PTASApiClient:
     Its public methods provide the supported interface used by the rest of PTAS.
     """
 
+    # Store the API base URL and timeout used by every terminal-to-backend request.
     def __init__(self, base_url: str | None = None):
-        """Initialize the object with the dependencies required by its public operations.
-
-        Dependencies are stored once so each call uses the same request-scoped
-        collaborators.
-        """
         self.base_url = (base_url or default_api_url()).rstrip("/")
         self.access_token: str | None = None
 
+    # Send a GET request to the backend with optional URL query parameters.
     def get(
         self,
         path: str,
@@ -60,6 +58,7 @@ class PTASApiClient:
 
         return self._request("GET", path, query=query, timeout=timeout)
 
+    # Send a JSON POST request to the backend and return the decoded response.
     def post(
         self,
         path: str,
@@ -81,6 +80,7 @@ class PTASApiClient:
             timeout=timeout,
         )
 
+    # Send one JSON HTTP request and convert transport or API failures into PTASApiError.
     def _request(
         self,
         method: str,
@@ -90,10 +90,6 @@ class PTASApiClient:
         query: dict | None = None,
         timeout: float,
     ):
-        """Implement the internal request step used by this module's public workflow.
-
-        It remains private so callers depend on the supported public interface.
-        """
 
         url = f"{self.base_url}{path}"
         if query:
@@ -126,12 +122,9 @@ class PTASApiClient:
         except json.JSONDecodeError as exc:
             raise PTASApiError("PTAS API returned an invalid JSON response") from exc
 
+    # Extract the most useful error message from a failed API response body.
     @staticmethod
     def _error_detail(error: HTTPError) -> str:
-        """Implement the internal error detail step used by this module's public workflow.
-
-        It remains private so callers depend on the supported public interface.
-        """
 
         try:
             payload = json.loads(error.read().decode("utf-8"))

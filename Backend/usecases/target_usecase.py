@@ -14,19 +14,16 @@ class TargetUseCase:
 
     The use case validates related state and coordinates repositories or services.
     """
+    # Store the repositories and services used to enforce this feature’s business rules.
     def __init__(
         self,
         target_repository: TargetRepository,
         project_repository: ProjectRepository,
     ):
-        """Initialize the object with the dependencies required by its public operations.
-
-        Dependencies are stored once so each call uses the same request-scoped
-        collaborators.
-        """
         self.target_repository = target_repository
         self.project_repository = project_repository
 
+    # Validate related records and coordinate repositories to create target.
     def create_target(self, request):
         """Apply business validation and orchestration needed to create target.
 
@@ -50,6 +47,7 @@ class TargetUseCase:
             status=request.status,
         )
 
+    # Validate related records and coordinate repositories to get all targets.
     def get_all_targets(self, project_id: int | None = None):
         """Apply business validation and orchestration needed to get all targets.
 
@@ -76,6 +74,7 @@ class TargetUseCase:
             "targets": targets,
         }
 
+    # Validate related records and coordinate repositories to get target by id.
     def get_target_by_id(self, target_id: int):
         """Apply business validation and orchestration needed to get target by id.
 
@@ -92,6 +91,7 @@ class TargetUseCase:
 
         return target
 
+    # Validate related records and coordinate repositories to update target.
     def update_target(self, target_id: int, request):
         """Apply business validation and orchestration needed to update target.
 
@@ -119,6 +119,7 @@ class TargetUseCase:
             update_data,
         )
 
+    # Validate related records and coordinate repositories to delete target.
     def delete_target(self, target_id: int):
         """Apply business validation and orchestration needed to delete target.
 

@@ -13,27 +13,14 @@ from Backend.config import settings
 
 
 class NmapService:
-    """Encapsulate the NmapService service behavior.
 
-    Keeping this integration separate prevents external-tool details from leaking into
-    use cases.
-    """
-
+    # Store the scan timeout and initialise process state used to stop an active Nmap run.
     def __init__(self):
-        """Initialize the object with the dependencies required by its public operations.
-
-        Dependencies are stored once so each call uses the same request-scoped
-        collaborators.
-        """
         self.nmap_command = settings.nmap_path
         self.timeout = settings.nmap_timeout
 
+    # Return whether the Nmap executable is available on the current PATH.
     def is_nmap_installed(self) -> bool:
-        """Perform the service-level operation needed to is nmap installed.
-
-        Inputs are converted to the external tool or renderer format and the normalized
-        result is returned to the use case.
-        """
         try:
             result = subprocess.run(
                 [self.nmap_command, "-V"],
@@ -44,6 +31,7 @@ class NmapService:
         except Exception:
             return False
 
+    # Execute Nmap scan on target and return results.
     def execute_scan(
         self,
         target: str,
@@ -70,19 +58,19 @@ class NmapService:
 
             target = self._validate_target(target)
 
-            # Create temporary file for XML output
+            # Use a temporary XML file because structured parsing is safer than scraping console text.
             with tempfile.NamedTemporaryFile(
                 mode="w", suffix=".xml", delete=False
             ) as tmp_file:
                 xml_output_path = tmp_file.name
 
             try:
-                # Build Nmap command based on scan type
+                # Build an argument list rather than a shell string to prevent shell interpretation.
                 cmd = self._build_command(
                     target, scan_type, custom_args, xml_output_path
                 )
 
-                # Execute Nmap
+                # Capture output and enforce the configured deadline so an unresponsive scan cannot hang the API.
                 result = subprocess.run(
                     cmd,
                     capture_output=True,
@@ -97,7 +85,7 @@ class NmapService:
                         "error": error or f"Nmap exited with code {result.returncode}",
                     }
 
-                # Parse XML output
+                # Parse only the XML produced by this successful subprocess execution.
                 if os.path.exists(xml_output_path):
                     parsed_result = self._parse_xml_output(xml_output_path)
                     parsed_result["raw_output"] = result.stdout
@@ -109,7 +97,7 @@ class NmapService:
                     }
 
             finally:
-                # Clean up temporary file
+                # Remove the temporary scan evidence even when Nmap fails, times out, or parsing raises an error.
                 if os.path.exists(xml_output_path):
                     try:
                         os.remove(xml_output_path)
@@ -124,6 +112,7 @@ class NmapService:
         except Exception as e:
             return {"status": "FAILED", "error": str(e)}
 
+    # Translate a PTAS scan type into a bounded Nmap argument list and XML output path.
     def _build_command(
         self,
         target: str,
@@ -131,11 +120,6 @@ class NmapService:
         custom_args: Optional[str],
         xml_output: str,
     ) -> list:
-        """Perform the service-level operation needed to build command.
-
-        Inputs are converted to the external tool or renderer format and the normalized
-        result is returned to the use case.
-        """
         cmd = [self.nmap_command, "-oX", xml_output]
 
         if scan_type == "QUICK":
@@ -169,13 +153,9 @@ class NmapService:
         cmd.append(target)
         return cmd
 
+    # Reject malformed or option-like targets before passing them to the Nmap subprocess.
     @staticmethod
     def _validate_target(target: str) -> str:
-        """Perform the service-level operation needed to validate target.
-
-        Inputs are converted to the external tool or renderer format and the normalized
-        result is returned to the use case.
-        """
         candidate = target.strip().rstrip(".")
         if (
             not candidate
@@ -201,30 +181,26 @@ class NmapService:
             raise ValueError("Target must be a valid IP address, CIDR, or hostname")
         return candidate
 
+    # Parse Nmap XML into the scan metadata and host structures consumed by the API.
     def _parse_xml_output(self, xml_file_path: str) -> dict:
-        """Perform the service-level operation needed to parse xml output.
-
-        Inputs are converted to the external tool or renderer format and the normalized
-        result is returned to the use case.
-        """
         try:
             tree = ET.parse(xml_file_path)
             root = tree.getroot()
 
-            # Extract scan information
+            # Start with a completed result because this parser is reached only after Nmap exits successfully.
             scan_info = {
                 "status": "COMPLETED",
                 "started_at": datetime.now(UTC).isoformat(),
                 "hosts": [],
             }
 
-            # Parse each host
+            # Convert each host independently so one XML document can represent a network scan.
             for host in root.findall("host"):
                 host_data = self._parse_host(host)
                 if host_data:
                     scan_info["hosts"].append(host_data)
 
-            # Extract scan summary
+            # Preserve Nmap's aggregate up/down counts for reports and API clients.
             run_stats = root.find("runstats")
             if run_stats:
                 summary = run_stats.find("summary")
@@ -243,19 +219,15 @@ class NmapService:
                 "error": f"Failed to parse Nmap output: {str(e)}",
             }
 
+    # Convert one Nmap host element into address, status, service, and OS evidence.
     def _parse_host(self, host_elem) -> Optional[dict]:
-        """Perform the service-level operation needed to parse host.
-
-        Inputs are converted to the external tool or renderer format and the normalized
-        result is returned to the use case.
-        """
         try:
-            # Get host status
+            # Store Nmap's host-state reason so reports can explain why a host was considered reachable.
             status_elem = host_elem.find("status")
             if status_elem is None or status_elem.get("state") != "up":
                 return None
 
-            # Get host address
+            # Prefer the first reported address and keep its address type for later display.
             addr_elem = host_elem.find("address")
             if addr_elem is None:
                 return None
@@ -263,14 +235,14 @@ class NmapService:
             host_ip = addr_elem.get("addr")
             hostname = None
 
-            # Get hostname if available
+            # Hostnames are optional, so retain an empty value when reverse lookup produced none.
             hostnames = host_elem.find("hostnames")
             if hostnames is not None:
                 hostname_elem = hostnames.find("hostname")
                 if hostname_elem is not None:
                     hostname = hostname_elem.get("name")
 
-            # Parse ports
+            # Keep only structured port observations returned by the dedicated port parser.
             ports = []
             ports_elem = host_elem.find("ports")
             if ports_elem is not None:
@@ -279,7 +251,7 @@ class NmapService:
                     if port_data:
                         ports.append(port_data)
 
-            # Parse OS detection
+            # OS matches are optional evidence and must not be treated as guaranteed identification.
             os_match = None
             os_elem = host_elem.find("os")
             if os_elem is not None:
@@ -302,12 +274,8 @@ class NmapService:
         except Exception as e:
             return None
 
+    # Convert one Nmap port element into a structured service observation.
     def _parse_port(self, port_elem) -> Optional[dict]:
-        """Perform the service-level operation needed to parse port.
-
-        Inputs are converted to the external tool or renderer format and the normalized
-        result is returned to the use case.
-        """
         try:
             port_num = port_elem.get("portid")
             protocol = port_elem.get("protocol")
@@ -355,12 +323,8 @@ class NmapService:
         except Exception:
             return None
 
+    # Terminate the currently running Nmap process when a cancellation is requested.
     def stop_scan(self, process_pid: int) -> bool:
-        """Perform the service-level operation needed to stop scan.
-
-        Inputs are converted to the external tool or renderer format and the normalized
-        result is returned to the use case.
-        """
         try:
             subprocess.run(
                 ["kill", "-9", str(process_pid)],

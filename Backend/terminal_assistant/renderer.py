@@ -14,14 +14,11 @@ class ConsoleRenderer:
     The assistant analyzes evidence but never automatically executes its
     recommendations.
     """
+    # Enable or disable ANSI colour according to terminal support or caller preference.
     def __init__(self):
-        """Initialize the object with the dependencies required by its public operations.
-
-        Dependencies are stored once so each call uses the same request-scoped
-        collaborators.
-        """
         self.color = sys.stdout.isatty() and "NO_COLOR" not in os.environ
 
+    # Wrap terminal text in an ANSI colour only when colour output is enabled.
     def _paint(self, code: str, text: str) -> str:
         """Perform the paint step of the terminal guidance pipeline.
 
@@ -30,6 +27,7 @@ class ConsoleRenderer:
         """
         return f"\033[{code}m{text}\033[0m" if self.color else text
 
+    # Print an informational PTAS status line to the recommendation terminal.
     def status(self, message: str) -> None:
         """Perform the status step of the terminal guidance pipeline.
 
@@ -38,6 +36,7 @@ class ConsoleRenderer:
         """
         print(self._paint("36", f"[PTAS] {message}"), flush=True)
 
+    # Print a visually distinct warning without interrupting the monitoring loop.
     def warning(self, message: str) -> None:
         """Perform the warning step of the terminal guidance pipeline.
 
@@ -46,6 +45,7 @@ class ConsoleRenderer:
         """
         print(self._paint("33", f"[PTAS] {message}"), flush=True)
 
+    # Display command, scope, findings, analysis, and suggestions from one analysis result.
     def render(self, result: AnalysisResult) -> None:
         """Perform the render step of the terminal guidance pipeline.
 
@@ -81,6 +81,7 @@ class ConsoleRenderer:
         print(flush=True)
 
 
+# Append one timestamped analysis result as JSON to the optional audit log.
 def append_audit_event(path: Path, result: AnalysisResult) -> None:
     """Perform the append audit event step of the terminal guidance pipeline.
 

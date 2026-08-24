@@ -13,14 +13,11 @@ class ScanRepository:
 
     This layer owns SQLAlchemy queries and transaction boundaries for the feature.
     """
+    # Store the request-scoped SQLAlchemy session used by this repository’s queries.
     def __init__(self, db: Session):
-        """Initialize the object with the dependencies required by its public operations.
-
-        Dependencies are stored once so each call uses the same request-scoped
-        collaborators.
-        """
         self.db = db
 
+    # Create and commit the requested scan record.
     def create_scan(
         self,
         target_id: int,
@@ -46,6 +43,7 @@ class ScanRepository:
 
         return scan
 
+    # Query all scans with SQLAlchemy without changing stored database state.
     def get_all_scans(self) -> list[Scan]:
         """Query scan data for get all scans.
 
@@ -54,6 +52,7 @@ class ScanRepository:
         """
         return self.db.query(Scan).order_by(Scan.id.desc()).all()
 
+    # Query scans by target id with SQLAlchemy without changing stored database state.
     def get_scans_by_target_id(self, target_id: int) -> list[Scan]:
         """Query scan data for get scans by target id.
 
@@ -67,6 +66,7 @@ class ScanRepository:
             .all()
         )
 
+    # Query scan by id with SQLAlchemy without changing stored database state.
     def get_scan_by_id(self, scan_id: int) -> Scan | None:
         """Query scan data for get scan by id.
 
@@ -79,6 +79,7 @@ class ScanRepository:
             .first()
         )
 
+    # Persist the state change required to update scan.
     def update_scan(
         self,
         scan: Scan,
@@ -97,6 +98,7 @@ class ScanRepository:
 
         return scan
 
+    # Delete the supplied scan record and commit the transaction.
     def delete_scan(self, scan: Scan) -> None:
         """Delete the supplied scan record and commit the transaction.
 

@@ -49,6 +49,7 @@ ROUTERS = (
 # ---------------------------------------------------------------------------
 
 
+# Create database tables at API startup and log startup and shutdown lifecycle events.
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     """Perform the lifespan operation.
@@ -98,6 +99,7 @@ for router, prefix, tag in ROUTERS:
 # ---------------------------------------------------------------------------
 
 
+# Return API identity and documentation links from the root endpoint.
 @app.get("/")
 def home():
     """Perform the home operation.
@@ -108,6 +110,7 @@ def home():
     return {"message": "PTAS Backend API is running"}
 
 
+# Confirm that the FastAPI process is running without checking external dependencies.
 @app.get("/health/live", include_in_schema=False)
 def liveness():
     """Perform the liveness operation.
@@ -118,6 +121,7 @@ def liveness():
     return {"status": "ok"}
 
 
+# Check database connectivity before declaring the API ready to accept work.
 @app.get("/health/ready", include_in_schema=False)
 def readiness():
     """Perform the readiness operation.

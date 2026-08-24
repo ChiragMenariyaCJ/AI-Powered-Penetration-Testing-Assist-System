@@ -13,21 +13,11 @@ import subprocess
 
 
 class LabVerificationError(RuntimeError):
-    """Encapsulate the LabVerificationError service behavior.
-
-    Keeping this integration separate prevents external-tool details from leaking into
-    use cases.
-    """
     pass
 
 
 @dataclass(frozen=True)
 class LabManifest:
-    """Encapsulate the LabManifest service behavior.
-
-    Keeping this integration separate prevents external-tool details from leaking into
-    use cases.
-    """
     name: str
     profile: str
     provider: str
@@ -43,11 +33,6 @@ class LabManifest:
 
 @dataclass(frozen=True)
 class AccessExercise:
-    """Encapsulate the AccessExercise service behavior.
-
-    Keeping this integration separate prevents external-tool details from leaking into
-    use cases.
-    """
     key: str
     service: str
     port: int
@@ -58,11 +43,6 @@ class AccessExercise:
 
 
 class Metasploitable2LabService:
-    """Encapsulate the Metasploitable2LabService service behavior.
-
-    Keeping this integration separate prevents external-tool details from leaking into
-    use cases.
-    """
     PROFILE = "metasploitable2"
     EXPECTED_PORTS = {
         21, 22, 23, 25, 53, 80, 111, 139, 445, 512, 513, 514, 1099,
@@ -71,22 +51,14 @@ class Metasploitable2LabService:
     DISTINCTIVE_PORTS = {21, 23, 139, 445, 1524, 2121, 3306, 5432, 6667, 8180}
     VMWARE_MAC_PREFIXES = {"00:05:69", "00:0c:29", "00:1c:14", "00:50:56"}
 
+    # Store the project path and location used for isolated-lab identity manifests.
     def __init__(self, project_dir: Path):
-        """Initialize the object with the dependencies required by its public operations.
-
-        Dependencies are stored once so each call uses the same request-scoped
-        collaborators.
-        """
         self.project_dir = project_dir.resolve()
         self.lab_dir = self.project_dir / ".ptas" / "labs"
 
+    # Require one non-loopback private IP before any access-testing lab can be registered.
     @staticmethod
     def _private_host(target: str) -> str:
-        """Perform the service-level operation needed to private host.
-
-        Inputs are converted to the external tool or renderer format and the normalized
-        result is returned to the use case.
-        """
         if "/" in target:
             raise LabVerificationError("Access testing requires one exact host, not a CIDR")
         try:
@@ -97,25 +69,17 @@ class Metasploitable2LabService:
             raise LabVerificationError("Access testing requires a non-loopback private lab IP")
         return str(address)
 
+    # Normalise a virtual-machine MAC address into lowercase colon-separated notation.
     @staticmethod
     def _normalize_mac(value: str) -> str:
-        """Perform the service-level operation needed to normalize mac.
-
-        Inputs are converted to the external tool or renderer format and the normalized
-        result is returned to the use case.
-        """
         compact = re.sub(r"[^0-9a-fA-F]", "", value).lower()
         if len(compact) != 12:
             raise LabVerificationError("VirtualBox did not return a valid VM MAC address")
         return ":".join(compact[index:index + 2] for index in range(0, 12, 2))
 
+    # Parse VirtualBox machine-readable key/value output into a dictionary.
     @staticmethod
     def _machine_values(output: str) -> dict[str, str]:
-        """Perform the service-level operation needed to machine values.
-
-        Inputs are converted to the external tool or renderer format and the normalized
-        result is returned to the use case.
-        """
         values = {}
         for line in output.splitlines():
             if "=" not in line:
@@ -124,13 +88,9 @@ class Metasploitable2LabService:
             values[key.strip()] = value.strip().strip('"')
         return values
 
+    # Read a VMware VMX file and parse its quoted configuration values.
     @staticmethod
     def _vmx_values(path: Path) -> dict[str, str]:
-        """Perform the service-level operation needed to vmx values.
-
-        Inputs are converted to the external tool or renderer format and the normalized
-        result is returned to the use case.
-        """
         try:
             lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
         except OSError as exc:
@@ -143,13 +103,9 @@ class Metasploitable2LabService:
             values[key.strip()] = value.strip().strip('"')
         return values
 
+    # Run one bounded lab-verification command and convert failures into clear verification errors.
     @staticmethod
     def _run(command: list[str], timeout: int = 20) -> str:
-        """Perform the service-level operation needed to run.
-
-        Inputs are converted to the external tool or renderer format and the normalized
-        result is returned to the use case.
-        """
         try:
             result = subprocess.run(
                 command,
@@ -164,22 +120,14 @@ class Metasploitable2LabService:
             raise LabVerificationError(detail)
         return result.stdout
 
+    # Validate a lab name before mapping it to its JSON manifest path.
     def manifest_path(self, name: str) -> Path:
-        """Perform the service-level operation needed to manifest path.
-
-        Inputs are converted to the external tool or renderer format and the normalized
-        result is returned to the use case.
-        """
         if not re.fullmatch(r"[a-zA-Z0-9_-]{1,50}", name):
             raise LabVerificationError("Lab name may contain only letters, numbers, _ and -")
         return self.lab_dir / f"{name}.json"
 
+    # Verify a host-only VirtualBox VM and save its exact identity as a lab manifest.
     def register_virtualbox(self, name: str, target: str, vm_identifier: str) -> LabManifest:
-        """Perform the service-level operation needed to register virtualbox.
-
-        Inputs are converted to the external tool or renderer format and the normalized
-        result is returned to the use case.
-        """
         target = self._private_host(target)
         executable = shutil.which("VBoxManage")
         if not executable:
@@ -205,6 +153,7 @@ class Metasploitable2LabService:
             raise LabVerificationError(
                 "Disable NAT, bridged, and other non-host-only VM adapters before registration"
             )
+        # Bind the manifest to the exact host-only adapter instead of trusting only the target IP.
         nic_number = hostonly_nics[0]
         manifest = LabManifest(
             name=name,
@@ -221,17 +170,14 @@ class Metasploitable2LabService:
             raise LabVerificationError("VirtualBox did not return a VM UUID")
         path = self.manifest_path(name)
         path.parent.mkdir(parents=True, exist_ok=True)
+        # Replace a temporary file atomically so an interrupted write cannot leave partial JSON.
         temporary = path.with_suffix(".tmp")
         temporary.write_text(json.dumps(asdict(manifest), indent=2) + "\n", encoding="utf-8")
         temporary.replace(path)
         return manifest
 
+    # Read the interface and source IP Linux would use to reach the lab target.
     def _route_to_target(self, target: str) -> tuple[str | None, str | None]:
-        """Perform the service-level operation needed to route to target.
-
-        Inputs are converted to the external tool or renderer format and the normalized
-        result is returned to the use case.
-        """
         executable = shutil.which("ip")
         if not executable:
             raise LabVerificationError("The ip command is required for route verification")
@@ -243,6 +189,7 @@ class Metasploitable2LabService:
             src_match.group(1) if src_match else None,
         )
 
+    # Return the interface Kali uses for its default/internet route.
     def _default_route_interface(self) -> str | None:
         """Return the interface Kali uses for its default/internet route."""
 
@@ -253,6 +200,7 @@ class Metasploitable2LabService:
         match = re.search(r"\bdev\s+(\S+)", output)
         return match.group(1) if match else None
 
+    # Read and normalize the MAC currently associated with a target IP.
     def _neighbor_mac(self, target: str) -> str:
         """Read and normalize the MAC currently associated with a target IP."""
 
@@ -267,6 +215,7 @@ class Metasploitable2LabService:
             )
         return self._normalize_mac(match.group(1))
 
+    # Verify a host-only VMware VMX definition and save its exact identity.
     def register_vmware(
         self,
         name: str,
@@ -275,11 +224,6 @@ class Metasploitable2LabService:
         interface: str = "vmnet1",
         kali_source: str | None = None,
     ) -> LabManifest:
-        """Perform the service-level operation needed to register vmware.
-
-        Inputs are converted to the external tool or renderer format and the normalized
-        result is returned to the use case.
-        """
         target = self._private_host(target)
         vmx_path = Path(vm_identifier).expanduser().resolve()
         if vmx_path.suffix.lower() != ".vmx" or not vmx_path.is_file():
@@ -305,10 +249,12 @@ class Metasploitable2LabService:
             raise LabVerificationError(
                 "Disable NAT, bridged, and other non-host-only VMware adapters before registration"
             )
+        # VMware may store a generated or manually assigned MAC; accept either identity field.
         nic_number = hostonly_nics[0]
         expected_mac = values.get(f"ethernet{nic_number}.generatedAddress") or values.get(
             f"ethernet{nic_number}.address", ""
         )
+        # Prove Kali reaches the target over the expected lab interface before saving the manifest.
         route_interface, route_source = self._route_to_target(target)
         if route_interface != interface:
             raise LabVerificationError(
@@ -336,11 +282,13 @@ class Metasploitable2LabService:
         self.verify_neighbor(manifest)
         path = self.manifest_path(name)
         path.parent.mkdir(parents=True, exist_ok=True)
+        # Write then replace so the registered identity is never left half-written.
         temporary = path.with_suffix(".tmp")
         temporary.write_text(json.dumps(asdict(manifest), indent=2) + "\n", encoding="utf-8")
         temporary.replace(path)
         return manifest
 
+    # Register a VMware lab from inside a Kali guest using network identity.
     def register_vmware_network(
         self,
         name: str,
@@ -370,12 +318,14 @@ class Metasploitable2LabService:
             raise LabVerificationError(
                 f"Target route source is {route_source}, expected {kali_source}"
             )
+        # Refuse Kali's internet/default route because this mode must remain on an isolated adapter.
         default_interface = self._default_route_interface()
         if default_interface and route_interface == default_interface:
             raise LabVerificationError(
                 "The target uses Kali's default network interface; configure a separate "
                 "VMware host-only adapter before registration"
             )
+        # Pin the current neighbour MAC and require a VMware-owned prefix as a second identity signal.
         expected_mac = self._neighbor_mac(target)
         if expected_mac[:8] not in self.VMWARE_MAC_PREFIXES:
             raise LabVerificationError(
@@ -396,17 +346,14 @@ class Metasploitable2LabService:
         )
         path = self.manifest_path(name)
         path.parent.mkdir(parents=True, exist_ok=True)
+        # Persist the network identity atomically for later revalidation before access exercises.
         temporary = path.with_suffix(".tmp")
         temporary.write_text(json.dumps(asdict(manifest), indent=2) + "\n", encoding="utf-8")
         temporary.replace(path)
         return manifest
 
+    # Load and validate a previously registered lab manifest from disk.
     def load(self, name: str) -> LabManifest:
-        """Perform the service-level operation needed to load.
-
-        Inputs are converted to the external tool or renderer format and the normalized
-        result is returned to the use case.
-        """
         path = self.manifest_path(name)
         if not path.is_file():
             raise LabVerificationError(f"Lab manifest not found: {path}")
@@ -415,12 +362,8 @@ class Metasploitable2LabService:
         except (OSError, json.JSONDecodeError, TypeError) as exc:
             raise LabVerificationError(f"Invalid lab manifest: {exc}") from exc
 
+    # Confirm the current VirtualBox VM still matches its saved UUID, MAC, and isolation mode.
     def verify_virtualbox(self, manifest: LabManifest) -> list[str]:
-        """Perform the service-level operation needed to verify virtualbox.
-
-        Inputs are converted to the external tool or renderer format and the normalized
-        result is returned to the use case.
-        """
         executable = shutil.which("VBoxManage")
         if not executable:
             raise LabVerificationError("VBoxManage is not installed or not on PATH")
@@ -460,12 +403,8 @@ class Metasploitable2LabService:
             raise LabVerificationError("Create a clean VirtualBox snapshot before access testing")
         return snapshots
 
+    # Confirm the current VMware VM still matches its saved VMX identity and isolation mode.
     def verify_vmware(self, manifest: LabManifest) -> list[str]:
-        """Perform the service-level operation needed to verify vmware.
-
-        Inputs are converted to the external tool or renderer format and the normalized
-        result is returned to the use case.
-        """
         vmx_path = Path(manifest.vm_identifier).expanduser().resolve()
         values = self._vmx_values(vmx_path)
         vm_uuid = values.get("uuid.bios") or values.get("uuid.location", "")
@@ -521,12 +460,9 @@ class Metasploitable2LabService:
             raise LabVerificationError("Create a clean VMware snapshot before access testing")
         return snapshots
 
+    # Confirm the target route and local interface still match the registered isolated lab.
     def verify_runtime(self, manifest: LabManifest) -> list[str]:
-        """Perform the service-level operation needed to verify runtime.
-
-        Inputs are converted to the external tool or renderer format and the normalized
-        result is returned to the use case.
-        """
+        # Provider-specific checks prove that the saved VM identity is still the active target.
         if manifest.provider == "virtualbox":
             return self.verify_virtualbox(manifest)
         if manifest.provider == "vmware":
@@ -553,21 +489,13 @@ class Metasploitable2LabService:
             "Only registered VirtualBox or VMware Metasploitable 2 labs are allowed"
         )
 
+    # Confirm the target neighbour MAC still matches the registered virtual-machine identity.
     def verify_neighbor(self, manifest: LabManifest) -> None:
-        """Perform the service-level operation needed to verify neighbor.
-
-        Inputs are converted to the external tool or renderer format and the normalized
-        result is returned to the use case.
-        """
         if self._neighbor_mac(manifest.target) != manifest.expected_mac:
             raise LabVerificationError("Target IP resolves to a different MAC than the registered VM")
 
+    # Require the scan target and distinctive open ports to match the Metasploitable 2 profile.
     def verify_scan(self, manifest: LabManifest, scan, findings: list) -> set[int]:
-        """Perform the service-level operation needed to verify scan.
-
-        Inputs are converted to the external tool or renderer format and the normalized
-        result is returned to the use case.
-        """
         if manifest.profile != self.PROFILE or manifest.provider not in {
             "virtualbox",
             "vmware",
@@ -576,6 +504,7 @@ class Metasploitable2LabService:
             raise LabVerificationError("Only the registered Metasploitable 2 lab profile is allowed")
         if scan.target.target_value != manifest.target:
             raise LabVerificationError("Scan target does not match the registered lab IP")
+        # Require several expected and distinctive ports so a private IP alone cannot unlock lab mode.
         ports = {int(item.port) for item in findings if item.port is not None}
         expected = ports & self.EXPECTED_PORTS
         distinctive = ports & self.DISTINCTIVE_PORTS
@@ -585,13 +514,9 @@ class Metasploitable2LabService:
             )
         return ports
 
+    # Build only the access exercises supported by services actually observed in the scan.
     @staticmethod
     def exercises(target: str, ports: set[int]) -> list[AccessExercise]:
-        """Perform the service-level operation needed to exercises.
-
-        Inputs are converted to the external tool or renderer format and the normalized
-        result is returned to the use case.
-        """
         catalog = [
             AccessExercise(
                 "ssh_training_login", "SSH", 22,

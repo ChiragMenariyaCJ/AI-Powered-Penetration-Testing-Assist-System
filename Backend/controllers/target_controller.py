@@ -15,12 +15,8 @@ class TargetController:
     The controller constructs dependencies and delegates without performing SQL itself.
     """
 
+    # Build the repositories and use case this controller delegates to for one API request.
     def __init__(self, db: Session):
-        """Initialize the object with the dependencies required by its public operations.
-
-        Dependencies are stored once so each call uses the same request-scoped
-        collaborators.
-        """
         target_repository = TargetRepository(db)
         project_repository = ProjectRepository(db)
 
@@ -29,6 +25,7 @@ class TargetController:
             project_repository,
         )
 
+    # Forward create target to the target use case so this controller contains no business or SQL logic.
     def create_target(self, request):
         """Delegate the request to create target through the configured use case.
 
@@ -37,6 +34,7 @@ class TargetController:
         """
         return self.target_usecase.create_target(request)
 
+    # Forward get all targets to the target use case so this controller contains no business or SQL logic.
     def get_all_targets(self, project_id: int | None = None):
         """Delegate the request to get all targets through the configured use case.
 
@@ -45,6 +43,7 @@ class TargetController:
         """
         return self.target_usecase.get_all_targets(project_id)
 
+    # Forward get target by id to the target use case so this controller contains no business or SQL logic.
     def get_target_by_id(self, target_id: int):
         """Delegate the request to get target by id through the configured use case.
 
@@ -53,6 +52,7 @@ class TargetController:
         """
         return self.target_usecase.get_target_by_id(target_id)
 
+    # Forward update target to the target use case so this controller contains no business or SQL logic.
     def update_target(self, target_id: int, request):
         """Delegate the request to update target through the configured use case.
 
@@ -61,6 +61,7 @@ class TargetController:
         """
         return self.target_usecase.update_target(target_id, request)
 
+    # Forward delete target to the target use case so this controller contains no business or SQL logic.
     def delete_target(self, target_id: int):
         """Delegate the request to delete target through the configured use case.
 

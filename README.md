@@ -47,6 +47,7 @@ Start with the [documentation index](docs/README.md). The main guides are:
 - [Complete setup, startup, and troubleshooting](docs/setup-and-running.md)
 - [Terminal workspace and recommendation pane](docs/terminal-workflow.md)
 - [Architecture and request flow](docs/architecture.md)
+- [Viva explanation guide](docs/viva-guide.md)
 - [Feature documentation](docs/functionalities/README.md)
 - [Restricted Metasploitable 2 lab](docs/access-testing.md)
 - [Metasploitable setup by IP from a Kali VMware guest](docs/metasploitable/README.md)

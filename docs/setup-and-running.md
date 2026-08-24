@@ -168,7 +168,9 @@ python -m pip install --upgrade pip
 python -m pip install -r Backend/requirements-kali.txt
 ```
 
-`requirements-kali.txt` includes `requirements.txt` and Gunicorn. Always use `python -m pip` so packages are installed into the interpreter that will run PTAS.
+`requirements-kali.txt` includes the shared `requirements.txt` dependencies.
+Gunicorn is already listed in that shared file. Always use `python -m pip` so
+packages are installed into the interpreter that will run PTAS.
 
 Activation is optional when using `./start.sh` or `./ptas.sh`: both launchers call `.venv/bin/python` explicitly. This prevents the system Python from being selected accidentally. Activate `.venv` only when running manual Python, Pip, Uvicorn, or test commands.
 

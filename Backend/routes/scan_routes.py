@@ -17,6 +17,7 @@ from Backend.schemas.scan_schema import (
 router = APIRouter(route_class=LoggedRoute)
 
 
+# Validate HTTP inputs and delegate the create scan request to the scan controller.
 @router.post(
     "/",
     response_model=ScanResponse,
@@ -35,6 +36,7 @@ def create_scan(
     return controller.create_scan(request)
 
 
+# Validate HTTP inputs and delegate the get all scans request to the scan controller.
 @router.get("/", response_model=ScanListResponse)
 def get_all_scans(
     target_id: int | None = Query(default=None, gt=0),
@@ -49,6 +51,7 @@ def get_all_scans(
     return controller.get_all_scans(target_id)
 
 
+# Validate HTTP inputs and delegate the get scan by id request to the scan controller.
 @router.get("/{scan_id}", response_model=ScanResponse)
 def get_scan_by_id(
     scan_id: int,
@@ -63,6 +66,7 @@ def get_scan_by_id(
     return controller.get_scan_by_id(scan_id)
 
 
+# Validate HTTP inputs and delegate the update scan request to the scan controller.
 @router.put("/{scan_id}", response_model=ScanResponse)
 def update_scan(
     scan_id: int,
@@ -78,6 +82,7 @@ def update_scan(
     return controller.update_scan(scan_id, request)
 
 
+# Validate HTTP inputs and delegate the delete scan request to the scan controller.
 @router.delete("/{scan_id}")
 def delete_scan(
     scan_id: int,

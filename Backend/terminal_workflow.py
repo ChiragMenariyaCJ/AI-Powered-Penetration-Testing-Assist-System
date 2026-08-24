@@ -81,14 +81,12 @@ SEVERITY_PRIORITY = {
 # ---------------------------------------------------------------------------
 
 
+# Print a PTAS-prefixed status message immediately so both terminals receive timely output.
 def _say(message: str) -> None:
-    """Implement the internal say step used by this module's public workflow.
-
-    It remains private so callers depend on the supported public interface.
-    """
     print(f"[PTAS] {message}", flush=True)
 
 
+# Keep enough adjacent terminal text to join a prompt to typed input.
 def _append_live_prompt_context(existing: str, new_text: str) -> str:
     """Keep enough adjacent terminal text to join a prompt to typed input.
 
@@ -102,6 +100,7 @@ def _append_live_prompt_context(existing: str, new_text: str) -> str:
     return (existing + new_text)[-LIVE_PROMPT_CONTEXT_LIMIT:]
 
 
+# Extract a command despite Kali zsh repainting it away from the prompt.
 def _extract_live_executed_command(
     analyzer: TerminalAnalyzer,
     transcript_context: str,
@@ -123,11 +122,8 @@ def _extract_live_executed_command(
     )
 
 
+# Append one timestamped JSON event to the optional student-session audit log.
 def _event(path: Path | None, kind: str, message: str, **data) -> None:
-    """Implement the internal event step used by this module's public workflow.
-
-    It remains private so callers depend on the supported public interface.
-    """
     if path is None:
         return
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -141,6 +137,7 @@ def _event(path: Path | None, kind: str, message: str, **data) -> None:
         handle.write(json.dumps(payload, sort_keys=True, default=str) + "\n")
 
 
+# Copy CLI model options into environment variables shared with the dashboard process.
 def configure_realtime_advisor_env(
     provider: str | None = None,
     model: str | None = None,
@@ -161,16 +158,13 @@ def configure_realtime_advisor_env(
         os.environ["PTAS_ALLOW_REMOTE_LLM"] = "1"
 
 
+# Build safely quoted environment assignments for the separately launched dashboard process.
 def _realtime_env_prefix(
     provider: str | None = None,
     model: str | None = None,
     ollama_url: str | None = None,
     allow_remote_llm: bool = False,
 ) -> str:
-    """Implement the internal realtime env prefix step used by this module's public workflow.
-
-    It remains private so callers depend on the supported public interface.
-    """
     values: dict[str, str] = {}
     if provider:
         values["PTAS_LLM_PROVIDER"] = provider
@@ -186,11 +180,8 @@ def _realtime_env_prefix(
     return f"env {assignments} "
 
 
+# Create the configured local Ollama advisor or return None for the rules-only provider.
 def _build_realtime_advisor() -> OllamaAdvisor | None:
-    """Implement the internal build realtime advisor step used by this module's public workflow.
-
-    It remains private so callers depend on the supported public interface.
-    """
     provider = os.getenv("PTAS_LLM_PROVIDER", "rules").lower()
     if provider != "ollama":
         return None
@@ -205,11 +196,8 @@ def _build_realtime_advisor() -> OllamaAdvisor | None:
     )
 
 
+# Enable the advisor only when Ollama and the configured model pass startup checks.
 def _optional_realtime_advisor() -> OllamaAdvisor | None:
-    """Implement the internal optional realtime advisor step used by this module's public workflow.
-
-    It remains private so callers depend on the supported public interface.
-    """
     try:
         advisor = _build_realtime_advisor()
         if advisor:
@@ -225,11 +213,8 @@ def _optional_realtime_advisor() -> OllamaAdvisor | None:
 # ---------------------------------------------------------------------------
 
 
+# Prompt repeatedly until the student supplies a non-empty normal or secret value.
 def _required(prompt: str, *, secret: bool = False) -> str:
-    """Implement the internal required step used by this module's public workflow.
-
-    It remains private so callers depend on the supported public interface.
-    """
     while True:
         value = (getpass(prompt) if secret else input(prompt)).strip()
         if value:
@@ -237,11 +222,8 @@ def _required(prompt: str, *, secret: bool = False) -> str:
         _say("A value is required.")
 
 
+# Prompt until the student enters one of the explicitly supported choices.
 def _choose(prompt: str, choices: tuple[str, ...]) -> str:
-    """Implement the internal choose step used by this module's public workflow.
-
-    It remains private so callers depend on the supported public interface.
-    """
     labels = "/".join(choices)
     while True:
         value = input(f"{prompt} [{labels}]: ").strip().lower()
@@ -250,11 +232,8 @@ def _choose(prompt: str, choices: tuple[str, ...]) -> str:
         _say(f"Choose one of: {', '.join(choices)}")
 
 
+# Guide login or registration through the backend API and return the authenticated user.
 def _authenticate(api: PTASApiClient) -> dict:
-    """Implement the internal authenticate step used by this module's public workflow.
-
-    It remains private so callers depend on the supported public interface.
-    """
 
     action = _choose("Login or register", ("login", "register"))
     email: str | None = None
@@ -300,11 +279,8 @@ def _authenticate(api: PTASApiClient) -> dict:
         return user
 
 
+# List the user projects and either select one or create a new project through the API.
 def _select_project(api: PTASApiClient, user: dict) -> dict:
-    """Implement the internal select project step used by this module's public workflow.
-
-    It remains private so callers depend on the supported public interface.
-    """
 
     result = api.get("/api/projects/", query={"user_id": user["id"]})
     projects = result["projects"]
@@ -335,11 +311,8 @@ def _select_project(api: PTASApiClient, user: dict) -> dict:
     )
 
 
+# Classify one scope entry as CIDR, IP address, or domain for API persistence.
 def _scope_type(scope_value: str) -> str:
-    """Implement the internal scope type step used by this module's public workflow.
-
-    It remains private so callers depend on the supported public interface.
-    """
     if "/" in scope_value:
         return "CIDR"
     try:
@@ -349,11 +322,8 @@ def _scope_type(scope_value: str) -> str:
     return "HOSTNAME" if any(char.isalpha() for char in scope_value) else "CIDR"
 
 
+# Collect scope, target, and authorisation confirmation before creating API records.
 def _configure_target(api: PTASApiClient, project: dict) -> tuple[dict, str]:
-    """Implement the internal configure target step used by this module's public workflow.
-
-    It remains private so callers depend on the supported public interface.
-    """
 
     print("\nScope setup")
     print("  Scope is the complete authorized boundary, for example:")
@@ -431,11 +401,8 @@ def _configure_target(api: PTASApiClient, project: dict) -> tuple[dict, str]:
 # ---------------------------------------------------------------------------
 
 
+# Sort findings by severity, port, and database ID for stable terminal presentation.
 def _finding_sort_key(finding: Vulnerability) -> tuple[int, int, int]:
-    """Implement the internal finding sort key step used by this module's public workflow.
-
-    It remains private so callers depend on the supported public interface.
-    """
     severity = (getattr(finding, "severity", None) or "INFO").upper()
     return (
         SEVERITY_PRIORITY.get(severity, 5),
@@ -444,11 +411,8 @@ def _finding_sort_key(finding: Vulnerability) -> tuple[int, int, int]:
     )
 
 
+# Format one stored finding as a concise target, port, service, and title evidence line.
 def _finding_evidence(finding: Vulnerability, target: str) -> str:
-    """Implement the internal finding evidence step used by this module's public workflow.
-
-    It remains private so callers depend on the supported public interface.
-    """
     endpoint = target
     if finding.port is not None:
         endpoint = f"{target}:{finding.port}"
@@ -460,16 +424,13 @@ def _finding_evidence(finding: Vulnerability, target: str) -> str:
     return f"{endpoint} {service} - {details}"
 
 
+# Build the bounded scan-evidence prompt used to request model recommendations.
 def _scan_recommendation_prompt(
     findings: list[Vulnerability],
     target: str,
     scan_id: int | None = None,
     lab_name: str | None = None,
 ) -> str:
-    """Implement the internal scan recommendation prompt step used by this module's public workflow.
-
-    It remains private so callers depend on the supported public interface.
-    """
     evidence = "\n".join(
         f"- [{getattr(finding, 'severity', None) or 'INFO'}] {_finding_evidence(finding, target)}"
         for finding in sorted(findings, key=_finding_sort_key)[:20]
@@ -493,6 +454,7 @@ Current evidence:
 """
 
 
+# Build manual, non-destructive validation commands from observed evidence.
 def _fallback_realtime_suggestions(
     vulnerabilities: list[Vulnerability],
     target: str,
@@ -558,6 +520,7 @@ def _fallback_realtime_suggestions(
     return suggestions
 
 
+# Return a stable representation used to compare manual commands.
 def _normalize_validation_command(command: str | None) -> str:
     """Return a stable representation used to compare manual commands."""
 
@@ -569,6 +532,7 @@ def _normalize_validation_command(command: str | None) -> str:
         return " ".join(command.split())
 
 
+# Select the next unexecuted validation after the completed command.
 def select_follow_up_suggestion(
     suggestions: list[dict],
     executed_commands: set[str],
@@ -603,6 +567,7 @@ def select_follow_up_suggestion(
     )
 
 
+# Build every safe manual validation available for one completed scan.
 def _scan_validation_catalog(scan_id: int) -> list[dict]:
     """Build every safe manual validation available for one completed scan."""
 
@@ -618,6 +583,7 @@ def _scan_validation_catalog(scan_id: int) -> list[dict]:
         )
 
 
+# Return the verified lab manifest matching a completed scan and target.
 def _verified_metasploitable_lab(scan_id: int, target: str):
     """Return the verified lab manifest matching a completed scan and target.
 
@@ -653,6 +619,7 @@ def _verified_metasploitable_lab(scan_id: int, target: str):
     return matching_manifest
 
 
+# Build deduplicated, service-aware validation suggestions from stored scan findings.
 def validation_suggestions(
     vulnerabilities: list[Vulnerability],
     target: str,
@@ -709,6 +676,7 @@ def validation_suggestions(
     ]
 
 
+# Return whether stored execution text is a runnable, allowlisted command.
 def _is_manual_validation_command(value: str | None, target: str) -> bool:
     """Return whether stored execution text is a runnable, allowlisted command."""
 
@@ -725,6 +693,7 @@ def _is_manual_validation_command(value: str | None, target: str) -> bool:
     return is_safe_recommendation(value, [target])
 
 
+# Store new safe validation suggestions while skipping commands already saved for the scan.
 def persist_validation_suggestions(db, suggestions: list[dict]) -> int:
     """Perform the persist validation suggestions operation.
 
@@ -763,6 +732,7 @@ def persist_validation_suggestions(db, suggestions: list[dict]) -> int:
     return created
 
 
+# Correlate versioned findings with local Exploit-DB entries and store them as review evidence.
 def persist_exploitdb_references(db, scan_id: int, target: str) -> int:
     """Perform the persist exploitdb references operation.
 
@@ -821,6 +791,7 @@ def persist_exploitdb_references(db, scan_id: int, target: str) -> int:
     return len(pending)
 
 
+# Run installed metadata tools for observed services and persist their successful evidence.
 def run_service_aware_checks(
     db,
     scan_id: int,
@@ -875,6 +846,7 @@ def run_service_aware_checks(
 # ---------------------------------------------------------------------------
 
 
+# Validate a scan-execution response before reading success-only fields.
 def _completed_finding_count(scan_type: str, result: dict) -> int:
     """Validate a scan-execution response before reading success-only fields.
 
@@ -895,6 +867,7 @@ def _completed_finding_count(scan_type: str, result: dict) -> int:
     return int(result["findings_persisted"])
 
 
+# Describe the evidence level separately from its review priority.
 def _finding_display_label(finding: dict) -> str:
     """Describe the evidence level separately from its review priority.
 
@@ -917,6 +890,7 @@ def _finding_display_label(finding: dict) -> str:
     return f"[{evidence}] [REVIEW: {severity}]"
 
 
+# Guide authentication, scope confirmation, staged scanning, findings, and report preparation.
 def run_student_session(event_log: Path | None = None) -> int:
     """Perform the run student session operation.
 
@@ -932,9 +906,11 @@ def run_student_session(event_log: Path | None = None) -> int:
             _say(f"Realtime recommendations enabled with local Ollama model '{advisor.model}'.")
         else:
             _say("Realtime model not configured; using evidence-only fallback recommendations.")
+        # Confirm the separately started backend is ready before asking for student input.
         api = PTASApiClient()
         api.get("/health/ready")
         _say(f"Connected to backend API at {api.base_url}; calls will appear in ./start.sh.")
+        # Keep one database session for local enrichment and reporting that follow the API scans.
         with SessionLocal() as db:
             user = _authenticate(api)
             _event(event_log, "auth", f"Logged in as {user['email']}")
@@ -964,6 +940,7 @@ def run_student_session(event_log: Path | None = None) -> int:
             )
 
             completed_scan = None
+            # Create a separate stored scan for each stage so its evidence remains auditable.
             for index, (scan_type, description) in enumerate(scan_stages, start=1):
                 _say(f"Scan stage {index}/{len(scan_stages)}: {description}")
                 _event(event_log, "scan_started", description, scan_type=scan_type)
@@ -1026,6 +1003,7 @@ def run_student_session(event_log: Path | None = None) -> int:
 
             if completed_scan is None:
                 raise RuntimeError("No scan stage completed")
+            # Enrich only the final detailed scan with installed service tools and local Exploit-DB data.
             tool_observations = run_service_aware_checks(
                 db,
                 completed_scan["id"],
@@ -1051,6 +1029,7 @@ def run_student_session(event_log: Path | None = None) -> int:
                 SimpleNamespace(**finding)
                 for finding in final_result["vulnerabilities"]
             ]
+            # Generate advice from stored evidence, then persist it so reports use the same recommendations.
             suggestions = validation_suggestions(
                 findings,
                 target["target_value"],
@@ -1132,6 +1111,7 @@ def run_student_session(event_log: Path | None = None) -> int:
         return 1
 
 
+# Follow the left-terminal transcript and continuously show analysed recommendations on the right.
 def run_dashboard(
     event_log: Path,
     transcript: Path,
@@ -1168,6 +1148,7 @@ def run_dashboard(
         while True:
             transcript_chunk = terminal_source.read_new()
             if event_log.exists():
+                # Resume at the saved byte offset so each workflow event is rendered exactly once.
                 with event_log.open("r", encoding="utf-8") as handle:
                     handle.seek(position)
                     for line in handle:
@@ -1202,6 +1183,7 @@ def run_dashboard(
                                     print(f"  Report: {event['report_command']}")
                     position = handle.tell()
             if assessment_completed and current_scan_id is not None and not catalog_loaded:
+                # Load fallback commands and verify lab identity once after assessment completion.
                 try:
                     validation_catalog = _scan_validation_catalog(current_scan_id)
                 except (OSError, SQLAlchemyError):
@@ -1224,6 +1206,7 @@ def run_dashboard(
                         )
                 catalog_loaded = True
             if transcript_chunk and assessment_completed and scope_value:
+                # Sanitise terminal control codes and rebuild commands split across QTerminal writes.
                 clean = sanitize_terminal_text(transcript_chunk)
                 analyzer = TerminalAnalyzer(ScopeGuard([scope_value]))
                 if last_executed_command:
@@ -1245,6 +1228,7 @@ def run_dashboard(
                 if not command_finished:
                     time.sleep(interval)
                     continue
+                # Analyse only after the next shell prompt proves the command has finished producing output.
                 context = "\n".join(observation_chunks)
                 result = analyzer.analyze(
                     context,
@@ -1281,6 +1265,7 @@ def run_dashboard(
                 )
 
                 model_follow_up: dict[str, str] | None = None
+                # The lab command opens a separate confirmation gate; it does not execute access testing.
                 lab_access_command = (
                     f"./ptas.sh access-test --scan-id {current_scan_id} "
                     f"--lab {verified_lab.name}"
@@ -1310,6 +1295,7 @@ def run_dashboard(
                     except AdvisorError as exc:
                         print(f"  Realtime advisor warning: {exc}")
 
+                # Prefer accepted model output, then a verified lab gate, then deterministic safe fallbacks.
                 if model_follow_up:
                     print("\n[NEXT ADAPTIVE RECOMMENDATION]")
                     print(f"  Source: local Ollama model '{advisor.model}'")
@@ -1414,6 +1400,7 @@ def run_dashboard(
                         print("\n[VALIDATION QUEUE COMPLETE]")
                         print("  No additional unexecuted rules-based validation is available.")
 
+                # Reset per-command state while preserving the final prompt for the next transcript chunk.
                 last_executed_command = None
                 observation_chunks = []
                 # The completion chunk ends with the next shell prompt. Keep it
@@ -1425,6 +1412,7 @@ def run_dashboard(
         return 0
 
 
+# Create the transcript paths and launch the real shell beside the read-only recommendation pane.
 def start_terminal_workflow(
     plain: bool = False,
     provider: str | None = None,
@@ -1527,6 +1515,7 @@ def start_terminal_workflow(
 # ---------------------------------------------------------------------------
 
 
+# Generate the scan report through the report use case and save JSON plus optional HTML output.
 def save_report(scan_id: int, output: Path) -> int:
     """Perform the save report operation.
 
@@ -1598,6 +1587,7 @@ def save_report(scan_id: int, output: Path) -> int:
         return 0
 
 
+# Select the first safe recommendation command not already displayed for this scan.
 def select_next_recommendation(recommendations: list, shown_ids: set[int]):
     """Perform the select next recommendation operation.
 
@@ -1606,6 +1596,7 @@ def select_next_recommendation(recommendations: list, shown_ids: set[int]):
     return next((item for item in recommendations if item.id not in shown_ids), None)
 
 
+# Load scan evidence and display one new manual validation recommendation at a time.
 def next_recommendation(
     scan_id: int,
     reset: bool = False,
@@ -1735,6 +1726,7 @@ def next_recommendation(
         return 0
 
 
+# Read a structured JSON report and render its escaped standalone HTML companion.
 def render_existing_report(json_report: Path, output: Path | None = None) -> int:
     """Perform the render existing report operation.
 
@@ -1770,6 +1762,7 @@ def render_existing_report(json_report: Path, output: Path | None = None) -> int
 # ---------------------------------------------------------------------------
 
 
+# Register an exact isolated Metasploitable 2 VM identity for later gated access exercises.
 def register_metasploitable2_lab(
     name: str,
     target: str,
@@ -1827,6 +1820,7 @@ def register_metasploitable2_lab(
     return 0
 
 
+# Revalidate a saved lab against its VM identity, route, neighbour MAC, and optional scan.
 def check_metasploitable2_lab(name: str) -> int:
     """Perform the check metasploitable2 lab operation.
 
@@ -1854,6 +1848,7 @@ def check_metasploitable2_lab(name: str) -> int:
     return 0
 
 
+# Choose the first service-specific lab exercise not already shown in the saved state.
 def select_next_access_exercise(exercises: list[AccessExercise], shown_keys: set[str]):
     """Perform the select next access exercise operation.
 
@@ -1863,6 +1858,7 @@ def select_next_access_exercise(exercises: list[AccessExercise], shown_keys: set
     return next((item for item in exercises if item.key not in shown_keys), None)
 
 
+# Verify the exact lab and typed consent before displaying one manual access exercise.
 def next_access_exercise(scan_id: int, lab_name: str, reset: bool = False) -> int:
     """Perform the next access exercise operation.
 

@@ -8,6 +8,7 @@ from dataclasses import dataclass
 try:
     from dotenv import load_dotenv
 except ImportError:  # Environment variables still work without optional .env loading.
+    # Load key/value settings from a .env file without replacing variables already set by the shell.
     def load_dotenv() -> bool:
         """Perform the load dotenv operation.
 
@@ -20,21 +21,15 @@ except ImportError:  # Environment variables still work without optional .env lo
 load_dotenv()
 
 
+# Convert an environment variable into a predictable Boolean configuration value.
 def _as_bool(value: str | None, default: bool = False) -> bool:
-    """Implement the internal as bool step used by this module's public workflow.
-
-    It remains private so callers depend on the supported public interface.
-    """
     if value is None:
         return default
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
+# Split the configured CORS origin list while removing blank entries and whitespace.
 def _cors_origins(value: str | None) -> tuple[str, ...]:
-    """Implement the internal cors origins step used by this module's public workflow.
-
-    It remains private so callers depend on the supported public interface.
-    """
     if not value:
         return ("http://localhost:3000", "http://localhost:8000")
 
@@ -67,6 +62,7 @@ class Settings:
     cors_origins: tuple[str, ...]
     debug: bool
 
+    # Return whether the configured environment name represents a production deployment.
     @property
     def is_production(self) -> bool:
         """Perform the is production operation for Settings.
@@ -76,6 +72,7 @@ class Settings:
         return self.app_env == "production"
 
 
+# Read environment variables once and return the cached, typed PTAS settings object.
 def get_settings() -> Settings:
     """Perform the get settings operation.
 

@@ -23,6 +23,7 @@ class ScanExecutionUseCase:
     The use case validates related state and coordinates repositories or services.
     """
 
+    # Store the repositories and services used to enforce this feature’s business rules.
     def __init__(
         self,
         scan_repository: ScanRepository,
@@ -31,11 +32,6 @@ class ScanExecutionUseCase:
         project_repository: ProjectRepository,
         vulnerability_repository: VulnerabilityRepository,
     ):
-        """Initialize the object with the dependencies required by its public operations.
-
-        Dependencies are stored once so each call uses the same request-scoped
-        collaborators.
-        """
         self.scan_repository = scan_repository
         self.target_repository = target_repository
         self.scope_validation_repository = scope_validation_repository
@@ -47,6 +43,7 @@ class ScanExecutionUseCase:
         self.nmap_service = NmapService()
         self.vulnerability_parser = VulnerabilityParser()
 
+    # Execute Nmap scan on target and update scan record.
     def execute_scan_on_target(self, scan_id: int, project_id: int) -> dict:
         """
         Execute Nmap scan on target and update scan record
@@ -211,6 +208,7 @@ class ScanExecutionUseCase:
                 detail=f"Scan execution failed: {str(e)}",
             )
 
+    # Validate related records and coordinate repositories to get scan results.
     def get_scan_results(self, scan_id: int) -> dict:
         """Apply business validation and orchestration needed to get scan results.
 
@@ -241,6 +239,7 @@ class ScanExecutionUseCase:
                 "raw_result": scan.scan_result,
             }
 
+    # Validate related records and coordinate repositories to validate nmap availability.
     def validate_nmap_availability(self) -> dict:
         """Apply business validation and orchestration needed to validate nmap availability.
 

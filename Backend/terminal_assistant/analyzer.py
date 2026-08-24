@@ -66,14 +66,11 @@ class TerminalAnalyzer:
     recommendations.
     """
 
+    # Store the scope guard used to classify targets found in terminal evidence.
     def __init__(self, scope_guard: ScopeGuard):
-        """Initialize the object with the dependencies required by its public operations.
-
-        Dependencies are stored once so each call uses the same request-scoped
-        collaborators.
-        """
         self.scope_guard = scope_guard
 
+    # Recover the most recent supported command from normal or repainted Kali terminal text.
     @staticmethod
     def extract_latest_command(text: str) -> str | None:
         """Perform the extract latest command step of the terminal guidance pipeline.
@@ -93,6 +90,7 @@ class TerminalAnalyzer:
                     return candidate
         return None
 
+    # Return only a command visibly entered at a shell prompt.
     @staticmethod
     def extract_latest_prompt_command(text: str) -> str | None:
         """Return only a command visibly entered at a shell prompt.
@@ -103,6 +101,7 @@ class TerminalAnalyzer:
         matches = list(PROMPT_COMMAND.finditer(text))
         return matches[-1].group("command").strip() if matches else None
 
+    # Return the executable name from a simple command without executing or expanding it.
     @staticmethod
     def command_tool(command: str | None) -> str | None:
         """Perform the command tool step of the terminal guidance pipeline.
@@ -123,6 +122,7 @@ class TerminalAnalyzer:
         tool = parts[0].rsplit("/", 1)[-1].lower()
         return tool if tool in SUPPORTED_TOOLS else None
 
+    # Combine command extraction, target scope checks, finding parsing, and fallback suggestions.
     def analyze(
         self,
         text: str,
@@ -191,6 +191,7 @@ class TerminalAnalyzer:
         self._build_suggestions(clean_text, result)
         return result
 
+    # Extract service, port, version, and relevant script evidence from sanitised terminal output.
     def _collect_findings(self, text: str, result: AnalysisResult) -> None:
         """Perform the collect findings step of the terminal guidance pipeline.
 
@@ -255,6 +256,7 @@ class TerminalAnalyzer:
                     )
                 )
 
+    # Append a finding only when the same severity, title, and evidence are not already present.
     @staticmethod
     def _append_unique(items: list[str], value: str) -> None:
         """Perform the append unique step of the terminal guidance pipeline.
@@ -265,6 +267,7 @@ class TerminalAnalyzer:
         if value not in items:
             items.append(value)
 
+    # Create deterministic next-step guidance from the services identified in current evidence.
     def _build_suggestions(self, text: str, result: AnalysisResult) -> None:
         """Perform the build suggestions step of the terminal guidance pipeline.
 

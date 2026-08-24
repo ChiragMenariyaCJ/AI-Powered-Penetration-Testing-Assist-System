@@ -11,6 +11,7 @@ from Backend.controllers.user_controller import UserController
 router = APIRouter(route_class=LoggedRoute)
 
 
+# Validate HTTP inputs and delegate the get all users request to the user controller.
 @router.get("/")
 def get_all_users(db: Session = Depends(get_db)):
     """Handle the HTTP request that asks PTAS to get all users.
@@ -22,6 +23,7 @@ def get_all_users(db: Session = Depends(get_db)):
     return controller.get_all_users()
 
 
+# Validate HTTP inputs and delegate the get user by id request to the user controller.
 @router.get("/{user_id}")
 def get_user_by_id(
     user_id: int,
@@ -36,6 +38,7 @@ def get_user_by_id(
     return controller.get_user_by_id(user_id)
 
 
+# Validate HTTP inputs and delegate the delete user request to the user controller.
 @router.delete("/{user_id}")
 def delete_user(
     user_id: int,

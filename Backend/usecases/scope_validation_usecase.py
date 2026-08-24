@@ -18,19 +18,16 @@ class ScopeValidationUseCase:
 
     The use case validates related state and coordinates repositories or services.
     """
+    # Store the repositories and services used to enforce this feature’s business rules.
     def __init__(
         self,
         scope_validation_repository: ScopeValidationRepository,
         project_repository: ProjectRepository,
     ):
-        """Initialize the object with the dependencies required by its public operations.
-
-        Dependencies are stored once so each call uses the same request-scoped
-        collaborators.
-        """
         self.scope_validation_repository = scope_validation_repository
         self.project_repository = project_repository
 
+    # Validate related records and coordinate repositories to create scope validation.
     def create_scope_validation(self, request):
         """Apply business validation and orchestration needed to create scope validation.
 
@@ -55,6 +52,7 @@ class ScopeValidationUseCase:
             status=request.status,
         )
 
+    # Validate related records and coordinate repositories to get all scope validations.
     def get_all_scope_validations(self, project_id: int | None = None):
         """Apply business validation and orchestration needed to get all scope validations.
 
@@ -85,6 +83,7 @@ class ScopeValidationUseCase:
             "scope_validations": scope_validations,
         }
 
+    # Validate related records and coordinate repositories to get scope validation by id.
     def get_scope_validation_by_id(self, scope_validation_id: int):
         """Apply business validation and orchestration needed to get scope validation by id.
 
@@ -105,6 +104,7 @@ class ScopeValidationUseCase:
 
         return scope_validation
 
+    # Validate related records and coordinate repositories to update scope validation.
     def update_scope_validation(self, scope_validation_id: int, request):
         """Apply business validation and orchestration needed to update scope validation.
 
@@ -136,6 +136,7 @@ class ScopeValidationUseCase:
             update_data,
         )
 
+    # Validate related records and coordinate repositories to delete scope validation.
     def delete_scope_validation(self, scope_validation_id: int):
         """Apply business validation and orchestration needed to delete scope validation.
 
@@ -167,6 +168,7 @@ class ScopeValidationUseCase:
             "rule": deleted_rule,
         }
 
+    # Evaluate every active rule, giving explicit exclusions priority over inclusive matches.
     def check_target_in_scope(self, project_id: int, target_value: str):
         """Apply business validation and orchestration needed to check target in scope.
 
@@ -194,6 +196,7 @@ class ScopeValidationUseCase:
                 "blocked_by_rules": ["No active scope rules configured"],
             }
 
+        # Keep matching allow and deny rules separate so the response explains its decision.
         matching_inclusive_rules = []
         blocking_exclusive_rules = []
 
@@ -207,6 +210,7 @@ class ScopeValidationUseCase:
         has_inclusive_rules = any(r.is_inclusive for r in scope_rules)
         has_exclusive_rules = any(not r.is_inclusive for r in scope_rules)
 
+        # A matching exclusion always blocks; otherwise at least one inclusion must match.
         if has_exclusive_rules and blocking_exclusive_rules:
             is_in_scope = False
         elif has_inclusive_rules:
@@ -220,6 +224,7 @@ class ScopeValidationUseCase:
             "blocked_by_rules": blocking_exclusive_rules,
         }
 
+    # Dispatch one target to the matcher selected by the stored scope-rule type.
     def _matches_scope_rule(self, target_value: str, rule) -> bool:
         """Apply business validation and orchestration needed to matches scope rule.
 
@@ -237,11 +242,13 @@ class ScopeValidationUseCase:
                 return self._check_hostname(target_value, rule.scope_value)
             elif rule.scope_type == "WILDCARD":
                 return self._check_wildcard(target_value, rule.scope_value)
+        # Invalid stored values are treated as non-matches instead of widening the scope.
         except Exception:
             return False
 
         return False
 
+    # Parse the rule as a network and check whether the target IP belongs to it.
     def _check_cidr(self, target: str, cidr: str) -> bool:
         """Apply business validation and orchestration needed to check cidr.
 
@@ -255,6 +262,7 @@ class ScopeValidationUseCase:
         except Exception:
             return False
 
+    # Compare numeric IP values to determine whether the target is inside an inclusive range.
     def _check_ip_range(self, target: str, ip_range: str) -> bool:
         """Apply business validation and orchestration needed to check ip range.
 
@@ -272,6 +280,7 @@ class ScopeValidationUseCase:
         except Exception:
             return False
 
+    # Match the exact authorised domain or one of its subdomains, but not a similar suffix.
     def _check_domain(self, target: str, domain: str) -> bool:
         """Apply business validation and orchestration needed to check domain.
 
@@ -282,6 +291,7 @@ class ScopeValidationUseCase:
         target = target.lower()
         return target == domain or target.endswith("." + domain)
 
+    # Compare an exact hostname case-insensitively without performing DNS resolution.
     def _check_hostname(self, target: str, hostname: str) -> bool:
         """Apply business validation and orchestration needed to check hostname.
 
@@ -290,6 +300,7 @@ class ScopeValidationUseCase:
         """
         return target.lower() == hostname.lower()
 
+    # Convert the stored wildcard into an anchored regular expression for full-target matching.
     def _check_wildcard(self, target: str, pattern: str) -> bool:
         """Apply business validation and orchestration needed to check wildcard.
 

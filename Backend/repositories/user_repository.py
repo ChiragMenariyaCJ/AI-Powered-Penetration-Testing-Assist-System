@@ -13,14 +13,11 @@ class UserRepository:
 
     This layer owns SQLAlchemy queries and transaction boundaries for the feature.
     """
+    # Store the request-scoped SQLAlchemy session used by this repository’s queries.
     def __init__(self, db: Session):
-        """Initialize the object with the dependencies required by its public operations.
-
-        Dependencies are stored once so each call uses the same request-scoped
-        collaborators.
-        """
         self.db = db
 
+    # Create and commit the requested user record.
     def create_user(
         self,
         full_name: str,
@@ -44,6 +41,7 @@ class UserRepository:
 
         return user
 
+    # Query user by email with SQLAlchemy without changing stored database state.
     def get_user_by_email(self, email: str):
         """Query user data for get user by email.
 
@@ -54,6 +52,7 @@ class UserRepository:
             User.email == email
         ).first()
 
+    # Query user by id with SQLAlchemy without changing stored database state.
     def get_user_by_id(self, user_id: int):
         """Query user data for get user by id.
 
@@ -64,6 +63,7 @@ class UserRepository:
             User.id == user_id
         ).first()
 
+    # Query all users with SQLAlchemy without changing stored database state.
     def get_all_users(self):
         """Query user data for get all users.
 
@@ -72,6 +72,7 @@ class UserRepository:
         """
         return self.db.query(User).all()
 
+    # Delete the supplied user record and commit the transaction.
     def delete_user(self, user: User):
         """Delete the supplied user record and commit the transaction.
 

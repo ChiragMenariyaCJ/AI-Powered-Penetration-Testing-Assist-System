@@ -13,14 +13,11 @@ class ScopeValidationRepository:
 
     This layer owns SQLAlchemy queries and transaction boundaries for the feature.
     """
+    # Store the request-scoped SQLAlchemy session used by this repository’s queries.
     def __init__(self, db: Session):
-        """Initialize the object with the dependencies required by its public operations.
-
-        Dependencies are stored once so each call uses the same request-scoped
-        collaborators.
-        """
         self.db = db
 
+    # Create and commit the requested scope validation record.
     def create_scope_validation(
         self,
         project_id: int,
@@ -52,6 +49,7 @@ class ScopeValidationRepository:
 
         return scope_validation
 
+    # Query all scope validations with SQLAlchemy without changing stored database state.
     def get_all_scope_validations(self) -> list[ScopeValidation]:
         """Query scope validation data for get all scope validations.
 
@@ -64,6 +62,7 @@ class ScopeValidationRepository:
             .all()
         )
 
+    # Query scope validations by project id with SQLAlchemy without changing stored database state.
     def get_scope_validations_by_project_id(
         self, project_id: int
     ) -> list[ScopeValidation]:
@@ -80,6 +79,7 @@ class ScopeValidationRepository:
             .all()
         )
 
+    # Query scope validation by id with SQLAlchemy without changing stored database state.
     def get_scope_validation_by_id(
         self, scope_validation_id: int
     ) -> ScopeValidation | None:
@@ -94,6 +94,7 @@ class ScopeValidationRepository:
             .first()
         )
 
+    # Persist the state change required to update scope validation.
     def update_scope_validation(
         self,
         scope_validation: ScopeValidation,
@@ -112,6 +113,7 @@ class ScopeValidationRepository:
 
         return scope_validation
 
+    # Delete the supplied scope validation record and commit the transaction.
     def delete_scope_validation(self, scope_validation: ScopeValidation) -> None:
         """Delete the supplied scope validation record and commit the transaction.
 

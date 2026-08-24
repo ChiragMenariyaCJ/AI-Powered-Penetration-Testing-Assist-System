@@ -17,6 +17,7 @@ from Backend.schemas.target_schema import (
 router = APIRouter(route_class=LoggedRoute)
 
 
+# Validate HTTP inputs and delegate the create target request to the target controller.
 @router.post(
     "/",
     response_model=TargetResponse,
@@ -35,6 +36,7 @@ def create_target(
     return controller.create_target(request)
 
 
+# Validate HTTP inputs and delegate the get all targets request to the target controller.
 @router.get("/", response_model=TargetListResponse)
 def get_all_targets(
     project_id: int | None = Query(default=None, gt=0),
@@ -49,6 +51,7 @@ def get_all_targets(
     return controller.get_all_targets(project_id)
 
 
+# Validate HTTP inputs and delegate the get target by id request to the target controller.
 @router.get("/{target_id}", response_model=TargetResponse)
 def get_target_by_id(
     target_id: int,
@@ -63,6 +66,7 @@ def get_target_by_id(
     return controller.get_target_by_id(target_id)
 
 
+# Validate HTTP inputs and delegate the update target request to the target controller.
 @router.put("/{target_id}", response_model=TargetResponse)
 def update_target(
     target_id: int,
@@ -78,6 +82,7 @@ def update_target(
     return controller.update_target(target_id, request)
 
 
+# Validate HTTP inputs and delegate the delete target request to the target controller.
 @router.delete("/{target_id}")
 def delete_target(
     target_id: int,

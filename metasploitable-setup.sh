@@ -11,6 +11,7 @@ TARGET_IP="${PTAS_METASPLOITABLE_IP:-192.168.121.130}"
 LAB_NAME="${PTAS_METASPLOITABLE_LAB:-msf2-local}"
 SCAN_ID=""
 
+# Print command usage, supported options, and examples without changing project state.
 show_help() {
     cat <<'HELP'
 Usage:
@@ -118,6 +119,7 @@ fi
 if [ ! -f .env ]; then
     cp .env.example .env
 fi
+# Update one non-secret .env value while preserving every unrelated student setting.
 set_env_value() {
     local key="$1"
     local value="$2"
