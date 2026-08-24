@@ -6,4 +6,5 @@ venv/
 .env
 .ptas/
 reports/
+tests/test_generated_*.py
 *.log

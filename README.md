@@ -72,8 +72,11 @@ tests/                  Automated unit and workflow tests
 
 ## Tests
 
+See the [test-suite guide](tests/README.md) for the purpose of each file,
+isolated-test design, focused commands, and troubleshooting.
+
 ```bash
-python -m pytest -q
+./test.sh
 ```
 
 This repository is an MSc Cyber Security dissertation project by Chirag
