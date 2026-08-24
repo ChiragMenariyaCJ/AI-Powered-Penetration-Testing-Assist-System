@@ -1,5 +1,8 @@
 """Exercise the guided terminal application and native split-terminal helpers."""
 
+from contextlib import redirect_stdout
+import io
+import json
 import os
 import subprocess
 import sys
@@ -32,6 +35,9 @@ from Backend.services.lab_profile_service import (
     Metasploitable2LabService,
 )
 from Backend.services.vulnerability_parser import VulnerabilityParser
+from Backend.terminal_assistant.analyzer import TerminalAnalyzer
+from Backend.terminal_assistant.sanitizer import sanitize_terminal_text
+from Backend.terminal_assistant.scope_guard import ScopeGuard
 from Backend.split_terminal import (
     build_terminator_layout,
     qterminal_argument_map,
@@ -39,18 +45,23 @@ from Backend.split_terminal import (
 )
 from Backend.terminal_workflow import (
     CVE_SCAN_STAGE,
+    RECOMMENDATION_SAFETY_NOTICE,
     SHELL_READY_PATTERN,
     SCAN_STAGES,
     _authenticate,
+    _append_live_prompt_context,
     _completed_finding_count,
     _configure_target,
+    _extract_live_executed_command,
     _finding_display_label,
     _is_manual_validation_command,
     _select_project,
     persist_validation_suggestions,
     select_next_recommendation,
     render_existing_report,
+    run_dashboard,
     select_next_access_exercise,
+    select_follow_up_suggestion,
     validation_suggestions,
 )
 
@@ -317,6 +328,24 @@ class TerminalWorkflowTests(unittest.TestCase):
         self.assertEqual(11, selected.id)
         self.assertIsNone(exhausted)
 
+    def test_follow_up_advances_after_the_command_actually_executed(self):
+        """Select the next unexecuted command after the student's chosen item."""
+
+        suggestions = [
+            {"purpose": "First", "command": "nmap -p 21 10.10.10.20"},
+            {"purpose": "Second", "command": "nmap -p 22 10.10.10.20"},
+            {"purpose": "Third", "command": "nmap -p 80 10.10.10.20"},
+        ]
+        completed = "nmap -p 22 10.10.10.20"
+
+        selected = select_follow_up_suggestion(
+            suggestions,
+            {completed},
+            completed,
+        )
+
+        self.assertEqual("nmap -p 80 10.10.10.20", selected["command"])
+
     def test_shell_ready_detection_waits_for_command_completion_prompt(self):
         """Verify that shell ready detection waits for command completion prompt.
 
@@ -327,6 +356,285 @@ class TerminalWorkflowTests(unittest.TestCase):
 
         self.assertIsNone(SHELL_READY_PATTERN.search(running))
         self.assertIsNotNone(SHELL_READY_PATTERN.search(completed))
+
+    def test_qterminal_transcript_preserves_command_and_completion_prompt(self):
+        """Verify dashboard detection works with Kali QTerminal control sequences."""
+
+        raw = (
+            "\x1b]0;kali terminal\x07"
+            "\x1b]7;file:///home/kali/project\x1b\\"
+            "\x1b[32m└─$\x1b[0m "
+            "nmap -Pn -sV -p 23 --script banner 192.168.121.130"
+            "\x1b[55D\x1b[36mnmap\x1b[0m -Pn -sV -p 23 --script banner "
+            "192.168.121.130\r\n"
+            "23/tcp open telnet Linux telnetd\r\n"
+            "Nmap done: 1 IP address scanned\r\n"
+            "\x1b]666;vte.shell.precmd!\x1b\\"
+            "\x1b[32m└─$\x1b[0m \x1b="
+        )
+        clean = sanitize_terminal_text(raw)
+
+        self.assertEqual(
+            "nmap -Pn -sV -p 23 --script banner 192.168.121.130",
+            TerminalAnalyzer.extract_latest_prompt_command(clean),
+        )
+        self.assertIsNotNone(SHELL_READY_PATTERN.search(clean))
+
+    def test_dashboard_joins_prompt_and_command_from_separate_file_reads(self):
+        """Verify live command tracking survives QTerminal's chunk boundaries."""
+
+        # QTerminal commonly flushes the rendered prompt before the student
+        # begins typing. The next transcript read consequently starts with the
+        # command rather than with the dollar-sign prompt.
+        prompt_read = sanitize_terminal_text("\x1b[32m└─$\x1b[0m ")
+        command_read = sanitize_terminal_text(
+            "nmap -Pn -sV -p 21 --script ftp-syst,banner "
+            "--script-timeout 20s 192.168.121.130\r\n"
+            "21/tcp open ftp vsftpd 2.3.4\r\n"
+            "Nmap done: 1 IP address scanned\r\n"
+            "\x1b[32m└─$\x1b[0m "
+        )
+
+        context = _append_live_prompt_context(prompt_read, command_read)
+
+        self.assertEqual(
+            "nmap -Pn -sV -p 21 --script ftp-syst,banner "
+            "--script-timeout 20s 192.168.121.130",
+            TerminalAnalyzer.extract_latest_prompt_command(context),
+        )
+        self.assertIsNotNone(SHELL_READY_PATTERN.search(command_read))
+
+    def test_dashboard_detects_kali_zsh_repainted_standalone_command(self):
+        """Verify zsh cursor rewinds do not hide an actually executed command."""
+
+        raw = (
+            "\x1b[32m└─$\x1b[0m n"
+            "\x1b[79D"
+            "nmap -Pn -sV -p 21 --script ftp-syst,banner 192.168.121.130"
+            "\x1b[71D"
+            "\x1b[36mnmap\x1b[0m -Pn -sV -p 23 --script banner "
+            "--script-timeout 20s 192.168.121.130\r\n"
+        )
+        clean = sanitize_terminal_text(raw)
+        analyzer = TerminalAnalyzer(ScopeGuard(["192.168.121.130"]))
+
+        self.assertEqual(
+            "nmap -Pn -sV -p 23 --script banner --script-timeout 20s "
+            "192.168.121.130",
+            _extract_live_executed_command(analyzer, clean),
+        )
+
+    def test_dashboard_analyzes_completion_before_showing_model_follow_up(self):
+        """Verify the live pane turns completed output into a new model command."""
+
+        class StubSource:
+            """Return one complete command transcript to the dashboard."""
+
+            def read_new(self):
+                return (
+                    "└─$ nmap -sV -p 80 10.10.10.20\n"
+                    "80/tcp open http Apache 2.4\n"
+                    "Nmap done: 1 IP address scanned\n"
+                    "└─$ "
+                )
+
+        class StubAdvisor:
+            """Return a deterministic stand-in for locally generated JSON."""
+
+            model = "test-model"
+
+            def advise_next_command(self, result, excerpt, completed_commands):
+                self.result = result
+                self.excerpt = excerpt
+                self.completed_commands = completed_commands
+                return {
+                    "purpose": "Inspect the observed HTTP response headers",
+                    "command": "curl -I http://10.10.10.20/",
+                    "source": "ollama",
+                }
+
+        with TemporaryDirectory() as directory:
+            event_log = Path(directory) / "events.jsonl"
+            transcript = Path(directory) / "terminal.typescript"
+            transcript.touch()
+            events = [
+                {"kind": "target", "scope": "10.10.10.0/24"},
+                {"kind": "assessment_completed", "scan_id": 42},
+                {
+                    "kind": "report_ready",
+                    "scan_id": 42,
+                    "command": "./ptas.sh report --scan-id 42 --output report.json",
+                },
+            ]
+            event_log.write_text(
+                "".join(json.dumps(event) + "\n" for event in events),
+                encoding="utf-8",
+            )
+            advisor = StubAdvisor()
+            output = io.StringIO()
+
+            with patch(
+                "Backend.terminal_workflow.FollowFileSource",
+                return_value=StubSource(),
+            ), patch(
+                "Backend.terminal_workflow._optional_realtime_advisor",
+                return_value=advisor,
+            ), patch(
+                "Backend.terminal_workflow._scan_validation_catalog",
+                return_value=[],
+            ), patch(
+                "Backend.terminal_workflow.time.sleep",
+                side_effect=KeyboardInterrupt,
+            ), redirect_stdout(output):
+                self.assertEqual(0, run_dashboard(event_log, transcript))
+
+        rendered = output.getvalue()
+        self.assertIn("[COMMAND ANALYSIS COMPLETE]", rendered)
+        self.assertIn("Open http service", rendered)
+        self.assertIn("Asking local Ollama model 'test-model'", rendered)
+        self.assertIn("[NEXT ADAPTIVE RECOMMENDATION]", rendered)
+        self.assertIn("Source: local Ollama model 'test-model'", rendered)
+        self.assertIn("curl -I http://10.10.10.20/", rendered)
+        self.assertIn("nmap -sV -p 80 10.10.10.20", advisor.completed_commands)
+
+    def test_dashboard_advances_with_safe_fallback_after_model_rejection(self):
+        """Keep the recommendation loop moving when local-model output is rejected."""
+
+        class StubSource:
+            def read_new(self):
+                return (
+                    "└─$ nmap -sV -p 23 --script banner 10.10.10.20\n"
+                    "23/tcp open telnet Linux telnetd\n"
+                    "Nmap done: 1 IP address scanned\n"
+                    "└─$ "
+                )
+
+        class RejectingAdvisor:
+            model = "test-model"
+            last_rejection_reason = "the model repeated a command that was already completed"
+
+            def advise_next_command(self, result, excerpt, completed_commands):
+                return None
+
+        fallback = {
+            "purpose": "Review Telnet encryption support",
+            "command": "nmap -Pn -p 23 --script telnet-encryption 10.10.10.20",
+        }
+        with TemporaryDirectory() as directory:
+            event_log = Path(directory) / "events.jsonl"
+            transcript = Path(directory) / "terminal.typescript"
+            transcript.touch()
+            event_log.write_text(
+                "".join(
+                    json.dumps(event) + "\n"
+                    for event in (
+                        {"kind": "target", "scope": "10.10.10.0/24"},
+                        {"kind": "assessment_completed", "scan_id": 42},
+                    )
+                ),
+                encoding="utf-8",
+            )
+            output = io.StringIO()
+            with patch(
+                "Backend.terminal_workflow.FollowFileSource",
+                return_value=StubSource(),
+            ), patch(
+                "Backend.terminal_workflow._optional_realtime_advisor",
+                return_value=RejectingAdvisor(),
+            ), patch(
+                "Backend.terminal_workflow._scan_validation_catalog",
+                return_value=[fallback],
+            ), patch(
+                "Backend.terminal_workflow.time.sleep",
+                side_effect=KeyboardInterrupt,
+            ), redirect_stdout(output):
+                self.assertEqual(0, run_dashboard(event_log, transcript))
+
+        rendered = output.getvalue()
+        self.assertIn("[NO SAFE MODEL RECOMMENDATION]", rendered)
+        self.assertIn("Reason: the model repeated", rendered)
+        self.assertIn("[NEXT SAFETY FALLBACK]", rendered)
+        self.assertIn("--script telnet-encryption", rendered)
+
+    def test_dashboard_uses_registered_lab_gate_instead_of_safe_fallback(self):
+        """Transition an exact verified lab target when model guidance ends."""
+
+        class StubSource:
+            def read_new(self):
+                return (
+                    "└─$ nmap -p 3306 --script mysql-info 10.10.10.20\n"
+                    "3306/tcp open mysql MySQL 5.0\n"
+                    "Nmap done: 1 IP address scanned\n"
+                    "└─$ "
+                )
+
+        class EmptyAdvisor:
+            model = "test-model"
+            last_rejection_reason = "the model returned an empty command"
+
+            def advise_next_command(
+                self,
+                result,
+                excerpt,
+                completed_commands,
+                lab_access_command=None,
+            ):
+                self.lab_access_command = lab_access_command
+                return None
+
+        with TemporaryDirectory() as directory:
+            event_log = Path(directory) / "events.jsonl"
+            transcript = Path(directory) / "terminal.typescript"
+            transcript.touch()
+            event_log.write_text(
+                "".join(
+                    json.dumps(event) + "\n"
+                    for event in (
+                        {
+                            "kind": "target",
+                            "scope": "10.10.10.0/24",
+                            "target": "10.10.10.20",
+                        },
+                        {
+                            "kind": "assessment_completed",
+                            "scan_id": 42,
+                            "target": "10.10.10.20",
+                        },
+                    )
+                ),
+                encoding="utf-8",
+            )
+            advisor = EmptyAdvisor()
+            output = io.StringIO()
+            verified_lab = SimpleNamespace(
+                name="msf2-local",
+                target="10.10.10.20",
+            )
+            with patch(
+                "Backend.terminal_workflow.FollowFileSource",
+                return_value=StubSource(),
+            ), patch(
+                "Backend.terminal_workflow._optional_realtime_advisor",
+                return_value=advisor,
+            ), patch(
+                "Backend.terminal_workflow._scan_validation_catalog",
+                return_value=[],
+            ), patch(
+                "Backend.terminal_workflow._verified_metasploitable_lab",
+                return_value=verified_lab,
+            ), patch(
+                "Backend.terminal_workflow.time.sleep",
+                side_effect=KeyboardInterrupt,
+            ), redirect_stdout(output):
+                self.assertEqual(0, run_dashboard(event_log, transcript))
+
+        rendered = output.getvalue()
+        gate = "./ptas.sh access-test --scan-id 42 --lab msf2-local"
+        self.assertIn("[METASPLOITABLE 2 LAB MODE ENABLED]", rendered)
+        self.assertIn("[NEXT METASPLOITABLE 2 LAB STEP]", rendered)
+        self.assertNotIn("[NO SAFE MODEL RECOMMENDATION]", rendered)
+        self.assertIn(gate, rendered)
+        self.assertEqual(gate, advisor.lab_access_command)
 
     def test_access_sequence_skips_previously_shown_exercises(self):
         """Verify that access sequence skips previously shown exercises.
@@ -465,6 +773,57 @@ class TerminalWorkflowTests(unittest.TestCase):
             ):
                 with self.assertRaises(LabVerificationError):
                     service.register_vmware("msf2", "192.168.178.128", str(vmx))
+
+    def test_vmware_network_registration_uses_ip_without_vmx_path(self):
+        """Register two VMware guests using their isolated network identity."""
+
+        with TemporaryDirectory() as directory:
+            service = Metasploitable2LabService(Path(directory))
+            with patch.object(
+                service,
+                "_route_to_target",
+                return_value=("eth1", "192.168.121.129"),
+            ), patch.object(
+                service,
+                "_default_route_interface",
+                return_value="eth0",
+            ), patch.object(
+                service,
+                "_neighbor_mac",
+                return_value="00:0c:29:55:bc:f0",
+            ):
+                manifest = service.register_vmware_network(
+                    "msf2-network",
+                    "192.168.121.130",
+                )
+
+        self.assertEqual("vmware-network", manifest.provider)
+        self.assertEqual("192.168.121.130", manifest.target)
+        self.assertEqual("eth1", manifest.interface)
+        self.assertEqual("00:0c:29:55:bc:f0", manifest.expected_mac)
+
+    def test_vmware_network_registration_rejects_default_route(self):
+        """Do not treat Kali's internet-facing/default interface as lab isolation."""
+
+        with TemporaryDirectory() as directory:
+            service = Metasploitable2LabService(Path(directory))
+            with patch.object(
+                service,
+                "_route_to_target",
+                return_value=("eth0", "192.168.121.129"),
+            ), patch.object(
+                service,
+                "_default_route_interface",
+                return_value="eth0",
+            ):
+                with self.assertRaisesRegex(
+                    LabVerificationError,
+                    "default network interface",
+                ):
+                    service.register_vmware_network(
+                        "msf2-network",
+                        "192.168.121.130",
+                    )
 
     def test_ai_recommendations_exclude_exploit_dos_and_persistence_language(self):
         """Verify that ai recommendations exclude exploit dos and persistence language.
@@ -809,6 +1168,9 @@ with SessionLocal() as session:
         self.assertTrue(any("ssh2-enum-algos,ssh-hostkey" in command for command in commands))
         self.assertTrue(any("10.10.10.20:80" in step for step in steps))
         self.assertTrue(any("10.10.10.20:22" in step for step in steps))
+        self.assertTrue(all("record the evidence" in step for step in steps))
+        self.assertTrue(all("stop before credential" not in step for step in steps))
+        self.assertIn("gated access-test workflow", RECOMMENDATION_SAFETY_NOTICE)
         combined = " ".join(steps + commands).lower()
         forbidden = ("hydra", "password", "metasploit", "exploit", "--script vuln")
         self.assertFalse(any(term in combined for term in forbidden))
@@ -848,16 +1210,25 @@ with SessionLocal() as session:
             It records or returns deterministic data so the tests do not require an
             external process.
             """
-            def advise_prompt(self, *_args, **_kwargs):
-                """Support the test scenario by providing the advise prompt behavior.
+            def advise_commands(self, *_args, **_kwargs):
+                """Support the test scenario by providing structured commands.
 
                 The deterministic implementation keeps the test focused on PTAS rather
                 than external systems.
                 """
                 return [
-                    "Run nmap -sV -p 80 10.10.10.20 and record the observed service.",
-                    "Run msfconsole against 10.10.10.20",
-                    "Run curl -I http://203.0.113.10/",
+                    {
+                        "purpose": "Record the observed HTTP service.",
+                        "command": "nmap -sV -p 80 10.10.10.20",
+                    },
+                    {
+                        "purpose": "Attempt exploitation.",
+                        "command": "msfconsole 10.10.10.20",
+                    },
+                    {
+                        "purpose": "Inspect another host.",
+                        "command": "curl -I http://203.0.113.10/",
+                    },
                 ]
 
         findings = [SimpleNamespace(id=1, port=80, service="http", severity="INFO")]
@@ -871,7 +1242,7 @@ with SessionLocal() as session:
         )
 
         self.assertEqual(1, len(suggestions))
-        self.assertIn("nmap -sV", suggestions[0]["purpose"])
+        self.assertIn("nmap -sV", suggestions[0]["command"])
         self.assertEqual("realtime-ollama", suggestions[0]["source"])
 
     def test_suggestions_are_persisted_for_report_generation(self):

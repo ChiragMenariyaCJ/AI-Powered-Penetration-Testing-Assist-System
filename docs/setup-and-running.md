@@ -13,7 +13,7 @@ The current repository contains:
 - Nmap scan execution and vulnerability parsing services
 - Project, target, scope, scan, vulnerability, recommendation, and report APIs
 - A two-pane native terminal workspace with a normal student shell and read-only recommendations
-- Optional local Ollama integration for terminal advice
+- Local Ollama integration for model-backed terminal advice
 - Automated backend and terminal-assistant tests
 - Kali setup and start scripts
 - Docker and Docker Compose deployment files
@@ -43,11 +43,28 @@ cd ~/Projects/AI-Powered-Penetration-Testing-Assist-System
 
 ## 3. Fastest first-time setup on Kali Linux
 
-The automated installer installs Python, MariaDB, Nmap, and Terminator; creates the database and application user; creates `.venv/`; installs Python packages; installs the global `ptas` command; and creates `.env` from the template when necessary.
+The automated installer installs Python, MariaDB, Nmap, Terminator, and Ollama;
+downloads the lightweight `qwen2.5:3b-instruct` recommendation model; creates
+the database and application user; creates `.venv/`; installs Python packages;
+installs the global `ptas` command; and creates or updates the local `.env`.
 
 ```bash
 chmod +x kali-setup.sh start.sh ptas.sh
 ./kali-setup.sh
+```
+
+The Ollama model download can take several minutes. Re-running setup reuses the
+installed service and downloaded model layers. For a deliberately rules-only
+installation, skip that step with:
+
+```bash
+PTAS_SKIP_OLLAMA=1 ./kali-setup.sh
+```
+
+To install a different model instead of the default:
+
+```bash
+PTAS_SETUP_OLLAMA_MODEL=MODEL_NAME ./kali-setup.sh
 ```
 
 Review the generated `.env` before starting:
@@ -184,9 +201,9 @@ Development settings and their purpose:
 | `NMAP_PATH` | Nmap executable | `/usr/bin/nmap` |
 | `NMAP_TIMEOUT` | Scan timeout in seconds | `300` |
 | `CORS_ORIGINS` | Allowed browser origins | JSON array of trusted URLs |
-| `PTAS_LLM_PROVIDER` | Terminal assistant provider | `rules` |
-| `OLLAMA_BASE_URL` | Optional Ollama server | `http://127.0.0.1:11434` |
-| `OLLAMA_MODEL` | Optional installed model name | Empty for rules mode |
+| `PTAS_LLM_PROVIDER` | Terminal assistant provider | `ollama` after Kali setup; `rules` in the generic template |
+| `OLLAMA_BASE_URL` | Local Ollama server | `http://127.0.0.1:11434` |
+| `OLLAMA_MODEL` | Installed recommendation model | `qwen2.5:3b-instruct` after Kali setup |
 
 In production, `SECRET_KEY` must contain at least 32 characters. Swagger and ReDoc are disabled when `APP_ENV=production`.
 
@@ -450,23 +467,26 @@ mkdir -p .ptas
 
 Audit logging is disabled by default. The log stores sanitized commands, findings, and suggestions rather than the complete raw transcript.
 
-### Optional local Ollama advice
+### Local Ollama advice
 
-Rules mode requires no AI model. To use an already installed local Ollama model:
+`./kali-setup.sh` installs Ollama, starts its system service, downloads
+`qwen2.5:3b-instruct`, and writes the matching `.env` values. Verify it with:
 
 ```bash
-ollama serve
+systemctl is-active ollama
+ollama list
+curl http://127.0.0.1:11434/api/tags
 ```
 
-In another terminal:
+For a standalone transcript watcher, the `.env` configuration is used
+automatically. It can also be selected explicitly:
 
 ```bash
-ollama list
 ./ptas.sh watch \
   --file /tmp/ptas-session.log \
   --scope 10.10.10.0/24 \
   --provider ollama \
-  --model YOUR_INSTALLED_MODEL
+  --model qwen2.5:3b-instruct
 ```
 
 PTAS refuses to send excerpts to a non-local Ollama URL unless `--allow-remote-llm` is explicitly supplied. Review authorization, privacy, and data-retention implications before allowing terminal content to leave the machine.
@@ -494,6 +514,19 @@ The principal commands are:
 
 PTAS shows one allowlisted exercise at a time and never executes it or stores a
 password.
+
+If Kali and Metasploitable are separate VMware guests and the `.vmx` file is on
+the physical host, register from Kali using the target IP instead:
+
+```bash
+ping -c 1 192.168.121.130
+./ptas.sh lab-register \
+  --name msf2-local \
+  --provider vmware-network \
+  --target 192.168.121.130
+./ptas.sh lab-check --name msf2-local
+./ptas.sh access-test --scan-id 33 --lab msf2-local
+```
 
 ## 10. Running automated tests
 
@@ -753,11 +786,15 @@ available. Use `ptas --plain` when no graphical terminal session is available.
 ### Ollama advice does not start
 
 ```bash
+sudo systemctl status ollama
+sudo systemctl restart ollama
 ollama list
 curl http://127.0.0.1:11434/api/tags
 ```
 
-Start `ollama serve`, choose an installed model, and keep `OLLAMA_BASE_URL` on localhost unless remote transfer has been deliberately authorized.
+If the command or service is missing, rerun `./kali-setup.sh`. Keep
+`OLLAMA_BASE_URL` on localhost unless remote transfer has been deliberately
+authorized.
 
 ## 16. Safe shutdown checklist
 

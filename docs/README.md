@@ -12,6 +12,8 @@ maintained source.
   commands, recommendation behavior, and safety boundaries.
 - [Restricted access-testing lab](access-testing.md) — isolated Metasploitable 2
   setup and guarded teaching exercises.
+- [Metasploitable setup by IP](metasploitable/README.md) — configure separate
+  Kali and Metasploitable VMware guests without a host `.vmx` path.
 
 ## Understanding the code
 

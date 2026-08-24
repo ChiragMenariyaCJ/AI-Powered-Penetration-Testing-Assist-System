@@ -27,13 +27,41 @@ terminals; PTAS does not require tmux or manual split shortcuts:
   target. After setup it becomes a normal shell with native cursor, history,
   completion, and command editing.
 - The right terminal is read-only guidance. It displays evidence-based
-  recommendations, the next recommended command, and the final report command.
+  recommendations, analyzes each completed manual command, generates the next
+  recommended command, and displays the final report command.
 
 The student must answer `yes` to the authorization confirmation before a scan
 can start. PTAS then runs a quick discovery stage followed by a detailed service
 assessment. Suggestions do not appear until the final scan stage completes.
 Suggested commands are non-destructive validation steps and are never run
 automatically.
+
+After the student manually runs a displayed command, the dashboard waits until
+the shell prompt returns. It then analyzes the complete sanitized output once.
+When local Ollama is active, PTAS sends that completed command, its parsed
+findings, the output excerpt, and the prior-command list to the local model. The
+model returns a new purpose and command in structured JSON. PTAS displays it as
+`NEXT ADAPTIVE RECOMMENDATION` only after independently checking that it uses
+one approved evidence tool, explicitly targets the authorized scope, does not
+repeat a completed command, and contains no shell chaining or credential,
+exploitation, or state-changing operation.
+
+The right pane labels model output as `Source: local Ollama`. If Ollama is not
+available, any deterministic continuation is explicitly labelled
+`NEXT RULES FALLBACK`; it is not represented as an AI recommendation. If Ollama
+responds but its JSON or command fails validation, PTAS prints the rejection
+reason and uses `NEXT SAFETY FALLBACK` to advance to the next unexecuted command
+derived from the scan findings. Command analyses and adaptive recommendations
+are appended to the session JSONL audit log.
+
+For an exact target registered with the Metasploitable 2 lab workflow, the
+dashboard additionally rechecks the saved route/MAC identity and the completed
+scan fingerprint. It then prints `METASPLOITABLE 2 LAB MODE ENABLED`. When the
+model has no further evidence-only command, guidance transitions to the exact
+`./ptas.sh access-test --scan-id ID --lab NAME` command instead of ending at
+`NO SAFE MODEL RECOMMENDATION`. That command opens the separate confirmation
+gate; it does not automatically access the VM. Unregistered targets retain the
+ordinary recommendation policy.
 
 Each scan stage prints its completed findings in the left terminal. The right
 terminal stays focused on recommendations and report handoff. Nmap findings become available when that stage
@@ -67,10 +95,12 @@ the normal trusted package-management process.
 ## Service-aware scanning tools
 
 The recommendation pane displays a purpose and an allowlisted, scoped validation
-command when PTAS can derive one from observed service evidence. Commands use
-non-destructive Nmap discovery scripts, are never run by PTAS, and must be copied
-or typed into the left terminal by the student. Prose-only recommendations remain
-possible when a safe command cannot be derived.
+command derived from observed service evidence. With Ollama enabled, initial
+commands and post-command follow-ups are model-generated from scan or terminal
+evidence and then treated as untrusted input by the PTAS validator. Commands are
+never run by PTAS and must be copied or typed into the left terminal by the
+student. If the model does not produce a command that passes validation, PTAS
+says so instead of displaying it.
 
 Nmap remains the discovery source, but it is no longer the only assessment
 tool. After discovery, PTAS selects applicable installed tools from the
@@ -208,19 +238,21 @@ The normal `ptas` command creates and follows its own transcript automatically.
 For a separately managed terminal, record that shell with `script` and point
 the read-only watcher at the resulting file. It never executes a suggestion.
 
-## Optional local Ollama advice
+## Local Ollama advice
 
-Rules-based advice is the default and requires no model. To add a locally
-installed Ollama model:
+The Kali setup script installs and starts Ollama with
+`qwen2.5:3b-instruct`. The normal `ptas` command reads this configuration from
+`.env`. For a standalone watcher, it can also be passed explicitly:
 
 ```bash
-ollama serve
 ./ptas.sh watch \
   --file /tmp/ptas-session.log \
   --scope 10.10.10.0/24 \
   --provider ollama \
-  --model YOUR_INSTALLED_MODEL
+  --model qwen2.5:3b-instruct
 ```
+
+Use `PTAS_SKIP_OLLAMA=1 ./kali-setup.sh` when rules-only advice is intentional.
 
 PTAS refuses to send terminal excerpts to a non-local Ollama URL unless
 `--allow-remote-llm` is explicitly supplied. Review the privacy impact before

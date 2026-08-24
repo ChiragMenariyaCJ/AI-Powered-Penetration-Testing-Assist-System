@@ -46,6 +46,7 @@ from Backend.terminal_assistant.sanitizer import sanitize_terminal_text
 from Backend.terminal_assistant.safety import (
     SAFE_METADATA_TOOLS,
     filter_safe_recommendations,
+    is_safe_manual_command,
     is_safe_recommendation,
 )
 from Backend.terminal_assistant.sources import FollowFileSource
@@ -61,6 +62,11 @@ CVE_SCAN_STAGE = (
     "Fast external Vulners CVE correlation on common ports",
 )
 SHELL_READY_PATTERN = re.compile(r"(?m)(?:\$|#|❯)\s*$")
+LIVE_PROMPT_CONTEXT_LIMIT = 4000
+RECOMMENDATION_SAFETY_NOTICE = (
+    "Safety: validation recommendations collect evidence only. Credential or "
+    "access testing must use the separate gated access-test workflow."
+)
 SEVERITY_PRIORITY = {
     "CRITICAL": 0,
     "HIGH": 1,
@@ -81,6 +87,40 @@ def _say(message: str) -> None:
     It remains private so callers depend on the supported public interface.
     """
     print(f"[PTAS] {message}", flush=True)
+
+
+def _append_live_prompt_context(existing: str, new_text: str) -> str:
+    """Keep enough adjacent terminal text to join a prompt to typed input.
+
+    QTerminal writes the shell prompt and the student's command to the
+    transcript independently.  The dashboard therefore cannot assume that a
+    single file read contains both pieces.  Keeping a short bounded tail lets
+    command detection see ``$ nmap ...`` without retaining the full session or
+    allowing the monitor's memory usage to grow indefinitely.
+    """
+
+    return (existing + new_text)[-LIVE_PROMPT_CONTEXT_LIMIT:]
+
+
+def _extract_live_executed_command(
+    analyzer: TerminalAnalyzer,
+    transcript_context: str,
+) -> str | None:
+    """Extract a command despite Kali zsh repainting it away from the prompt.
+
+    A normal transcript contains ``$ command`` and uses the strict prompt
+    parser. Kali's autosuggestion and syntax-highlighting plugins sometimes
+    repaint the command after cursor rewinds, leaving the final executable text
+    on its own line. The dashboard reads only the student's left pane and calls
+    this function only after assessment setup has completed, so accepting the
+    analyzer's standalone-command fallback here does not confuse commands
+    printed in the read-only recommendation pane with executed commands.
+    """
+
+    return (
+        analyzer.extract_latest_prompt_command(transcript_context)
+        or analyzer.extract_latest_command(transcript_context)
+    )
 
 
 def _event(path: Path | None, kind: str, message: str, **data) -> None:
@@ -171,8 +211,11 @@ def _optional_realtime_advisor() -> OllamaAdvisor | None:
     It remains private so callers depend on the supported public interface.
     """
     try:
-        return _build_realtime_advisor()
-    except ValueError as exc:
+        advisor = _build_realtime_advisor()
+        if advisor:
+            advisor.ensure_model_available()
+        return advisor
+    except (AdvisorError, ValueError) as exc:
         _say(f"Realtime advisor disabled: {exc}")
         return None
 
@@ -437,8 +480,11 @@ def _scan_recommendation_prompt(
         else "./ptas.sh access-test --scan-id <scan-id> --lab <registered-lab>"
     )
     return f"""You are a real-time classroom penetration-testing coach.
-Use only the current scan evidence. Return up to five concise next-step recommendations, one per line. Keep every recommendation scoped to {target}. Prefer evidence collection, configuration review, and non-destructive validation. Do not suggest credential guessing, destructive actions, evasion, service stress, automatic access, or access chaining.
+Use only the current scan evidence. Generate up to five useful next evidence-collection commands. Keep every command scoped to {target}. Use only curl, dig, enum4linux-ng, nmap, pg_isready, sslscan, or whatweb. For Nmap --script, use only banner, dns-nsid, ftp-syst, http-headers, http-title, mysql-info, nbstat, smb-protocols, smb-security-mode, smb2-capabilities, smb2-time, smtp-commands, ssh-hostkey, ssh2-enum-algos, ssl-cert, ssl-enum-ciphers, or telnet-encryption. Do not repeat equivalent commands. Do not use shell operators, credential guessing, destructive actions, evasion, service stress, automatic access, or access chaining.
 If the next useful teaching step would require access, say only: STOP: use `{access_command}` and wait for instructor confirmation.
+
+Return one JSON array and no Markdown. Every item must use this shape:
+[{{"purpose":"short evidence-based reason", "command":"complete command to run manually"}}]
 
 Authorized target: {target}
 Current scan id: {scan_id or "unknown"}
@@ -450,6 +496,7 @@ Current evidence:
 def _fallback_realtime_suggestions(
     vulnerabilities: list[Vulnerability],
     target: str,
+    limit: int | None = 5,
 ) -> list[dict]:
     """Build manual, non-destructive validation commands from observed evidence.
 
@@ -498,8 +545,7 @@ def _fallback_realtime_suggestions(
             {
                 "finding_id": finding.id,
                 "purpose": (
-                    f"{action} for {service} on {endpoint}; record the evidence and "
-                    "stop before credential or access testing."
+                    f"{action} for {service} on {endpoint}; record the evidence."
                 ),
                 "command": command,
                 "tool": "nmap",
@@ -507,9 +553,104 @@ def _fallback_realtime_suggestions(
                 "attack_technique": "Guided service validation",
             }
         )
-        if len(suggestions) == 5:
+        if limit is not None and len(suggestions) >= limit:
             break
     return suggestions
+
+
+def _normalize_validation_command(command: str | None) -> str:
+    """Return a stable representation used to compare manual commands."""
+
+    if not command:
+        return ""
+    try:
+        return shlex.join(shlex.split(command))
+    except ValueError:
+        return " ".join(command.split())
+
+
+def select_follow_up_suggestion(
+    suggestions: list[dict],
+    executed_commands: set[str],
+    completed_command: str | None,
+) -> dict | None:
+    """Select the next unexecuted validation after the completed command.
+
+    The list is rotated after the command the student just ran. This makes the
+    pane advance naturally even when the student chooses recommendation three
+    before recommendation one. Previously shown commands remain eligible until
+    they are actually executed.
+    """
+
+    if not suggestions:
+        return None
+    completed = _normalize_validation_command(completed_command)
+    start = 0
+    for index, suggestion in enumerate(suggestions):
+        if _normalize_validation_command(suggestion.get("command")) == completed:
+            start = index + 1
+            break
+    ordered = suggestions[start:] + suggestions[:start]
+    return next(
+        (
+            suggestion
+            for suggestion in ordered
+            if suggestion.get("command")
+            and _normalize_validation_command(suggestion["command"])
+            not in executed_commands
+        ),
+        None,
+    )
+
+
+def _scan_validation_catalog(scan_id: int) -> list[dict]:
+    """Build every safe manual validation available for one completed scan."""
+
+    with SessionLocal() as db:
+        scan = ScanRepository(db).get_scan_by_id(scan_id)
+        if not scan:
+            return []
+        findings = VulnerabilityRepository(db).get_vulnerabilities_by_scan_id(scan_id)
+        return _fallback_realtime_suggestions(
+            findings,
+            scan.target.target_value,
+            limit=None,
+        )
+
+
+def _verified_metasploitable_lab(scan_id: int, target: str):
+    """Return the verified lab manifest matching a completed scan and target.
+
+    An IP address by itself never enables lab behavior. The saved manifest,
+    current route/MAC identity, database scan target, and Metasploitable service
+    fingerprint must all agree first.
+    """
+
+    project_dir = Path(__file__).resolve().parents[1]
+    service = Metasploitable2LabService(project_dir)
+    if not service.lab_dir.is_dir():
+        return None
+    matching_manifest = None
+    for path in sorted(service.lab_dir.glob("*.json")):
+        try:
+            manifest = service.load(path.stem)
+        except LabVerificationError:
+            continue
+        if manifest.target == target and manifest.profile == service.PROFILE:
+            matching_manifest = manifest
+            break
+    if matching_manifest is None:
+        return None
+
+    service.verify_runtime(matching_manifest)
+    service.verify_neighbor(matching_manifest)
+    with SessionLocal() as db:
+        scan = ScanRepository(db).get_scan_by_id(scan_id)
+        if not scan:
+            raise LabVerificationError(f"Scan {scan_id} was not found")
+        findings = VulnerabilityRepository(db).get_vulnerabilities_by_scan_id(scan_id)
+        service.verify_scan(matching_manifest, scan, findings)
+    return matching_manifest
 
 
 def validation_suggestions(
@@ -527,17 +668,30 @@ def validation_suggestions(
     if not findings:
         return []
     primary_finding = sorted(findings, key=_finding_sort_key)[0]
-    generated: list[str] = []
+    generated: list[dict[str, str]] = []
     source = "evidence-fallback"
     if advisor:
         try:
-            generated = advisor.advise_prompt(
+            generated = advisor.advise_commands(
                 _scan_recommendation_prompt(findings, target, scan_id, lab_name),
-                authorized_targets=[target],
+                [target],
                 limit=5,
             )
-            generated = filter_safe_recommendations(generated, [target], 5)
+            generated = [
+                item
+                for item in generated
+                if is_safe_manual_command(item.get("command", ""), [target])
+                and is_safe_recommendation(
+                    f"Review {item.get('purpose', '')}",
+                    [target],
+                )
+            ][:5]
             source = "realtime-ollama"
+            if not generated:
+                _say(
+                    "Ollama returned no structured command that passed PTAS "
+                    "scope and safety checks; using evidence fallback."
+                )
         except AdvisorError as exc:
             _say(f"Realtime advisor unavailable; using evidence fallback: {exc}")
     if not generated:
@@ -545,8 +699,8 @@ def validation_suggestions(
     return [
         {
             "finding_id": primary_finding.id,
-            "purpose": suggestion,
-            "command": None,
+            "purpose": suggestion["purpose"],
+            "command": suggestion["command"],
             "tool": source,
             "source": source,
             "attack_technique": "Realtime guided validation",
@@ -924,10 +1078,12 @@ def run_student_session(event_log: Path | None = None) -> int:
                     suggestion["purpose"],
                     number=number,
                     command=suggestion["command"],
+                    source=suggestion.get("source", "unknown"),
                     report_command=report_command,
                 )
             if event_log is None:
                 print("\nRealtime recommendations:")
+                print(f"  {RECOMMENDATION_SAFETY_NOTICE}")
                 if not suggestions:
                     print("  No realtime recommendation is available for the stored findings.")
                 for number, suggestion in enumerate(suggestions, start=1):
@@ -987,6 +1143,7 @@ def run_dashboard(
     """
 
     _say("Live recommendation assistant")
+    _say(RECOMMENDATION_SAFETY_NOTICE)
     _say("Waiting for assessment evidence from the left terminal...")
     position = 0
     terminal_source = FollowFileSource(transcript)
@@ -995,11 +1152,18 @@ def run_dashboard(
         _say(f"Realtime monitor recommendations enabled with local Ollama model '{advisor.model}'.")
     scope_value: str | None = None
     assessment_completed = False
-    seen_observations: set[str] = set()
+    validation_catalog: list[dict] = []
+    catalog_loaded = False
+    executed_commands: set[str] = set()
     observation_chunks: list[str] = []
+    # A prompt and its typed command commonly arrive in different transcript
+    # reads. Preserve a small tail until a complete prompt-command pair exists.
+    prompt_context = ""
     last_executed_command: str | None = None
     current_report_command: str | None = None
     current_scan_id: int | None = None
+    assessment_target: str | None = None
+    verified_lab = None
     try:
         while True:
             transcript_chunk = terminal_source.read_new()
@@ -1014,9 +1178,11 @@ def run_dashboard(
                         kind = str(event.get("kind", "event")).upper()
                         if kind == "TARGET":
                             scope_value = event.get("scope")
+                            assessment_target = event.get("target") or assessment_target
                         elif kind == "ASSESSMENT_COMPLETED":
                             assessment_completed = True
                             current_scan_id = event.get("scan_id")
+                            assessment_target = event.get("target") or assessment_target
                         elif kind == "REPORT_READY":
                             current_report_command = event.get("command")
                             current_scan_id = event.get("scan_id") or current_scan_id
@@ -1029,21 +1195,54 @@ def run_dashboard(
                             if event.get("command"):
                                 print(f"  Command: {event['command']}")
                             if kind == "SUGGESTION":
+                                source = event.get("source") or "rules"
+                                print(f"  Source: {source}")
                                 print("  Run this in the left terminal only if you choose to.")
                                 if event.get("report_command"):
                                     print(f"  Report: {event['report_command']}")
                     position = handle.tell()
+            if assessment_completed and current_scan_id is not None and not catalog_loaded:
+                try:
+                    validation_catalog = _scan_validation_catalog(current_scan_id)
+                except (OSError, SQLAlchemyError):
+                    validation_catalog = []
+                if assessment_target:
+                    try:
+                        verified_lab = _verified_metasploitable_lab(
+                            current_scan_id,
+                            assessment_target,
+                        )
+                    except (LabVerificationError, OSError, SQLAlchemyError) as exc:
+                        print(f"\n[METASPLOITABLE LAB NOT ENABLED] {exc}")
+                    if verified_lab:
+                        print("\n[METASPLOITABLE 2 LAB MODE ENABLED]")
+                        print(f"  Lab: {verified_lab.name}")
+                        print(f"  Exact target: {verified_lab.target}")
+                        print(
+                            "  Guidance may transition to the separately "
+                            "confirmed access-test workflow."
+                        )
+                catalog_loaded = True
             if transcript_chunk and assessment_completed and scope_value:
                 clean = sanitize_terminal_text(transcript_chunk)
                 analyzer = TerminalAnalyzer(ScopeGuard([scope_value]))
-                detected_command = analyzer.extract_latest_prompt_command(clean)
-                if detected_command:
-                    last_executed_command = detected_command
-                    observation_chunks = [clean]
-                elif last_executed_command:
+                if last_executed_command:
                     observation_chunks.append(clean)
                     observation_chunks = observation_chunks[-8:]
                 else:
+                    prompt_context = _append_live_prompt_context(prompt_context, clean)
+                    detected_command = _extract_live_executed_command(
+                        analyzer,
+                        prompt_context,
+                    )
+                    if not detected_command:
+                        time.sleep(interval)
+                        continue
+                    last_executed_command = detected_command
+                    observation_chunks = [prompt_context]
+                    prompt_context = ""
+                command_finished = bool(SHELL_READY_PATTERN.search(clean))
+                if not command_finished:
                     time.sleep(interval)
                     continue
                 context = "\n".join(observation_chunks)
@@ -1051,39 +1250,175 @@ def run_dashboard(
                     context,
                     context_command=last_executed_command,
                 )
-                if advisor and result.scope_allowed is not False:
-                    try:
-                        for suggestion in advisor.advise(result, context):
-                            if suggestion not in result.suggestions:
-                                result.suggestions.append(suggestion)
-                    except AdvisorError as exc:
-                        print(f"  Realtime advisor warning: {exc}")
-                fingerprint = result.fingerprint()
-                if (result.command or result.findings) and fingerprint not in seen_observations:
-                    seen_observations.add(fingerprint)
-                    print("\n[COMMAND REVIEW]")
-                    if result.command:
-                        print(f"  Command: {result.command}")
-                    print(
-                        "  Scope: "
-                        + ("authorized" if result.scope_allowed is True else "not verified")
-                    )
+                normalized_command = _normalize_validation_command(
+                    last_executed_command
+                )
+                if normalized_command:
+                    executed_commands.add(normalized_command)
+
+                print("\n[COMMAND ANALYSIS COMPLETE]")
+                if result.command:
+                    print(f"  Command: {result.command}")
+                print(
+                    "  Scope: "
+                    + ("authorized" if result.scope_allowed is True else "not verified")
+                )
+                if result.findings:
                     for finding in result.findings[:8]:
                         print(f"  [{finding.severity}] {finding.summary}: {finding.evidence}")
-                    for suggestion in result.suggestions[:5]:
-                        print(f"  Suggestion: {suggestion}")
-                    if current_report_command:
-                        print(f"  Report: {current_report_command}")
-                command_finished = bool(SHELL_READY_PATTERN.search(clean))
-                if (
-                    command_finished
-                    and current_scan_id is not None
-                    and last_executed_command
-                ):
-                    print("\n[NEXT RECOMMENDATION]")
-                    next_recommendation(current_scan_id)
-                    last_executed_command = None
-                    observation_chunks = []
+                else:
+                    print("  No structured finding was parsed; the completed output was still reviewed.")
+                for suggestion in result.suggestions[:3]:
+                    print(f"  Analysis: {suggestion}")
+                if current_report_command:
+                    print(f"  Report: {current_report_command}")
+                _event(
+                    event_log,
+                    "command_analysis",
+                    "Completed terminal command analyzed",
+                    scan_id=current_scan_id,
+                    analysis=result.to_dict(),
+                )
+
+                model_follow_up: dict[str, str] | None = None
+                lab_access_command = (
+                    f"./ptas.sh access-test --scan-id {current_scan_id} "
+                    f"--lab {verified_lab.name}"
+                    if verified_lab and current_scan_id is not None
+                    else None
+                )
+                if advisor and result.scope_allowed is not False:
+                    print(
+                        f"\n[PTAS] Asking local Ollama model '{advisor.model}' "
+                        "for the next evidence-based command...",
+                        flush=True,
+                    )
+                    try:
+                        if lab_access_command:
+                            model_follow_up = advisor.advise_next_command(
+                                result,
+                                context,
+                                executed_commands,
+                                lab_access_command=lab_access_command,
+                            )
+                        else:
+                            model_follow_up = advisor.advise_next_command(
+                                result,
+                                context,
+                                executed_commands,
+                            )
+                    except AdvisorError as exc:
+                        print(f"  Realtime advisor warning: {exc}")
+
+                if model_follow_up:
+                    print("\n[NEXT ADAPTIVE RECOMMENDATION]")
+                    print(f"  Source: local Ollama model '{advisor.model}'")
+                    print("  Based on: the completed command and terminal output above")
+                    print(f"  Purpose: {model_follow_up['purpose']}")
+                    print(f"  Command: {model_follow_up['command']}")
+                    print("  Run it manually in the left terminal if you choose to continue.")
+                    _event(
+                        event_log,
+                        "adaptive_recommendation",
+                        model_follow_up["purpose"],
+                        scan_id=current_scan_id,
+                        command=model_follow_up["command"],
+                        source="ollama",
+                    )
+                elif advisor and lab_access_command:
+                    print("\n[NEXT METASPLOITABLE 2 LAB STEP]")
+                    print(
+                        "  Source: verified PTAS lab profile for exact target "
+                        f"{verified_lab.target}"
+                    )
+                    print(
+                        "  Purpose: Continue through the identity-checked, "
+                        "explicitly confirmed access-testing workflow."
+                    )
+                    print(f"  Command: {lab_access_command}")
+                    print("  Run it manually in the left terminal to review the gate.")
+                    _event(
+                        event_log,
+                        "adaptive_recommendation",
+                        "Open the verified Metasploitable 2 access-testing gate",
+                        scan_id=current_scan_id,
+                        command=lab_access_command,
+                        source="verified-metasploitable-lab",
+                        model_rejection=getattr(
+                            advisor,
+                            "last_rejection_reason",
+                            None,
+                        ),
+                    )
+                elif advisor:
+                    print("\n[NO SAFE MODEL RECOMMENDATION]")
+                    rejection_reason = getattr(
+                        advisor,
+                        "last_rejection_reason",
+                        None,
+                    )
+                    if rejection_reason:
+                        print(f"  Reason: {rejection_reason}.")
+                    else:
+                        print(
+                            "  Ollama did not return a new command that passed "
+                            "PTAS safety and scope checks."
+                        )
+                    fallback = select_follow_up_suggestion(
+                        validation_catalog,
+                        executed_commands,
+                        last_executed_command,
+                    )
+                    if fallback:
+                        print("\n[NEXT SAFETY FALLBACK]")
+                        print(
+                            "  Source: PTAS evidence-based validation queue "
+                            "(the Ollama response was rejected)"
+                        )
+                        print(f"  Purpose: {fallback['purpose']}")
+                        print(f"  Command: {fallback['command']}")
+                        print("  Run it manually in the left terminal if you choose to continue.")
+                        _event(
+                            event_log,
+                            "adaptive_recommendation",
+                            fallback["purpose"],
+                            scan_id=current_scan_id,
+                            command=fallback["command"],
+                            source="safety-fallback",
+                            model_rejection=rejection_reason,
+                        )
+                    else:
+                        print("\n[VALIDATION QUEUE COMPLETE]")
+                        print("  No additional unexecuted safe validation is available.")
+                else:
+                    fallback = select_follow_up_suggestion(
+                        validation_catalog,
+                        executed_commands,
+                        last_executed_command,
+                    )
+                    if fallback:
+                        print("\n[NEXT RULES FALLBACK]")
+                        print("  Source: deterministic PTAS fallback (Ollama is unavailable)")
+                        print(f"  Purpose: {fallback['purpose']}")
+                        print(f"  Command: {fallback['command']}")
+                        print("  Run it manually in the left terminal if you choose to continue.")
+                        _event(
+                            event_log,
+                            "adaptive_recommendation",
+                            fallback["purpose"],
+                            scan_id=current_scan_id,
+                            command=fallback["command"],
+                            source="rules-fallback",
+                        )
+                    else:
+                        print("\n[VALIDATION QUEUE COMPLETE]")
+                        print("  No additional unexecuted rules-based validation is available.")
+
+                last_executed_command = None
+                observation_chunks = []
+                # The completion chunk ends with the next shell prompt. Keep it
+                # so a command typed in the following read is detectable.
+                prompt_context = _append_live_prompt_context("", clean)
             time.sleep(interval)
     except KeyboardInterrupt:
         _say("Monitor stopped.")
@@ -1438,9 +1773,9 @@ def render_existing_report(json_report: Path, output: Path | None = None) -> int
 def register_metasploitable2_lab(
     name: str,
     target: str,
-    vm: str,
+    vm: str | None = None,
     provider: str = "virtualbox",
-    interface: str = "vmnet1",
+    interface: str | None = None,
     kali_source: str | None = None,
 ) -> int:
     """Perform the register metasploitable2 lab operation.
@@ -1452,11 +1787,30 @@ def register_metasploitable2_lab(
     service = Metasploitable2LabService(project_dir)
     try:
         if provider == "virtualbox":
+            if not vm:
+                raise LabVerificationError("VirtualBox registration requires --vm")
             manifest = service.register_virtualbox(name, target, vm)
         elif provider == "vmware":
-            manifest = service.register_vmware(name, target, vm, interface, kali_source)
+            if not vm:
+                raise LabVerificationError("VMware host registration requires --vm")
+            manifest = service.register_vmware(
+                name,
+                target,
+                vm,
+                interface or "vmnet1",
+                kali_source,
+            )
+        elif provider == "vmware-network":
+            manifest = service.register_vmware_network(
+                name,
+                target,
+                interface,
+                kali_source,
+            )
         else:
-            raise LabVerificationError("Provider must be virtualbox or vmware")
+            raise LabVerificationError(
+                "Provider must be virtualbox, vmware, or vmware-network"
+            )
     except LabVerificationError as exc:
         _say(f"Lab registration failed: {exc}")
         return 1
@@ -1488,9 +1842,15 @@ def check_metasploitable2_lab(name: str) -> int:
     except LabVerificationError as exc:
         _say(f"Lab verification failed: {exc}")
         return 1
-    _say(f"Lab '{name}' passed VM identity, host-only network, snapshot, and MAC checks.")
+    if manifest.provider == "vmware-network":
+        _say(
+            f"Lab '{name}' passed private route, isolated interface, VMware MAC, "
+            "and network identity checks."
+        )
+    else:
+        _say(f"Lab '{name}' passed VM identity, host-only network, snapshot, and MAC checks.")
     print(f"  Target: {manifest.target}")
-    print(f"  Snapshots: {', '.join(snapshots)}")
+    print(f"  Baseline: {', '.join(snapshots)}")
     return 0
 
 
@@ -1536,7 +1896,7 @@ def next_access_exercise(scan_id: int, lab_name: str, reset: bool = False) -> in
                 print(f"  Interface: {manifest.interface}")
             if manifest.kali_source:
                 print(f"  Kali source: {manifest.kali_source}")
-            print(f"  Snapshot: {snapshots[-1]}")
+            print(f"  Baseline: {snapshots[-1]}")
             confirmation = input("Type ENABLE ACCESS TESTING to continue: ").strip()
             if confirmation != "ENABLE ACCESS TESTING":
                 raise LabVerificationError("Access testing was not enabled")

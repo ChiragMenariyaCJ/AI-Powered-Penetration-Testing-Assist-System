@@ -1,14 +1,226 @@
 """Verify transcript sanitizing, scope enforcement, parsing, and file following."""
 
+import json
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
+from Backend.terminal_assistant.advisor import AdvisorError, OllamaAdvisor
 from Backend.terminal_assistant.analyzer import TerminalAnalyzer
+from Backend.terminal_assistant.models import AnalysisResult, Finding
 from Backend.terminal_assistant.sanitizer import sanitize_terminal_text
+from Backend.terminal_assistant.safety import (
+    is_safe_manual_command,
+    manual_command_rejection_reason,
+)
 from Backend.terminal_assistant.scope_guard import ScopeGuard
 from Backend.terminal_assistant.sources import FollowFileSource
 from Backend.services.nmap_service import NmapService
+
+
+class _JsonResponse:
+    """Provide a minimal context-managed HTTP response for advisor tests."""
+
+    def __init__(self, body: bytes):
+        self.body = body
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_args):
+        return False
+
+    def read(self) -> bytes:
+        return self.body
+
+
+class AdvisorTests(unittest.TestCase):
+    """Verify Ollama readiness is based on the server's installed models."""
+
+    def test_configured_ollama_model_must_be_installed(self):
+        """Reject configuration that names a model absent from Ollama."""
+
+        advisor = OllamaAdvisor("qwen2.5:3b-instruct")
+        response = _JsonResponse(b'{"models": [{"name": "another-model:latest"}]}')
+
+        with patch("Backend.terminal_assistant.advisor.urlopen", return_value=response):
+            with self.assertRaisesRegex(AdvisorError, "ollama pull qwen2.5:3b-instruct"):
+                advisor.ensure_model_available()
+
+    def test_configured_ollama_model_is_accepted_when_installed(self):
+        """Accept a reachable Ollama server containing the configured model."""
+
+        advisor = OllamaAdvisor("qwen2.5:3b-instruct")
+        response = _JsonResponse(b'{"models": [{"name": "qwen2.5:3b-instruct"}]}')
+
+        with patch("Backend.terminal_assistant.advisor.urlopen", return_value=response):
+            advisor.ensure_model_available()
+
+    def test_adaptive_command_is_generated_from_completed_evidence(self):
+        """Accept one structured, in-scope command returned by the local model."""
+
+        advisor = OllamaAdvisor("qwen2.5:3b-instruct")
+        result = AnalysisResult(
+            command="nmap -sV -p 80 10.10.10.20",
+            tool="nmap",
+            targets=["10.10.10.20"],
+            scope_allowed=True,
+            findings=[
+                Finding(
+                    kind="open_port",
+                    summary="Open HTTP service",
+                    evidence="80/tcp http Apache 2.4",
+                )
+            ],
+        )
+        response = (
+            '{"purpose":"Inspect the observed HTTP response headers",'
+            '"command":"curl -I http://10.10.10.20/"}'
+        )
+
+        with patch.object(advisor, "complete", return_value=response) as complete:
+            recommendation = advisor.advise_next_command(
+                result,
+                "80/tcp open http Apache 2.4",
+                {"nmap -sV -p 80 10.10.10.20"},
+            )
+
+        self.assertEqual("ollama", recommendation["source"])
+        self.assertEqual("curl -I http://10.10.10.20/", recommendation["command"])
+        self.assertIn("real terminal output", complete.call_args.args[0])
+
+    def test_adaptive_command_rejects_model_shell_chaining(self):
+        """Reject a model response that hides another operation after a separator."""
+
+        advisor = OllamaAdvisor("qwen2.5:3b-instruct")
+        result = AnalysisResult(
+            command="nmap -p 80 10.10.10.20",
+            tool="nmap",
+            targets=["10.10.10.20"],
+            scope_allowed=True,
+        )
+        response = (
+            '{"purpose":"Inspect headers",'
+            '"command":"curl -I http://10.10.10.20/; whoami"}'
+        )
+
+        with patch.object(advisor, "complete", return_value=response):
+            self.assertIsNone(advisor.advise_next_command(result, "completed"))
+
+        self.assertEqual(
+            "the command contained shell chaining or redirection",
+            advisor.last_rejection_reason,
+        )
+
+    def test_manual_command_rejection_explains_disallowed_nmap_script(self):
+        """Expose a useful reason without displaying an unsafe model command."""
+
+        reason = manual_command_rejection_reason(
+            "nmap --script vuln 10.10.10.20",
+            ["10.10.10.20"],
+        )
+
+        self.assertEqual(
+            "the Nmap script selection was not allowlisted: vuln",
+            reason,
+        )
+
+    def test_manual_command_rejects_script_for_wrong_service_port(self):
+        """Do not accept an allowlisted script when its service port is wrong."""
+
+        reason = manual_command_rejection_reason(
+            "nmap -p 23 --script ftp-syst 10.10.10.20",
+            ["10.10.10.20"],
+        )
+
+        self.assertEqual(
+            "the Nmap script 'ftp-syst' does not match the selected service port 23",
+            reason,
+        )
+
+    def test_adaptive_command_retries_one_rejected_model_response(self):
+        """Ask the local model once to correct a service/script mismatch."""
+
+        advisor = OllamaAdvisor("qwen2.5:3b-instruct")
+        result = AnalysisResult(
+            command="nmap -p 23 --script banner 10.10.10.20",
+            tool="nmap",
+            targets=["10.10.10.20"],
+            scope_allowed=True,
+            findings=[
+                Finding(
+                    kind="open_port",
+                    summary="Open Telnet service",
+                    evidence="23/tcp telnet Linux telnetd",
+                )
+            ],
+        )
+        responses = [
+            '{"purpose":"Inspect FTP",'
+            '"command":"nmap -p 23 --script ftp-syst 10.10.10.20"}',
+            '{"purpose":"Review Telnet encryption support",'
+            '"command":"nmap -p 23 --script telnet-encryption 10.10.10.20"}',
+        ]
+
+        with patch.object(advisor, "complete", side_effect=responses) as complete:
+            recommendation = advisor.advise_next_command(result, "23/tcp telnet")
+
+        self.assertEqual(2, complete.call_count)
+        self.assertIn("telnet-encryption", recommendation["command"])
+        self.assertIsNone(advisor.last_rejection_reason)
+
+    def test_verified_lab_gate_command_is_accepted_exactly(self):
+        """Allow the exact gate command supplied by verified lab context."""
+
+        advisor = OllamaAdvisor("qwen2.5:3b-instruct")
+        result = AnalysisResult(
+            command="nmap -p 3306 --script mysql-info 10.10.10.20",
+            tool="nmap",
+            targets=["10.10.10.20"],
+            scope_allowed=True,
+        )
+        gate = "./ptas.sh access-test --scan-id 42 --lab msf2-local"
+        response = json.dumps(
+            {
+                "purpose": "Open the verified Metasploitable access gate",
+                "command": gate,
+            }
+        )
+
+        with patch.object(advisor, "complete", return_value=response):
+            recommendation = advisor.advise_next_command(
+                result,
+                "3306/tcp mysql",
+                lab_access_command=gate,
+            )
+
+        self.assertEqual(gate, recommendation["command"])
+        self.assertIn(
+            gate,
+            advisor._next_command_prompt(result, "output", set(), gate),
+        )
+
+    def test_scan_commands_are_model_generated_and_scope_filtered(self):
+        """Keep valid model commands while dropping out-of-scope JSON items."""
+
+        advisor = OllamaAdvisor("qwen2.5:3b-instruct")
+        response = """```json
+[
+  {"purpose":"Inspect HTTP headers", "command":"curl -I http://10.10.10.20/"},
+  {"purpose":"Inspect another host", "command":"curl -I http://203.0.113.9/"}
+]
+```"""
+
+        with patch.object(advisor, "complete", return_value=response):
+            recommendations = advisor.advise_commands(
+                "scan evidence",
+                ["10.10.10.20"],
+            )
+
+        self.assertEqual(1, len(recommendations))
+        self.assertEqual("ollama", recommendations[0]["source"])
+        self.assertEqual("curl -I http://10.10.10.20/", recommendations[0]["command"])
 
 
 class SanitizerTests(unittest.TestCase):
@@ -35,6 +247,26 @@ class SanitizerTests(unittest.TestCase):
         self.assertNotIn("very-secret", sanitized)
         self.assertNotIn("\x1b", sanitized)
         self.assertIn("[REDACTED]", sanitized)
+
+    def test_qterminal_osc_sequences_do_not_consume_command_output(self):
+        """Verify adjacent QTerminal OSC messages preserve the text between them."""
+
+        raw = (
+            "\x1b]0;kali terminal\x07"
+            "\x1b]7;file:///home/kali/project\x1b\\"
+            "\x1b[32m└─$\x1b[0m nmap -Pn -p 23 192.168.121.130"
+            "\x1b[37D\x1b[36mnmap\x1b[0m -Pn -p 23 192.168.121.130\r\n"
+            "23/tcp open telnet\r\n"
+            "\x1b]666;vte.shell.precmd!\x1b\\"
+            "\x1b[32m└─$\x1b[0m \x1b="
+        )
+
+        sanitized = sanitize_terminal_text(raw)
+
+        self.assertIn("nmap -Pn -p 23 192.168.121.130", sanitized)
+        self.assertIn("23/tcp open telnet", sanitized)
+        self.assertTrue(sanitized.rstrip().endswith("└─$"))
+        self.assertNotIn("\x1b", sanitized)
 
 
 class ScopeGuardTests(unittest.TestCase):
@@ -101,6 +333,20 @@ class AnalyzerTests(unittest.TestCase):
         self.assertEqual(
             "nmap -sV 10.10.10.20",
             TerminalAnalyzer.extract_latest_prompt_command(executed),
+        )
+
+    def test_standalone_command_extraction_ignores_nmap_completion_text(self):
+        """Do not mistake Nmap's final status line for an executed command."""
+
+        transcript = (
+            "nmap -Pn -p 23 192.168.121.130\n"
+            "23/tcp open telnet\n"
+            "Nmap done: 1 IP address scanned\n"
+        )
+
+        self.assertEqual(
+            "nmap -Pn -p 23 192.168.121.130",
+            TerminalAnalyzer.extract_latest_command(transcript),
         )
 
     def test_parses_authorized_nmap_output(self):
@@ -190,6 +436,28 @@ class NmapSafetyTests(unittest.TestCase):
             with self.subTest(target=target):
                 with self.assertRaises(ValueError):
                     NmapService._validate_target(target)
+
+    def test_model_command_requires_one_safe_tool_and_in_scope_target(self):
+        """Allow scoped metadata collection and reject unsafe command composition."""
+
+        scope = ["10.10.10.0/24"]
+
+        self.assertTrue(is_safe_manual_command("curl -I http://10.10.10.20/", scope))
+        self.assertFalse(is_safe_manual_command("curl -I http://10.10.11.20/", scope))
+        self.assertFalse(is_safe_manual_command("curl -I http://10.10.10.20/ | sh", scope))
+        self.assertFalse(
+            is_safe_manual_command(
+                "curl -X POST http://10.10.10.20/login",
+                scope,
+            )
+        )
+        self.assertFalse(
+            is_safe_manual_command(
+                "nmap -p 21 --script ftp-brute 10.10.10.20",
+                scope,
+            )
+        )
+        self.assertFalse(is_safe_manual_command("whoami 10.10.10.20", scope))
 
 
 if __name__ == "__main__":

@@ -10,7 +10,8 @@ recommendations, vulnerability records, and report generation.
 
 ## Quick start
 
-On Kali Linux, run the setup once:
+On Kali Linux, run the setup once. It also installs the local Ollama service and
+downloads the `qwen2.5:3b-instruct` recommendation model:
 
 ```bash
 ./kali-setup.sh
@@ -48,6 +49,7 @@ Start with the [documentation index](docs/README.md). The main guides are:
 - [Architecture and request flow](docs/architecture.md)
 - [Feature documentation](docs/functionalities/README.md)
 - [Restricted Metasploitable 2 lab](docs/access-testing.md)
+- [Metasploitable setup by IP from a Kali VMware guest](docs/metasploitable/README.md)
 
 ## Project layout
 

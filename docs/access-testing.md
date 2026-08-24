@@ -4,6 +4,15 @@ This guide configures the only target currently accepted by PTAS
 `ACCESS_TESTING`: a locally registered Metasploitable 2 VM on an isolated
 host-only network. VirtualBox and VMware Workstation/Player are supported.
 
+For the short IP-based setup used when Kali and Metasploitable are separate
+VMware guests, see [Metasploitable setup by IP](metasploitable/README.md).
+
+When PTAS itself runs inside a Kali VMware guest, the physical host's `.vmx`
+file is normally unavailable inside Kali. Use the `vmware-network` provider in
+that topology. It registers the Metasploitable IP, Kali's isolated non-default
+route, Kali source address, and the observed VMware MAC instead of requiring a
+host filesystem path.
+
 Metasploitable 2 is intentionally vulnerable. Never bridge it, expose it to a
 physical network, forward its ports, or give it a NAT adapter. Rapid7 describes
 it as an intentionally vulnerable Ubuntu VM for testing common vulnerabilities
@@ -108,6 +117,37 @@ ollama serve
 The model can recommend next validation steps from the current evidence, but
 PTAS filters its output and still routes any access-oriented teaching step
 through the `access-test` confirmation gate.
+
+### Kali and Metasploitable are both VMware guests
+
+First make the target visible in Kali's neighbor table:
+
+```bash
+ping -c 1 192.168.121.130
+```
+
+Register it by IP without a `.vmx` path:
+
+```bash
+./ptas.sh lab-register \
+  --name msf2-local \
+  --provider vmware-network \
+  --target 192.168.121.130
+```
+
+PTAS automatically reads `ip route get` and `ip neigh`. Registration is
+refused if the target uses Kali's default/internet interface or if its MAC does
+not have a recognized VMware prefix. Because a Kali guest cannot inspect the
+physical host's snapshot inventory, keep a clean snapshot on the VMware host;
+the exact-IP/MAC/route checks, scan fingerprint, and confirmation gate are
+repeated before access exercises are shown.
+
+Then verify and use the completed scan:
+
+```bash
+./ptas.sh lab-check --name msf2-local
+./ptas.sh access-test --scan-id 33 --lab msf2-local
+```
 
 ## 3. Install VirtualBox on Kali
 

@@ -10,32 +10,41 @@ from Backend.terminal_assistant.scope_guard import ScopeGuard
 
 SUPPORTED_TOOLS = {
     "curl",
+    "dig",
     "dirsearch",
+    "enum4linux-ng",
     "ftp",
     "ffuf",
     "gobuster",
     "masscan",
     "nikto",
     "nmap",
+    "pg_isready",
     "mysql",
     "psql",
     "smbclient",
     "ssh",
     "sqlmap",
+    "sslscan",
     "telnet",
     "whatweb",
     "wget",
 }
+SUPPORTED_TOOL_PATTERN = "|".join(
+    re.escape(tool) for tool in sorted(SUPPORTED_TOOLS, key=len, reverse=True)
+)
 
 PROMPT_COMMAND = re.compile(
     r"(?m)^.*?(?:\$|#|❯|>)\s*"
-    r"(?P<command>(?:sudo\s+)?(?:nmap|masscan|nikto|gobuster|ffuf|whatweb|"
-    r"curl|wget|sqlmap|dirsearch|ssh|ftp|telnet|smbclient|mysql|psql)\b[^\r\n]*)$",
+    rf"(?P<command>(?:sudo\s+)?(?:{SUPPORTED_TOOL_PATTERN})\b[^\r\n]*)$",
     re.IGNORECASE,
 )
 DIRECT_COMMAND = re.compile(
-    r"^\s*(?P<command>(?:sudo\s+)?(?:nmap|masscan|nikto|gobuster|ffuf|whatweb|"
-    r"curl|wget|sqlmap|dirsearch|ssh|ftp|telnet|smbclient|mysql|psql)\b[^\r\n]*)\s*$",
+    rf"^\s*(?P<command>(?:sudo\s+)?(?:{SUPPORTED_TOOL_PATTERN})\b[^\r\n]*)\s*$",
+    re.IGNORECASE,
+)
+TOOL_OUTPUT_LINE = re.compile(
+    r"^(?:nmap\s+(?:done:|scan report\b|version\b)|starting\s+nmap\b)",
     re.IGNORECASE,
 )
 NMAP_PORT = re.compile(
@@ -79,7 +88,9 @@ class TerminalAnalyzer:
         for line in reversed(text.splitlines()):
             direct_match = DIRECT_COMMAND.match(line)
             if direct_match:
-                return direct_match.group("command").strip()
+                candidate = direct_match.group("command").strip()
+                if not TOOL_OUTPUT_LINE.match(candidate):
+                    return candidate
         return None
 
     @staticmethod

@@ -8,6 +8,17 @@ import shutil
 import sys
 import time
 
+# CLI argument defaults use PTAS_LLM_PROVIDER and OLLAMA_MODEL. Load the
+# repository's .env before build_parser() reads those values; importing the
+# heavier application configuration later is too late for argparse defaults.
+try:
+    from dotenv import load_dotenv
+except ImportError:  # Explicit process environment variables still work.
+    load_dotenv = None
+
+if load_dotenv is not None:
+    load_dotenv()
+
 from Backend.terminal_assistant.advisor import AdvisorError, OllamaAdvisor
 from Backend.terminal_assistant.analyzer import TerminalAnalyzer
 from Backend.terminal_assistant.renderer import ConsoleRenderer, append_audit_event
@@ -481,19 +492,23 @@ def build_parser() -> argparse.ArgumentParser:
     lab_register_parser.add_argument("--target", required=True)
     lab_register_parser.add_argument(
         "--provider",
-        choices=("virtualbox", "vmware"),
+        choices=("virtualbox", "vmware", "vmware-network"),
         default="virtualbox",
-        help="VM platform used for the isolated lab",
+        help=(
+            "Use vmware-network when PTAS runs inside Kali and cannot read the "
+            "physical host's .vmx file"
+        ),
     )
     lab_register_parser.add_argument(
         "--vm",
-        required=True,
-        help="VirtualBox VM name/UUID, or VMware .vmx path when --provider vmware",
+        help=(
+            "VirtualBox VM name/UUID or VMware .vmx path; omitted for "
+            "--provider vmware-network"
+        ),
     )
     lab_register_parser.add_argument(
         "--interface",
-        default="vmnet1",
-        help="Expected Kali interface for VMware host-only routing",
+        help="Expected Kali interface; auto-detected in vmware-network mode",
     )
     lab_register_parser.add_argument(
         "--kali-source",

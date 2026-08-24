@@ -69,6 +69,7 @@ class Metasploitable2LabService:
         1524, 2049, 2121, 3306, 3632, 5432, 5900, 6000, 6667, 8009, 8180,
     }
     DISTINCTIVE_PORTS = {21, 23, 139, 445, 1524, 2121, 3306, 5432, 6667, 8180}
+    VMWARE_MAC_PREFIXES = {"00:05:69", "00:0c:29", "00:1c:14", "00:50:56"}
 
     def __init__(self, project_dir: Path):
         """Initialize the object with the dependencies required by its public operations.
@@ -242,6 +243,30 @@ class Metasploitable2LabService:
             src_match.group(1) if src_match else None,
         )
 
+    def _default_route_interface(self) -> str | None:
+        """Return the interface Kali uses for its default/internet route."""
+
+        executable = shutil.which("ip")
+        if not executable:
+            raise LabVerificationError("The ip command is required for route verification")
+        output = self._run([executable, "route", "show", "default"])
+        match = re.search(r"\bdev\s+(\S+)", output)
+        return match.group(1) if match else None
+
+    def _neighbor_mac(self, target: str) -> str:
+        """Read and normalize the MAC currently associated with a target IP."""
+
+        executable = shutil.which("ip")
+        if not executable:
+            raise LabVerificationError("The ip command is required for MAC verification")
+        output = self._run([executable, "neigh", "show", target])
+        match = re.search(r"\blladdr\s+([0-9a-fA-F:.-]+)", output)
+        if not match:
+            raise LabVerificationError(
+                "No neighbor MAC found; ping or scan the Metasploitable IP first"
+            )
+        return self._normalize_mac(match.group(1))
+
     def register_vmware(
         self,
         name: str,
@@ -309,6 +334,66 @@ class Metasploitable2LabService:
         if not manifest.vm_uuid:
             raise LabVerificationError("VMware .vmx did not contain a VM UUID")
         self.verify_neighbor(manifest)
+        path = self.manifest_path(name)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        temporary = path.with_suffix(".tmp")
+        temporary.write_text(json.dumps(asdict(manifest), indent=2) + "\n", encoding="utf-8")
+        temporary.replace(path)
+        return manifest
+
+    def register_vmware_network(
+        self,
+        name: str,
+        target: str,
+        interface: str | None = None,
+        kali_source: str | None = None,
+    ) -> LabManifest:
+        """Register a VMware lab from inside a Kali guest using network identity.
+
+        Kali normally cannot read the physical host's ``.vmx`` file. This mode
+        therefore pins the exact private IP, isolated non-default route,
+        interface, Kali source address, and VMware-owned neighbor MAC. The scan
+        fingerprint and explicit access confirmation remain required later.
+        """
+
+        target = self._private_host(target)
+        route_interface, route_source = self._route_to_target(target)
+        if not route_interface or not route_source:
+            raise LabVerificationError(
+                "Could not determine the Kali route and source address for the target"
+            )
+        if interface and route_interface != interface:
+            raise LabVerificationError(
+                f"Target route uses {route_interface}, expected {interface}"
+            )
+        if kali_source and route_source != kali_source:
+            raise LabVerificationError(
+                f"Target route source is {route_source}, expected {kali_source}"
+            )
+        default_interface = self._default_route_interface()
+        if default_interface and route_interface == default_interface:
+            raise LabVerificationError(
+                "The target uses Kali's default network interface; configure a separate "
+                "VMware host-only adapter before registration"
+            )
+        expected_mac = self._neighbor_mac(target)
+        if expected_mac[:8] not in self.VMWARE_MAC_PREFIXES:
+            raise LabVerificationError(
+                f"Target MAC {expected_mac} does not use a recognized VMware prefix"
+            )
+        manifest = LabManifest(
+            name=name,
+            profile=self.PROFILE,
+            provider="vmware-network",
+            vm_identifier=f"{route_interface}:{target}",
+            vm_uuid=f"network-mac:{expected_mac}",
+            target=target,
+            expected_mac=expected_mac,
+            network_mode="isolated-private-route",
+            created_at=datetime.now(UTC).isoformat(),
+            interface=route_interface,
+            kali_source=route_source,
+        )
         path = self.manifest_path(name)
         path.parent.mkdir(parents=True, exist_ok=True)
         temporary = path.with_suffix(".tmp")
@@ -446,7 +531,27 @@ class Metasploitable2LabService:
             return self.verify_virtualbox(manifest)
         if manifest.provider == "vmware":
             return self.verify_vmware(manifest)
-        raise LabVerificationError("Only registered VirtualBox or VMware Metasploitable 2 labs are allowed")
+        if manifest.provider == "vmware-network":
+            target = self._private_host(manifest.target)
+            route_interface, route_source = self._route_to_target(target)
+            if route_interface != manifest.interface:
+                raise LabVerificationError(
+                    "Target route no longer uses the registered isolated interface"
+                )
+            if manifest.kali_source and route_source != manifest.kali_source:
+                raise LabVerificationError(
+                    "Kali source address no longer matches the registered lab"
+                )
+            default_interface = self._default_route_interface()
+            if default_interface and route_interface == default_interface:
+                raise LabVerificationError(
+                    "Target route now uses Kali's default network interface"
+                )
+            self.verify_neighbor(manifest)
+            return ["network identity baseline (snapshot managed on VMware host)"]
+        raise LabVerificationError(
+            "Only registered VirtualBox or VMware Metasploitable 2 labs are allowed"
+        )
 
     def verify_neighbor(self, manifest: LabManifest) -> None:
         """Perform the service-level operation needed to verify neighbor.
@@ -454,14 +559,7 @@ class Metasploitable2LabService:
         Inputs are converted to the external tool or renderer format and the normalized
         result is returned to the use case.
         """
-        executable = shutil.which("ip")
-        if not executable:
-            raise LabVerificationError("The ip command is required for MAC verification")
-        output = self._run([executable, "neigh", "show", manifest.target])
-        match = re.search(r"\blladdr\s+([0-9a-fA-F:.-]+)", output)
-        if not match:
-            raise LabVerificationError("No neighbor MAC found; ping or scan the registered VM first")
-        if self._normalize_mac(match.group(1)) != manifest.expected_mac:
+        if self._neighbor_mac(manifest.target) != manifest.expected_mac:
             raise LabVerificationError("Target IP resolves to a different MAC than the registered VM")
 
     def verify_scan(self, manifest: LabManifest, scan, findings: list) -> set[int]:
@@ -470,7 +568,11 @@ class Metasploitable2LabService:
         Inputs are converted to the external tool or renderer format and the normalized
         result is returned to the use case.
         """
-        if manifest.profile != self.PROFILE or manifest.provider not in {"virtualbox", "vmware"}:
+        if manifest.profile != self.PROFILE or manifest.provider not in {
+            "virtualbox",
+            "vmware",
+            "vmware-network",
+        }:
             raise LabVerificationError("Only the registered Metasploitable 2 lab profile is allowed")
         if scan.target.target_value != manifest.target:
             raise LabVerificationError("Scan target does not match the registered lab IP")
