@@ -1,29 +1,19 @@
 flowchart TD
-    A[POST /api/ai/recommendations] --> B[Receive Finding ID]
+    A["POST /api/recommendations/generate/{vulnerability_id}"] --> B[Load stored vulnerability]
+    B -->|Missing| C[Return 404 vulnerability not found]
+    B -->|Found| D[Build context from host, port, service,<br/>severity, type and description]
 
-    B --> C[Fetch Finding from Database]
+    D --> E{Local Ollama provider configured?}
+    E -->|Yes| F[Request up to three evidence-only suggestions]
+    F -->|Advisor failure or no usable result| G[Create deterministic safe fallback]
+    E -->|No| G
 
-    C --> D{Finding Exists?}
+    F --> H[Filter suggestions through safety and scope rules]
+    G --> H
+    H --> I[Format risk, priority, likelihood,<br/>impact, confidence and manual steps]
+    I --> J[Persist recommendation with PENDING_APPROVAL status]
+    J --> K[(recommendations table)]
+    K --> L[Return 201 recommendation collection]
 
-    D -- No --> E[Return 404 Finding Not Found]
-    D -- Yes --> F[Prepare AI Prompt Context]
-
-    F --> G[Include Vulnerability Type]
-    F --> H[Include Severity]
-    F --> I[Include Tool Output]
-    F --> J[Include OWASP/CVE/CWE Mapping]
-
-    G --> K[AI Recommendation Engine]
-    H --> K
-    I --> K
-    J --> K
-
-    K --> L[Generate Attack Suggestion]
-    K --> M[Generate Risk Explanation]
-    K --> N[Generate Remediation Advice]
-
-    L --> O[Save AI Output]
-    M --> O
-    N --> O
-
-    O --> P[Return AI Recommendation Result]
+    NOTE[The engine does not map CWE or OWASP fields<br/>and does not execute the recommendation]
+    NOTE -.-> H

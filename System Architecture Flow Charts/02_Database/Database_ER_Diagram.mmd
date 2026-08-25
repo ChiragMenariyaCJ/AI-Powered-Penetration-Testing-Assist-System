@@ -1,195 +1,129 @@
 erDiagram
-
     USERS {
         INT id PK
         VARCHAR full_name
         VARCHAR email UK
         VARCHAR password_hash
-        ENUM role
-        BOOLEAN is_active
-        DATETIME created_at
     }
 
     PROJECTS {
         INT id PK
         INT user_id FK
-        VARCHAR name
+        VARCHAR project_name
         TEXT description
-        ENUM status
-        TEXT scope_notes
+        VARCHAR status
         DATETIME created_at
+        DATETIME updated_at
     }
 
     TARGETS {
         INT id PK
         INT project_id FK
+        VARCHAR target_name
+        VARCHAR target_type
         VARCHAR target_value
-        ENUM target_type
-        BOOLEAN in_scope
-        TEXT permission_notes
+        TEXT scope
+        VARCHAR status
         DATETIME created_at
+        DATETIME updated_at
     }
 
-    SCAN_CONFIGURATIONS {
+    SCOPE_VALIDATIONS {
         INT id PK
         INT project_id FK
-        VARCHAR name
-        ENUM scan_intensity
-        JSON selected_tools
-        JSON scan_options
+        VARCHAR scope_rule_name
+        VARCHAR scope_type
+        VARCHAR scope_value
+        TEXT description
+        BOOLEAN is_inclusive
+        VARCHAR status
         DATETIME created_at
+        DATETIME updated_at
     }
 
-    SCAN_JOBS {
+    SCANS {
         INT id PK
-        INT project_id FK
         INT target_id FK
-        INT scan_configuration_id FK
-        ENUM scan_type
-        ENUM status
+        VARCHAR scan_name
+        VARCHAR scan_type
+        VARCHAR status
         DATETIME started_at
-        DATETIME finished_at
-    }
-
-    TOOL_OUTPUTS {
-        INT id PK
-        INT scan_job_id FK
-        VARCHAR tool_name
-        LONGTEXT raw_output
-        VARCHAR output_file_path
+        DATETIME completed_at
+        TEXT scan_result
         DATETIME created_at
+        DATETIME updated_at
     }
 
     VULNERABILITIES {
         INT id PK
-        INT scan_job_id FK
-        INT target_id FK
-        VARCHAR title
-        ENUM severity
-        FLOAT cvss_score
-        VARCHAR cve
-        VARCHAR cwe
-        VARCHAR owasp_category
+        INT scan_id FK
+        VARCHAR host
+        INT port
+        VARCHAR service
+        VARCHAR vulnerability_type
+        VARCHAR severity
         TEXT description
-        TEXT impact
+        VARCHAR version
+        TEXT cves
         TEXT remediation
-        DATETIME discovered_at
+        VARCHAR status
+        DATETIME created_at
+        DATETIME updated_at
     }
 
-    ATTACK_TECHNIQUES {
-        INT id PK
-        VARCHAR technique_id
-        VARCHAR name
-        VARCHAR tactic
-        TEXT description
-        VARCHAR reference_url
-    }
-
-    VULNERABILITY_ATTACK_TECHNIQUES {
+    RECOMMENDATIONS {
         INT id PK
         INT vulnerability_id FK
-        INT attack_technique_id FK
-    }
-
-    AI_RECOMMENDATIONS {
-        INT id PK
-        INT vulnerability_id FK
-        TEXT recommendation
-        TEXT next_steps
-        TEXT reasoning_summary
-        FLOAT confidence_score
-        ENUM status
+        VARCHAR attack_technique
+        VARCHAR mitre_technique_id
+        TEXT exploitation_method
+        VARCHAR risk_level
+        INT priority
+        INT likelihood
+        INT impact
+        TEXT prerequisites
+        TEXT tools_required
+        TEXT execution_steps
+        TEXT post_exploitation
+        INT confidence_score
+        VARCHAR status
+        VARCHAR approved_by
         DATETIME created_at
-    }
-
-    AI_CONVERSATIONS {
-        INT id PK
-        INT project_id FK
-        INT user_id FK
-        TEXT user_prompt
-        TEXT ai_response
-        DATETIME created_at
-    }
-
-    EVIDENCE {
-        INT id PK
-        INT vulnerability_id FK
-        ENUM evidence_type
-        LONGTEXT request_data
-        LONGTEXT response_data
-        VARCHAR screenshot_path
-        VARCHAR file_path
-        DATETIME created_at
-    }
-
-    REPORT_TEMPLATES {
-        INT id PK
-        VARCHAR name
-        TEXT description
-        JSON template_structure
-        DATETIME created_at
+        DATETIME updated_at
     }
 
     REPORTS {
         INT id PK
-        INT project_id FK
-        INT report_template_id FK
+        INT scan_id FK
         VARCHAR title
-        ENUM status
-        VARCHAR file_path
+        TEXT description
+        INT total_vulnerabilities
+        INT critical_count
+        INT high_count
+        INT medium_count
+        INT low_count
+        INT info_count
+        INT total_recommendations
+        INT approved_recommendations
+        INT pending_recommendations
+        INT rejected_recommendations
+        INT target_count
+        INT scan_duration_seconds
+        DATETIME scan_start_time
+        DATETIME scan_end_time
+        VARCHAR status
+        VARCHAR format_type
+        VARCHAR generated_by
+        TEXT report_content
         DATETIME created_at
-    }
-
-    REPORT_FINDINGS {
-        INT id PK
-        INT report_id FK
-        INT vulnerability_id FK
-        INT order_no
-    }
-
-    NOTIFICATIONS {
-        INT id PK
-        INT user_id FK
-        VARCHAR title
-        TEXT message
-        BOOLEAN is_read
-        DATETIME created_at
-    }
-
-    ACTIVITY_LOGS {
-        INT id PK
-        INT user_id FK
-        VARCHAR action
-        VARCHAR entity_type
-        INT entity_id
-        DATETIME created_at
+        DATETIME updated_at
+        DATETIME exported_at
     }
 
     USERS ||--o{ PROJECTS : owns
-    USERS ||--o{ ACTIVITY_LOGS : performs
-    USERS ||--o{ NOTIFICATIONS : receives
-    USERS ||--o{ AI_CONVERSATIONS : writes
-
     PROJECTS ||--o{ TARGETS : contains
-    PROJECTS ||--o{ SCAN_CONFIGURATIONS : uses
-    PROJECTS ||--o{ SCAN_JOBS : has
-    PROJECTS ||--o{ REPORTS : generates
-    PROJECTS ||--o{ AI_CONVERSATIONS : contains
-
-    TARGETS ||--o{ SCAN_JOBS : scanned_by
-    TARGETS ||--o{ VULNERABILITIES : has
-
-    SCAN_CONFIGURATIONS ||--o{ SCAN_JOBS : configures
-
-    SCAN_JOBS ||--o{ TOOL_OUTPUTS : produces
-    SCAN_JOBS ||--o{ VULNERABILITIES : discovers
-
-    VULNERABILITIES ||--o{ AI_RECOMMENDATIONS : receives
-    VULNERABILITIES ||--o{ EVIDENCE : stores
-    VULNERABILITIES ||--o{ REPORT_FINDINGS : included_in
-    VULNERABILITIES ||--o{ VULNERABILITY_ATTACK_TECHNIQUES : maps_to
-
-    ATTACK_TECHNIQUES ||--o{ VULNERABILITY_ATTACK_TECHNIQUES : linked_with
-
-    REPORT_TEMPLATES ||--o{ REPORTS : formats
-    REPORTS ||--o{ REPORT_FINDINGS : contains
+    PROJECTS ||--o{ SCOPE_VALIDATIONS : defines
+    TARGETS ||--o{ SCANS : has
+    SCANS ||--o{ VULNERABILITIES : records
+    SCANS ||--o{ REPORTS : produces
+    VULNERABILITIES ||--o{ RECOMMENDATIONS : receives

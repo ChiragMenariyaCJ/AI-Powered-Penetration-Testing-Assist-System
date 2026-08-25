@@ -1,26 +1,30 @@
 flowchart TD
-    A[API Request] --> B[Backend Processing]
+    A[API request enters LoggedRoute] --> B[Log method, path and handler]
+    B --> C[Pydantic request validation]
+    C -->|Invalid request| D[Return 422]
+    C -->|Valid request| E[Route to controller, use case and repository]
 
-    B --> C{Error Occurred?}
+    E --> F{Outcome}
+    F -->|Success| G[Return response and status]
+    F -->|Business validation| H[Return 400]
+    F -->|Invalid login| I[Return 401]
+    F -->|Out-of-scope scan| J[Return 403]
+    F -->|Missing record| K[Return 404]
+    F -->|Invalid scan state| L[Return 409]
+    F -->|Scanner subprocess failure| M[Return 502]
+    F -->|Scanner timeout| N[Return 504]
+    F -->|Unexpected exception| O[Return 500]
 
-    C -- No --> D[Return Success Response]
+    D --> P[Log rejection and duration]
+    H --> P
+    I --> P
+    J --> P
+    K --> P
+    L --> P
+    M --> P
+    N --> P
+    O --> Q[Log exception and duration]
+    G --> R[Log completion, status and duration]
 
-    C -- Yes --> E{Error Type}
-
-    E -- Validation Error --> F[Return 400 Bad Request]
-    E -- Authentication Error --> G[Return 401 Unauthorized]
-    E -- Permission Error --> H[Return 403 Forbidden]
-    E -- Not Found Error --> I[Return 404 Not Found]
-    E -- Scanner Failure --> J[Return 500 Scanner Execution Failed]
-    E -- AI Failure --> K[Return 500 AI Recommendation Failed]
-    E -- Database Error --> L[Return 500 Database Error]
-
-    F --> M[Log Error]
-    G --> M
-    H --> M
-    I --> M
-    J --> M
-    K --> M
-    L --> M
-
-    M --> N[Send Error Response to Client]
+    P --> S[FastAPI serializes error response]
+    Q --> S

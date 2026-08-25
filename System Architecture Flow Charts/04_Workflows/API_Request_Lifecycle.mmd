@@ -1,28 +1,27 @@
 flowchart TD
-    A[Client / Frontend] --> B[API Gateway / Backend Server]
+    A[Terminal workflow, Swagger or API client] --> B[FastAPI LoggedRoute]
+    B --> C[Log request method, path and handler]
+    C --> D[Pydantic validates path, query and body fields]
+    D -->|Invalid| E[Log rejection and return 422]
+    D -->|Valid| F[Feature route]
 
-    B --> C{User Authenticated?}
+    F --> G[Controller builds required dependencies]
+    G --> H[Use case applies business rules]
+    H --> I{External or specialized work needed?}
+    I -->|Yes| J[Call service such as Nmap, AI, report or lab]
+    I -->|No| K[Continue to persistence]
+    J --> K
+    K --> L[Repository performs SQLAlchemy operation]
+    L --> M[(Configured SQL database)]
+    M --> N[Return model or result to use case]
+    N --> O[Controller returns result to route]
+    O --> P[FastAPI serializes response]
+    P --> Q[LoggedRoute records status and duration]
+    Q --> R[Client receives response]
 
-    C -- No --> D[Return 401 Unauthorized]
-    C -- Yes --> E[Validate Request Data]
+    H -->|Expected business rejection| S[Raise HTTPException]
+    S --> T[Log rejection and return 400, 401, 403, 404, 409, 502 or 504]
+    H -->|Unexpected exception| U[Log stack trace and return 500]
 
-    E --> F{Valid Input?}
-
-    F -- No --> G[Return 400 Bad Request]
-    F -- Yes --> H[Route to Correct API Module]
-
-    H --> I{API Type}
-
-    I -- Auth API --> J[Login / Register / JWT]
-    I -- Project API --> K[Create / Select Project]
-    I -- Target API --> L[Add Target URL or IP]
-    I -- Scan API --> M[Start Scan Job]
-    I -- AI API --> N[Generate Attack Suggestions]
-    I -- Report API --> O[Generate PDF Report]
-
-    J --> P[Return Auth Result]
-    K --> Q[Return Project Result]
-    L --> R[Return Target Result]
-    M --> S[Return Scan Result]
-    N --> T[Return AI Recommendation Result]
-    O --> U[Return Report Download Link]
+    NOTE[JWT is issued at login and sent by PTASApiClient,<br/>but current feature routes do not enforce a token dependency]
+    NOTE -.-> F

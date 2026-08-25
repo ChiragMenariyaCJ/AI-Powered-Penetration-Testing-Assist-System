@@ -1,31 +1,27 @@
 flowchart TD
+    A[Register user] --> USERS[(users)]
+    USERS --> B[Create or select project]
+    B --> PROJECTS[(projects)]
 
-A[User Login]
+    PROJECTS --> C[Define inclusive or exclusive scope rules]
+    C --> SCOPES[(scope_validations)]
 
-A --> B[Projects]
+    PROJECTS --> D[Create target]
+    D --> TARGETS[(targets)]
 
-B --> C[Targets]
+    TARGETS --> E[Create scan record]
+    E --> SCANS[(scans)]
+    SCANS --> F[Update status: PENDING, RUNNING, COMPLETED or FAILED]
+    F --> G[Persist parsed findings]
+    G --> VULNS[(vulnerabilities)]
 
-C --> D[Scan Jobs]
+    VULNS --> H[Generate and store safe recommendations]
+    H --> RECS[(recommendations)]
 
-D --> E[Vulnerabilities]
+    SCANS --> I[Aggregate scan, findings and recommendation summaries]
+    VULNS --> I
+    RECS --> I
+    I --> REPORTS[(reports)]
 
-E --> F[AI Recommendations]
-
-F --> G[Evidence]
-
-G --> H[Reports]
-
-B --> I[(MySQL)]
-
-C --> I
-
-D --> I
-
-E --> I
-
-F --> I
-
-G --> I
-
-H --> I
+    NOTE[Relationships use cascading foreign keys:<br/>user to project to target to scan to findings]
+    NOTE -.-> PROJECTS

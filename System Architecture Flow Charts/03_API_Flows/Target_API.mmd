@@ -1,23 +1,23 @@
 flowchart TD
+    A[POST /api/targets/] --> B[Pydantic validates project ID and target fields]
+    B -->|Invalid| C[Return 422 validation error]
+    B -->|Valid| D[Target controller]
+    D --> E[Target use case]
+    E --> F[Find referenced project]
+    F -->|Missing| G[Return 404 project not found]
+    F -->|Found| H[Target repository creates target]
+    H --> I[(targets table)]
+    I --> J[Return 201 target response]
 
-A[POST /api/targets]
+    K[GET /api/targets/?project_id=ID] --> L{Project ID supplied?}
+    L -->|Yes| M[Validate project and list its targets]
+    L -->|No| N[List all targets]
+    M --> O[Return target collection]
+    N --> O
 
-A --> B[Validate JWT]
+    P["GET, PUT or DELETE /api/targets/{target_id}"] --> Q[Find target]
+    Q -->|Missing| R[Return 404]
+    Q -->|Found| S[Read, update or delete through repository]
 
-B --> C{Authenticated?}
-
-C -- No --> D[Return Unauthorized]
-
-C -- Yes --> E[Receive URL/IP]
-
-E --> F[Validate Format]
-
-F --> G{Valid Target?}
-
-G -- No --> H[Return Invalid Target]
-
-G -- Yes --> I[Save Target]
-
-I --> J[(Database)]
-
-J --> K[Return Target Added]
+    NOTE[Target creation does not perform scope checking;<br/>scope is enforced by the separate check and scan execution flows]
+    NOTE -.-> H

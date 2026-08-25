@@ -1,17 +1,25 @@
 flowchart TD
-    A[POST /api/targets] --> B[Receive Target URL or IP]
+    A{Scope operation}
 
-    B --> C[Validate Format]
+    A -->|Create rule| B[POST /api/scope-validation/]
+    B --> C[Pydantic validates project, rule type, value and inclusion flag]
+    C -->|Invalid| D[Return 422 validation error]
+    C -->|Valid| E[Find project]
+    E -->|Missing| F[Return 404 project not found]
+    E -->|Found| G[Persist scope rule]
+    G --> H[(scope_validations table)]
+    H --> I[Return 201 scope rule]
 
-    C --> D{Valid URL/IP?}
+    A -->|Check target| J[POST /api/scope-validation/check-target-scope]
+    J --> K[Load active rules for project]
+    K -->|No rules| L[Return out of scope with reason]
+    K --> M[Match CIDR, range, domain, hostname or wildcard rules]
+    M --> N{Matching exclusion?}
+    N -->|Yes| O[Return is_in_scope false and blocking rules]
+    N -->|No| P{Inclusive rule matches?}
+    P -->|Yes| Q[Return is_in_scope true and matching rules]
+    P -->|No| O
 
-    D -- No --> E[Return 400 Invalid Target]
-    D -- Yes --> F[Check Project Scope Rules]
-
-    F --> G{Target In Scope?}
-
-    G -- No --> H[Block Target]
-    H --> I[Return 403 Out of Scope Warning]
-
-    G -- Yes --> J[Save Target in Database]
-    J --> K[Return 201 Target Added Successfully]
+    R[Scan execution] --> S[Calls the same scope-check use case]
+    S -->|Out of scope| T[Mark scan failed and return 403]
+    S -->|In scope| U[Permit bounded Nmap execution]

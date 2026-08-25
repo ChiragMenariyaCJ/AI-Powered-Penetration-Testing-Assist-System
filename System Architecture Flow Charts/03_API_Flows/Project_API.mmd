@@ -1,23 +1,23 @@
 flowchart TD
+    A[POST /api/projects/] --> B[Pydantic validates user ID, project name and status]
+    B -->|Invalid| C[Return 422 validation error]
+    B -->|Valid| D[Project controller]
+    D --> E[Project use case]
+    E --> F[Find referenced user]
+    F -->|Missing| G[Return 404 user not found]
+    F -->|Found| H[Project repository creates project]
+    H --> I[(projects table)]
+    I --> J[Return 201 project response]
 
-A[POST /api/projects]
+    K[GET /api/projects/?user_id=ID] --> L{User ID supplied?}
+    L -->|Yes| M[Validate user exists and list that user's projects]
+    L -->|No| N[List all projects]
+    M --> O[Return project collection]
+    N --> O
 
-A --> B[Validate JWT]
+    P["GET, PUT or DELETE /api/projects/{project_id}"] --> Q[Find project]
+    Q -->|Missing| R[Return 404]
+    Q -->|Found| S[Read, update or delete through repository]
 
-B --> C{Authenticated?}
-
-C -- No --> D[Return 401 Unauthorized]
-
-C -- Yes --> E[Receive Project Details]
-
-E --> F[Validate Project Data]
-
-F --> G{Valid Data?}
-
-G -- No --> H[Return Validation Error]
-
-G -- Yes --> I[Save Project]
-
-I --> J[(MySQL)]
-
-J --> K[Return Project Created]
+    NOTE[Current project routes do not enforce JWT ownership]
+    NOTE -.-> D

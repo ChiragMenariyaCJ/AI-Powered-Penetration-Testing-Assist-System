@@ -1,47 +1,51 @@
 flowchart TD
-    A[User Login] --> B{JWT Valid?}
+    A([Run ptas]) --> B[Create split terminal workspace]
+    B --> C[Left pane starts guided student session]
+    B --> D[Right pane follows session events and transcript]
 
-    B -- No --> C[Access Denied]
-    B -- Yes --> D[Dashboard]
+    C --> E[Check /health/ready]
+    E -->|Unavailable| F[Stop with backend connection error]
+    E -->|Ready| G[Register or log in through API]
+    G --> H[Select existing project or create project]
+    H --> I[Enter authorized scope]
+    I --> J[Enter target inside scope]
+    J --> K{Student confirms authorization?}
+    K -->|No| L[Cancel session]
+    K -->|Yes| M{Consent to Vulners CVE correlation?}
 
-    D --> E[Create Project]
-    E --> F[Add Target URL/IP]
+    M -->|No| N[Create and execute QUICK scan]
+    M -->|Yes| N
+    N --> O[Create and execute FULL scan]
+    O --> P{CVE correlation enabled?}
+    P -->|Yes| Q[Create and execute VULNERABILITY scan]
+    P -->|No| R[Use FULL scan as final assessment scan]
+    Q --> S[Use VULNERABILITY scan as final assessment scan]
 
-    F --> G{Target In Scope?}
+    R --> T[Run installed bounded service-aware checks]
+    S --> T
+    T --> U[Add version-specific local Exploit-DB references]
+    U --> V[Load final stored findings]
 
-    G -- No --> H[Block Testing and Show Warning]
-    G -- Yes --> I[Configure Scan]
+    V --> W{Local Ollama ready?}
+    W -->|Yes| X[Generate evidence-based commands from findings]
+    W -->|No| Y[Generate deterministic rules fallback]
+    X --> Z[Validate tool allowlist, exact scope and command safety]
+    Y --> Z
+    Z --> AA[Persist safe recommendations]
+    AA --> AB[Send recommendation and report commands to right pane]
 
-    I --> J[Start Scan Job]
+    AB --> AC[Left pane becomes normal shell]
+    AC --> AD[Student manually runs a displayed command]
+    AD --> AE[Dashboard waits for returned shell prompt]
+    AE --> AF[Sanitize and analyze completed output]
+    AF --> AG{Valid next step available?}
+    AG -->|Yes| AH[Display adaptive or safety fallback command]
+    AH --> AD
+    AG -->|No| AI{Verified Metasploitable 2 lab?}
+    AI -->|Yes| AJ[Offer separate access-test command and confirmation gate]
+    AI -->|No| AK[Stop recommendation sequence]
 
-    J --> K[Run Nmap]
-    J --> L[Run Nikto]
-    J --> M[Run SQLmap]
-    J --> N[Run Custom Checks]
-
-    K --> O[Collect Results]
-    L --> O
-    M --> O
-    N --> O
-
-    O --> P[Parse Results]
-    P --> Q[Map CVE/CWE/OWASP]
-    Q --> R[Store Findings in MySQL]
-
-    R --> S[AI Recommendation Engine]
-    S --> T[Attack Suggestions]
-    S --> U[Risk Explanation]
-    S --> V[Remediation Advice]
-
-    T --> W[Tester Review]
-    U --> W
-    V --> W
-
-    W --> X{Approved by Tester?}
-
-    X -- No --> Y[Reject Suggestion]
-    X -- Yes --> Z[Safe Attack Execution]
-
-    Z --> AA[Capture Evidence]
-    AA --> AB[Generate Report]
-    AB --> AC[Export PDF]
+    AA --> AL[Run scan-specific report command]
+    AL --> AM[Save JSON report and render HTML]
+    AM --> AN[Optionally print HTML to PDF]
+    AN --> AO([Assessment complete])

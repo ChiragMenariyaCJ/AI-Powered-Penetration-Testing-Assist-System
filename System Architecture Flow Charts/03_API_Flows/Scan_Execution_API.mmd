@@ -1,32 +1,29 @@
 flowchart TD
-    A[POST /api/scans/start] --> B[Receive Project ID and Target ID]
+    A[POST /api/scans/] --> B[Validate target ID, scan name, type and PENDING status]
+    B -->|Invalid| C[Return 422 validation error]
+    B -->|Valid target| D[Create scan record]
+    D --> E[(scans table: PENDING)]
 
-    B --> C[Check User Permission]
+    E --> F["POST /api/scan-execution/execute/{scan_id}?project_id=ID"]
+    F --> G[Load scan and target]
+    G -->|Missing record| H[Return 404]
+    G --> I{Scan already RUNNING or COMPLETED?}
+    I -->|Yes| J[Return 409 conflict]
+    I -->|No| K{Target belongs to supplied project?}
+    K -->|No| L[Return 400]
+    K -->|Yes| M[Evaluate project scope rules]
+    M -->|Out of scope| N[Mark FAILED and return 403]
+    M -->|In scope| O[Mark RUNNING with start time]
 
-    C --> D{User Owns Project?}
+    O --> P[Build bounded Nmap arguments for scan type]
+    P --> Q[Run subprocess with timeout and XML output]
+    Q -->|Timeout| R[Mark FAILED and return 504]
+    Q -->|Tool failure| S[Mark FAILED and return 502]
+    Q -->|Success| T[Parse Nmap XML]
+    T --> U[Create exposed-service and CVE findings]
+    U --> V[(vulnerabilities table)]
+    V --> W[Store structured scan result and mark COMPLETED]
+    W --> X[Return scan ID, target, summary and persisted count]
 
-    D -- No --> E[Return 403 Forbidden]
-    D -- Yes --> F[Check Target Scope]
-
-    F --> G{Target In Scope?}
-
-    G -- No --> H[Return Scan Blocked]
-    G -- Yes --> I[Create Scan Job]
-
-    I --> J[Select Scanner Tools]
-
-    J --> K{Tool Selected}
-
-    K -- Nmap --> L[Run Nmap Scan]
-    K -- Nikto --> M[Run Nikto Scan]
-    K -- SQLmap --> N[Run SQLmap Scan]
-    K -- Custom Checks --> O[Run Custom Web Checks]
-
-    L --> P[Collect Raw Output]
-    M --> P
-    N --> P
-    O --> P
-
-    P --> Q[Parse and Normalise Results]
-    Q --> R[Store Findings in MySQL]
-    R --> S[Return Scan Completed Result]
+    Y[Service-aware tools and Exploit-DB enrichment] --> Z[Run after the guided Nmap stages in terminal workflow]
+    Z --> V

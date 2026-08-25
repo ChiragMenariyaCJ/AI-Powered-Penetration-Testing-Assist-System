@@ -1,27 +1,39 @@
 flowchart TD
+    USER[Student]
 
-A[User Browser]
+    subgraph Kali[Kali Linux workstation]
+        START[FastAPI process started by start.sh]
+        DB[(Configured SQL database<br/>MariaDB or MySQL by default)]
 
-A --> B[React Frontend]
+        subgraph Terminal[QTerminal or Terminator workspace]
+            LEFT[Left pane<br/>guided workflow then normal shell]
+            RIGHT[Right pane<br/>read-only recommendation dashboard]
+        end
 
-B --> C[Flask / FastAPI Backend]
+        API[FastAPI backend]
+        TOOLS[Local bounded assessment tools<br/>Nmap, WhatWeb, curl, Nikto, Gobuster,<br/>SSLScan, enum4linux-ng and database checks]
+        SEARCHSPLOIT[Local Searchsploit database]
+        OLLAMA[Optional local Ollama model]
+        REPORTS[Generated JSON and HTML reports]
+        BROWSER[Browser print dialog for PDF]
+    end
 
-C --> D[(MySQL Database)]
+    VULNERS[Optional external Vulners correlation]
+    LAB[Isolated registered Metasploitable 2 VM<br/>VirtualBox or VMware]
 
-C --> E[AI Recommendation Engine]
+    USER --> LEFT
+    USER -->|Reviews guidance| RIGHT
+    START --> API
+    API --> DB
+    LEFT -->|HTTP requests| API
+    LEFT -->|Scoped subprocesses| TOOLS
+    TOOLS -->|Optional consented CVE lookup| VULNERS
+    LEFT --> SEARCHSPLOIT
+    RIGHT --> OLLAMA
+    LEFT --> REPORTS
+    REPORTS --> BROWSER
+    LEFT -->|Separate confirmation-gated exercises| LAB
+    LEFT -->|Session events and transcript| RIGHT
 
-C --> F[Kali Linux]
-
-F --> G[Nmap]
-
-F --> H[Nikto]
-
-F --> I[SQLMap]
-
-F --> J[Burp Suite]
-
-F --> K[Metasploit]
-
-C --> L[PDF Report Generator]
-
-L --> M[Generated Reports]
+    NOTE[No React frontend is deployed]
+    NOTE -.-> Kali

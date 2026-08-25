@@ -1,18 +1,27 @@
 flowchart TD
-    A[GET /api/recommendations] --> B[Display AI Suggestions to Tester]
+    A[GET /api/recommendations/] --> B[Return stored recommendations]
+    B --> C[Tester reviews evidence, risk and manual steps]
+    C --> D{Tester decision}
 
-    B --> C{Tester Decision}
+    D -->|Reject| E["POST /api/recommendations/{id}/reject"]
+    E --> F[Set status to REJECTED]
+    F --> G[(recommendations table)]
+    G --> H[Return rejected recommendation]
 
-    C -- Reject --> D[Mark Suggestion as Rejected]
-    D --> E[Store Review Status]
-    E --> F[Return Rejected Result]
+    D -->|Approve| I["POST /api/recommendations/{id}/approve?approved_by=NAME"]
+    I --> J[Set status to APPROVED and record reviewer]
+    J --> G
+    G --> K[Return approved recommendation]
 
-    C -- Approve --> G[Mark Suggestion as Approved]
-    G --> H{Attack Execution Allowed?}
+    K --> L[Recommendation remains advisory and manually executed]
+    H --> L
 
-    H -- No --> I[Return Execution Blocked]
-    H -- Yes --> J[Execute Approved Test Safely]
+    M{Exact registered Metasploitable 2 lab verified?}
+    M -->|No| N[No access-testing workflow is offered]
+    M -->|Yes| O[Display ./ptas.sh access-test command]
+    O --> P[Re-verify VM identity, isolation, target and scan fingerprint]
+    P --> Q[Require separate explicit confirmation]
+    Q --> R[Show one manual lab exercise]
 
-    J --> K[Capture Evidence]
-    K --> L[Store Logs and Screenshots]
-    L --> M[Return Attack Execution Result]
+    NOTE[Approval does not automatically execute an attack<br/>or store screenshots and evidence]
+    NOTE -.-> L

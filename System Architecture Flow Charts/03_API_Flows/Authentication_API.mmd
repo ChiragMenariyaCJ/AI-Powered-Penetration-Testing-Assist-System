@@ -1,27 +1,24 @@
 flowchart TD
+    A{Authentication action}
 
-A[POST /api/auth/login]
+    A -->|Register| B[POST /api/auth/register]
+    B --> C[Pydantic validates name, email and password]
+    C -->|Invalid| D[Return 422 validation error]
+    C -->|Valid| E[Find user by email]
+    E -->|Already exists| F[Return 400 email already exists]
+    E -->|New email| G[Hash password and create user]
+    G --> H[Return registration success and user ID]
 
-A --> B[Receive Email & Password]
+    A -->|Log in| I[POST /api/auth/login]
+    I --> J[Pydantic validates email and password]
+    J -->|Invalid| D
+    J -->|Valid| K[Find user by email]
+    K -->|Missing| L[Return 401 invalid credentials]
+    K -->|Found| M[Verify password hash]
+    M -->|Incorrect| L
+    M -->|Correct| N[Generate signed JWT with user ID, email and expiry]
+    N --> O[Return bearer token and user details]
+    O --> P[PTAS API client sends Authorization header]
 
-B --> C[Validate Input]
-
-C --> D{Input Valid?}
-
-D -- No --> E[Return 400 Bad Request]
-
-D -- Yes --> F[Find User]
-
-F --> G{User Exists?}
-
-G -- No --> H[Return Invalid Credentials]
-
-G -- Yes --> I[Verify Password]
-
-I --> J{Password Correct?}
-
-J -- No --> H
-
-J -- Yes --> K[Generate JWT Token]
-
-K --> L[Return Login Success]
+    NOTE[Current protected routes do not yet decode or enforce the bearer token]
+    P -.-> NOTE

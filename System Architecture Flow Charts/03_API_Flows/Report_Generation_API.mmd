@@ -1,25 +1,26 @@
 flowchart TD
-    A[POST /api/reports/generate] --> B[Receive Project ID]
+    A["POST /api/reports/generate/{scan_id}"] --> B[Pydantic validates report metadata]
+    B -->|Invalid| C[Return 422 validation error]
+    B -->|Valid| D[Load scan]
+    D -->|Missing| E[Return 404 scan not found]
+    D -->|Found| F[Load vulnerabilities for scan]
+    F --> G[Load recommendations linked to those vulnerabilities]
+    G --> H[Calculate severity and recommendation summaries]
+    H --> I[Gather scan timing and target metadata]
+    I --> J[Build structured report content]
+    J --> K[Persist report linked to scan]
+    K --> L[(reports table)]
+    L --> M[Return report ID and summaries]
 
-    B --> C[Check User Access]
+    N["POST /api/reports/{report_id}/export"] --> O[Validate JSON, HTML or PDF format label]
+    O -->|Invalid| P[Return 400]
+    O -->|Valid| Q[Update export format and timestamp]
+    Q --> R[Return export metadata]
 
-    C --> D{Access Allowed?}
+    S[CLI: ./ptas.sh report --scan-id ID] --> T[Generate database report content]
+    T --> U[Write JSON report]
+    U --> V[Render standalone HTML report]
+    V --> W[Optional browser Print to PDF]
 
-    D -- No --> E[Return 403 Forbidden]
-    D -- Yes --> F[Fetch Project Details]
-
-    F --> G[Fetch Targets]
-    G --> H[Fetch Scan Results]
-    H --> I[Fetch AI Recommendations]
-    I --> J[Fetch Evidence Files]
-
-    J --> K{Findings Available?}
-
-    K -- No --> L[Generate Empty Security Summary]
-    K -- Yes --> M[Generate Full Penetration Testing Report]
-
-    L --> N[Export PDF]
-    M --> N
-
-    N --> O[Save Report File]
-    O --> P[Return Report Download Link]
+    NOTE[The API export endpoint records export metadata;<br/>the terminal report command writes the JSON and HTML files]
+    NOTE -.-> R

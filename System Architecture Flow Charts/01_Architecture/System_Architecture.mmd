@@ -1,47 +1,39 @@
 flowchart TD
-    A([Start]) --> B[User Login / Register]
-    B --> C[JWT Authentication]
-    C --> D[Dashboard]
+    A([Start PTAS]) --> B[Connect to FastAPI readiness endpoint]
+    B --> C[Register or log in]
+    C --> D[Select or create project]
+    D --> E[Create authorized scope rule]
+    E --> F[Enter target inside scope]
+    F --> G{Authorization confirmed?}
 
-    D --> E[Create / Select Project]
-    E --> F[Add Target URL or IP]
-    F --> G{Scope Permission Check}
+    G -->|No| STOP[Cancel without scanning]
+    G -->|Yes| H{Include external CVE correlation?}
+    H -->|No| I[Run QUICK and FULL Nmap stages]
+    H -->|Yes| J[Run QUICK, FULL and VULNERABILITY Nmap stages]
 
-    G -->|Out of Scope| X[Block Scan and Show Warning]
-    G -->|In Scope| H[Configure Scan]
+    I --> K[Parse Nmap XML and persist findings]
+    J --> K
+    K --> L[Run installed bounded service-aware checks]
+    L --> M[Add local Exploit-DB references when version evidence exists]
+    M --> N[Load stored findings]
 
-    H --> I[Create Scan Job]
-    I --> J[Scanner Engine]
+    N --> O{Local Ollama configured?}
+    O -->|Yes| P[Generate evidence-based suggestions]
+    O -->|No| Q[Generate deterministic rules fallback]
+    P --> R[Apply independent scope and command safety validation]
+    Q --> R
+    R --> S[Persist reviewable recommendations]
 
-    J --> J1[Nmap Scan]
-    J --> J2[Nikto Scan]
-    J --> J3[SQLmap Scan]
-    J --> J4[Custom Web Checks]
+    S --> T[Display recommendations in read-only pane]
+    T --> U[Student manually runs an allowed command in left shell]
+    U --> V[Sanitize and analyze completed terminal output]
+    V --> W[Offer next validated recommendation]
+    W --> U
 
-    J1 --> K[Collect Raw Tool Output]
-    J2 --> K
-    J3 --> K
-    J4 --> K
+    S --> X{Exact registered Metasploitable 2 lab verified?}
+    X -->|Yes| Y[Offer separate access-test command and confirmation gate]
+    X -->|No| Z[Keep evidence-only recommendation policy]
 
-    K --> L[Parse and Normalise Results]
-    L --> M[Map Vulnerabilities: CVE, CWE, OWASP Top 10]
-
-    M --> N[Store Findings in MySQL]
-    N --> O[AI Recommendation Engine]
-
-    O --> P[Generate Attack Suggestions]
-    O --> Q[Generate Risk Explanation]
-    O --> R[Generate Remediation Advice]
-
-    P --> S[Tester Review]
-    Q --> S
-    R --> S
-
-    S --> T{Accept Suggestion?}
-    T -->|No| U[Add Manual Notes]
-    T -->|Yes| V[Save Evidence]
-
-    U --> V
-    V --> W[Generate Report]
-    W --> Y[Export PDF, DOCX or HTML]
-    Y --> Z([End])
+    S --> AA[Generate scan-specific JSON and HTML report]
+    AA --> AB[Optionally print HTML to PDF in browser]
+    AB --> AC([End])
