@@ -1,46 +1,46 @@
-flowchart LR
-    subgraph Clients[Client and terminal processes]
-        CLI[PTAS terminal workflow]
-        DASH[Read-only recommendation dashboard]
-        API_CLIENT[Swagger or API client]
+flowchart TB
+    subgraph CLIENTS["Client Layer"]
+        direction LR
+        CLI["PTAS Terminal"]
+        DASH["Recommendation Dashboard"]
+        API_CLIENT["Swagger / API Client"]
     end
 
-    subgraph API[FastAPI application]
-        ROUTES[Routes and Pydantic schemas]
-        CONTROLLERS[Controllers]
-        USECASES[Use cases]
-        REPOSITORIES[Repositories]
-        SERVICES[Application services]
+    subgraph APPLICATION["FastAPI Application Layer"]
+        direction LR
+        ROUTES["Routes and Schemas"]
+        CONTROLLERS["Controllers"]
+        USECASES["Use Cases"]
+        REPOSITORIES["Repositories"]
+        SERVICES["Application Services"]
     end
 
-    subgraph Integrations[Local and optional integrations]
-        NMAP[Nmap service]
-        SERVICE_TOOLS[Bounded service-aware tools]
-        EXPLOITDB[Local Exploit-DB search]
-        OLLAMA[Optional local Ollama advisor]
-        LAB[Verified Metasploitable 2 lab service]
-        REPORT_RENDERER[JSON and HTML report renderer]
+    subgraph INTEGRATIONS["Security and Reporting Services"]
+        direction LR
+        SCANNING["Nmap and Service Tools"]
+        CVE["Exploit-DB Search"]
+        OLLAMA["Local Ollama Advisor"]
+        LAB["Metasploitable 2 Lab"]
+        REPORTS["JSON / HTML Reports"]
     end
 
-    DB[(SQLAlchemy configured database)]
+    DB[("SQLAlchemy / MariaDB")]
 
-    CLI -->|HTTP through PTASApiClient| ROUTES
+    CLI --> ROUTES
     API_CLIENT --> ROUTES
+    DASH --> CLI
+
     ROUTES --> CONTROLLERS
     CONTROLLERS --> USECASES
     USECASES --> REPOSITORIES
-    REPOSITORIES --> DB
     USECASES --> SERVICES
+    REPOSITORIES <--> DB
 
-    SERVICES --> NMAP
+    SERVICES --> SCANNING
+    SERVICES --> CVE
     SERVICES --> OLLAMA
     SERVICES --> LAB
-    CLI --> SERVICE_TOOLS
-    CLI --> EXPLOITDB
-    CLI --> REPORT_RENDERER
-    SERVICE_TOOLS --> DB
-    EXPLOITDB --> DB
-    REPORT_RENDERER --> DB
+    SERVICES --> REPORTS
 
-    CLI -->|Session events and terminal transcript| DASH
-    DASH -->|Validated guidance only| CLI
+    SCANNING --> DB
+    REPORTS --> DB
