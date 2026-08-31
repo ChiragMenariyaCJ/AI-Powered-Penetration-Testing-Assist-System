@@ -1,0 +1,64 @@
+flowchart TB
+    subgraph R1[" "]
+        direction LR
+        U["`**USERS**
+        id (PK)
+        full_name
+        email`"]
+
+        P["`**PROJECTS**
+        id (PK)
+        user_id (FK)
+        project_name
+        status`"]
+
+        T["`**TARGETS**
+        id (PK)
+        project_id (FK)
+        target_name
+        target_value`"]
+    end
+
+    subgraph R2[" "]
+        direction LR
+        SV["`**SCOPE_VALIDATIONS**
+        id (PK)
+        project_id (FK)
+        scope_type
+        scope_value`"]
+
+        S["`**SCANS**
+        id (PK)
+        target_id (FK)
+        scan_type
+        status`"]
+
+        V["`**VULNERABILITIES**
+        id (PK)
+        scan_id (FK)
+        service
+        severity`"]
+    end
+
+    subgraph R3[" "]
+        direction LR
+        RC["`**RECOMMENDATIONS**
+        id (PK)
+        vulnerability_id (FK)
+        risk_level
+        status`"]
+
+        RP["`**REPORTS**
+        id (PK)
+        scan_id (FK)
+        format_type
+        status`"]
+    end
+
+    U -->|"owns"| P
+    P -->|"contains"| T
+    P -->|"defines"| SV
+    T -->|"has"| S
+    S -->|"records"| V
+    V -->|"receives"| RC
+    S -->|"produces"| RP

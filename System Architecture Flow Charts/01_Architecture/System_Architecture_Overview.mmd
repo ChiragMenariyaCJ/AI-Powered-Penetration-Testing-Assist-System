@@ -1,0 +1,36 @@
+flowchart TB
+    U["User Interface<br/>Terminal and Swagger UI"]
+
+    subgraph API["Application Layer"]
+        A["FastAPI<br/>Authentication and Scope Control"]
+        B["Assessment Orchestrator"]
+    end
+
+    subgraph ANALYSIS["Security Analysis Layer"]
+        C["Nmap and<br/>Service Checks"]
+        D["Finding Parser and<br/>CVE Correlation"]
+        E["Ollama LLM or<br/>Rule-Based Engine"]
+    end
+
+    subgraph CONTROL["Human-Controlled Output"]
+        F["Human Review<br/>and Manual Validation"]
+        G["JSON and HTML<br/>Report Generation"]
+    end
+
+    DB[("MariaDB<br/>Evidence Storage")]
+    LAB["Authorised Lab<br/>Metasploitable 2"]
+
+    U --> A
+    A --> B
+    B --> C
+    C --> LAB
+    C --> D
+    D --> E
+    E --> F
+    F --> G
+
+    A <--> DB
+    B <--> DB
+    D <--> DB
+    E <--> DB
+    G <--> DB
