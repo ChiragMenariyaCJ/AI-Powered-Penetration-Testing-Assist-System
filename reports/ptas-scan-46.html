@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PTAS training assessment - scan 46</title>
+<style>
+:root{--ink:#172033;--muted:#667085;--line:#e4e7ec;--paper:#fff;--bg:#f2f4f7;--brand:#155eef;--critical:#b42318;--high:#e04f16;--medium:#dc8a00;--low:#1570ef;--info:#475467}
+*{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.55 Inter,Segoe UI,Arial,sans-serif}
+.page{width:min(1180px,calc(100% - 32px));margin:32px auto} .hero{background:linear-gradient(135deg,#101828,#173b75 62%,#155eef);color:#fff;border-radius:20px;padding:42px;box-shadow:0 18px 45px #10182822}
+.eyebrow{font-size:12px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:#b2ccff} h1{font-size:36px;line-height:1.15;margin:10px 0} .hero p{max-width:760px;color:#d1e0ff}
+.metadata{display:flex;flex-wrap:wrap;gap:10px;margin-top:24px} .metadata span{background:#ffffff17;border:1px solid #ffffff2b;border-radius:999px;padding:7px 12px}
+.metrics{display:grid;grid-template-columns:repeat(7,1fr);gap:12px;margin:20px 0} .metric{background:var(--paper);border:1px solid var(--line);border-top:4px solid var(--brand);border-radius:14px;padding:16px;box-shadow:0 5px 16px #1018280c} .metric span{display:block;color:var(--muted);font-size:12px;font-weight:700;text-transform:uppercase} .metric strong{font-size:28px} .severity-critical{--accent:var(--critical)} .severity-high{--accent:var(--high)} .severity-medium{--accent:var(--medium)} .severity-low{--accent:var(--low)} .severity-info{--accent:var(--info)} .metric[class*=severity-]{border-top-color:var(--accent)}
+.panel,.finding{background:var(--paper);border:1px solid var(--line);border-radius:16px;padding:24px;margin:16px 0;box-shadow:0 5px 16px #1018280c} h2{font-size:22px;margin:0 0 16px} h3{display:inline;font-size:17px;margin-left:10px} h4{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:#344054;margin:18px 0 7px}
+.summary-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px} table{width:100%;border-collapse:collapse} td{padding:9px;border-bottom:1px solid var(--line)} td:last-child{text-align:right;font-weight:800}
+.finding-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-start} .finding-number{font:700 12px ui-monospace,monospace;color:var(--brand)} .severity{padding:5px 10px;border-radius:999px;color:#fff;background:var(--accent,var(--info));font-size:11px;font-weight:800}
+.facts{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:18px 0} .facts div{background:#f9fafb;border-radius:10px;padding:12px} .facts span{display:block;color:var(--muted);font-size:11px;text-transform:uppercase} .facts strong{word-break:break-word}
+.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px} .cve{display:inline-block;margin:3px 5px 3px 0;padding:5px 9px;border-radius:7px;background:#eef4ff;color:#1849a9;text-decoration:none;font:700 12px ui-monospace,monospace}
+pre{white-space:pre-wrap;word-break:break-word;background:#101828;color:#e4e7ec;border-radius:10px;padding:14px;max-height:380px;overflow:auto} .evidence{background:#f8fafc;color:#344054;border:1px solid var(--line)} .recommendation{border-left:4px solid var(--brand);background:#f8faff;padding:14px 16px;margin:10px 0;border-radius:0 10px 10px 0} .recommendation-title{font-weight:800} .rec-meta,.muted{color:var(--muted)} footer{padding:28px 0;color:var(--muted);text-align:center}
+@media(max-width:900px){.metrics{grid-template-columns:repeat(2,1fr)}.facts{grid-template-columns:repeat(2,1fr)}.summary-grid,.detail-grid{grid-template-columns:1fr}}
+@media print{body{background:#fff}.page{width:100%;margin:0}.hero,.panel,.finding{box-shadow:none;break-inside:avoid}.hero{border-radius:0}a{color:inherit;text-decoration:none}}
+</style>
+</head>
+<body><main class="page">
+<header class="hero"><div class="eyebrow">PTAS · Security Assessment Report</div>
+<h1>PTAS training assessment - scan 46</h1>
+<p>Generated from the terminal-first student workflow</p>
+<div class="metadata"><span>Scan #46</span><span>QUICK</span><span>Status: COMPLETED</span><span>Generated: 2026-09-01T07:42:56.318893+00:00</span></div></header>
+<section class="metrics"><div class="metric"><span>Findings</span><strong>14</strong></div><div class="metric"><span>Recommendations</span><strong>5</strong></div><div class="metric severity-critical"><span>Critical</span><strong>0</strong></div><div class="metric severity-high"><span>High</span><strong>1</strong></div><div class="metric severity-medium"><span>Medium</span><strong>5</strong></div><div class="metric severity-low"><span>Low</span><strong>1</strong></div><div class="metric severity-info"><span>Info</span><strong>7</strong></div></section>
+<section class="panel"><h2>Executive summary</h2><div class="summary-grid"><div><p>This report contains evidence collected by PTAS from explicitly scoped assessment tools. Open services and database correlations are observations or candidates unless a finding explicitly states that an applicable check returned <strong>VULNERABLE</strong>.</p><p><strong>Targets:</strong> 192.168.121.130</p></div><div><table><tr><td>Exploit Db Reference</td><td>4</td></tr><tr><td>Exposed Service</td><td>10</td></tr></table></div></div></section>
+<section><h2>Detailed findings</h2>
+                <article class="finding">
+                  <div class="finding-head">
+                    <div><span class="finding-number">F-001</span><h3>FTP service exposed on port 21</h3></div>
+                    <span class="severity severity-medium">MEDIUM</span>
+                  </div>
+                  <div class="facts">
+                    <div><span>Target</span><strong>192.168.121.130:21</strong></div>
+                    <div><span>Service</span><strong>ftp</strong></div>
+                    <div><span>Type</span><strong>Exposed Service</strong></div>
+                    <div><span>Status</span><strong>OPEN</strong></div>
+                  </div>
+                  <div class="detail-grid">
+                    <section><h4>Detected version</h4><p>vsftpd 2.3.4</p></section>
+                    <section><h4>CVE references</h4><div class="cves"><span class="muted">No CVE reference</span></div></section>
+                  </div>
+                  <section><h4>Evidence and description</h4><pre class="evidence">FTP service exposed on port 21</pre></section>
+                  <section><h4>Remediation / verification note</h4><p>Not available</p></section>
+                  <section><h4>Recommendations</h4>
+                <div class="recommendation">
+                  <div class="recommendation-title">Recommendation 1: Guided service validation</div>
+                  <p>Collect FTP system and banner metadata for ftp on 192.168.121.130:21; record the evidence.</p>
+                  <div class="rec-meta">Risk: LOW · Priority: 3 · Status: PENDING_APPROVAL</div>
+                  <pre><code>nmap -Pn -sV -p 21 --script ftp-syst,banner --script-timeout 20s 192.168.121.130</code></pre>
+                </div></section>
+                </article>
+                <article class="finding">
+                  <div class="finding-head">
+                    <div><span class="finding-number">F-002</span><h3>SSH service exposed on port 22</h3></div>
+                    <span class="severity severity-info">INFO</span>
+                  </div>
+                  <div class="facts">
+                    <div><span>Target</span><strong>192.168.121.130:22</strong></div>
+                    <div><span>Service</span><strong>ssh</strong></div>
+                    <div><span>Type</span><strong>Exposed Service</strong></div>
+                    <div><span>Status</span><strong>OPEN</strong></div>
+                  </div>
+                  <div class="detail-grid">
+                    <section><h4>Detected version</h4><p>OpenSSH 4.7p1 Debian 8ubuntu1</p></section>
+                    <section><h4>CVE references</h4><div class="cves"><span class="muted">No CVE reference</span></div></section>
+                  </div>
+                  <section><h4>Evidence and description</h4><pre class="evidence">SSH service exposed on port 22</pre></section>
+                  <section><h4>Remediation / verification note</h4><p>Not available</p></section>
+                  <section><h4>Recommendations</h4><p class="muted">No stored validation recommendation for this finding.</p></section>
+                </article>
+                <article class="finding">
+                  <div class="finding-head">
+                    <div><span class="finding-number">F-003</span><h3>Telnet service exposed on port 23</h3></div>
+                    <span class="severity severity-high">HIGH</span>
+                  </div>
+                  <div class="facts">
+                    <div><span>Target</span><strong>192.168.121.130:23</strong></div>
+                    <div><span>Service</span><strong>telnet</strong></div>
+                    <div><span>Type</span><strong>Exposed Service</strong></div>
+                    <div><span>Status</span><strong>OPEN</strong></div>
+                  </div>
+                  <div class="detail-grid">
+                    <section><h4>Detected version</h4><p>Linux telnetd</p></section>
+                    <section><h4>CVE references</h4><div class="cves"><span class="muted">No CVE reference</span></div></section>
+                  </div>
+                  <section><h4>Evidence and description</h4><pre class="evidence">Telnet service exposed on port 23</pre></section>
+                  <section><h4>Remediation / verification note</h4><p>Not available</p></section>
+                  <section><h4>Recommendations</h4>
+                <div class="recommendation">
+                  <div class="recommendation-title">Recommendation 1: Guided service validation</div>
+                  <p>Collect the Telnet service banner for telnet on 192.168.121.130:23; record the evidence.</p>
+                  <div class="rec-meta">Risk: LOW · Priority: 3 · Status: PENDING_APPROVAL</div>
+                  <pre><code>nmap -Pn -sV -p 23 --script banner --script-timeout 20s 192.168.121.130</code></pre>
+                </div></section>
+                </article>
+                <article class="finding">
+                  <div class="finding-head">
+                    <div><span class="finding-number">F-004</span><h3>SMTP service exposed on port 25</h3></div>
+                    <span class="severity severity-low">LOW</span>
+                  </div>
+                  <div class="facts">
+                    <div><span>Target</span><strong>192.168.121.130:25</strong></div>
+                    <div><span>Service</span><strong>smtp</strong></div>
+                    <div><span>Type</span><strong>Exposed Service</strong></div>
+                    <div><span>Status</span><strong>OPEN</strong></div>
+                  </div>
+                  <div class="detail-grid">
+                    <section><h4>Detected version</h4><p>Postfix smtpd</p></section>
+                    <section><h4>CVE references</h4><div class="cves"><span class="muted">No CVE reference</span></div></section>
+                  </div>
+                  <section><h4>Evidence and description</h4><pre class="evidence">SMTP service exposed on port 25</pre></section>
+                  <section><h4>Remediation / verification note</h4><p>Not available</p></section>
+                  <section><h4>Recommendations</h4><p class="muted">No stored validation recommendation for this finding.</p></section>
+                </article>
+                <article class="finding">
+                  <div class="finding-head">
+                    <div><span class="finding-number">F-005</span><h3>DNS service exposed on port 53</h3></div>
+                    <span class="severity severity-info">INFO</span>
+                  </div>
+                  <div class="facts">
+                    <div><span>Target</span><strong>192.168.121.130:53</strong></div>
+                    <div><span>Service</span><strong>domain</strong></div>
+                    <div><span>Type</span><strong>Exposed Service</strong></div>
+                    <div><span>Status</span><strong>OPEN</strong></div>
+                  </div>
+                  <div class="detail-grid">
+                    <section><h4>Detected version</h4><p>ISC BIND 9.4.2</p></section>
+                    <section><h4>CVE references</h4><div class="cves"><span class="muted">No CVE reference</span></div></section>
+                  </div>
+                  <section><h4>Evidence and description</h4><pre class="evidence">DNS service exposed on port 53</pre></section>
+                  <section><h4>Remediation / verification note</h4><p>Not available</p></section>
+                  <section><h4>Recommendations</h4><p class="muted">No stored validation recommendation for this finding.</p></section>
+                </article>
+                <article class="finding">
+                  <div class="finding-head">
+                    <div><span class="finding-number">F-006</span><h3>HTTP service exposed on port 80</h3></div>
+                    <span class="severity severity-info">INFO</span>
+                  </div>
+                  <div class="facts">
+                    <div><span>Target</span><strong>192.168.121.130:80</strong></div>
+                    <div><span>Service</span><strong>http</strong></div>
+                    <div><span>Type</span><strong>Exposed Service</strong></div>
+                    <div><span>Status</span><strong>OPEN</strong></div>
+                  </div>
+                  <div class="detail-grid">
+                    <section><h4>Detected version</h4><p>Apache httpd 2.2.8</p></section>
+                    <section><h4>CVE references</h4><div class="cves"><span class="muted">No CVE reference</span></div></section>
+                  </div>
+                  <section><h4>Evidence and description</h4><pre class="evidence">HTTP service exposed on port 80</pre></section>
+                  <section><h4>Remediation / verification note</h4><p>Not available</p></section>
+                  <section><h4>Recommendations</h4><p class="muted">No stored validation recommendation for this finding.</p></section>
+                </article>
+                <article class="finding">
+                  <div class="finding-head">
+                    <div><span class="finding-number">F-007</span><h3>NetBIOS service exposed on port 139</h3></div>
+                    <span class="severity severity-medium">MEDIUM</span>
+                  </div>
+                  <div class="facts">
+                    <div><span>Target</span><strong>192.168.121.130:139</strong></div>
+                    <div><span>Service</span><strong>netbios-ssn</strong></div>
+                    <div><span>Type</span><strong>Exposed Service</strong></div>
+                    <div><span>Status</span><strong>OPEN</strong></div>
+                  </div>
+                  <div class="detail-grid">
+                    <section><h4>Detected version</h4><p>Samba smbd 3.X - 4.X</p></section>
+                    <section><h4>CVE references</h4><div class="cves"><span class="muted">No CVE reference</span></div></section>
+                  </div>
+                  <section><h4>Evidence and description</h4><pre class="evidence">NetBIOS service exposed on port 139</pre></section>
+                  <section><h4>Remediation / verification note</h4><p>Not available</p></section>
+                  <section><h4>Recommendations</h4>
+                <div class="recommendation">
+                  <div class="recommendation-title">Recommendation 1: Guided service validation</div>
+                  <p>Collect NetBIOS names and host metadata for netbios-ssn on 192.168.121.130:139; record the evidence.</p>
+                  <div class="rec-meta">Risk: LOW · Priority: 3 · Status: PENDING_APPROVAL</div>
+                  <pre><code>nmap -Pn -sV -p 139 --script nbstat --script-timeout 20s 192.168.121.130</code></pre>
+                </div></section>
+                </article>
+                <article class="finding">
+                  <div class="finding-head">
+                    <div><span class="finding-number">F-008</span><h3>SMB service exposed on port 445</h3></div>
+                    <span class="severity severity-medium">MEDIUM</span>
+                  </div>
+                  <div class="facts">
+                    <div><span>Target</span><strong>192.168.121.130:445</strong></div>
+                    <div><span>Service</span><strong>netbios-ssn</strong></div>
+                    <div><span>Type</span><strong>Exposed Service</strong></div>
+                    <div><span>Status</span><strong>OPEN</strong></div>
+                  </div>
+                  <div class="detail-grid">
+                    <section><h4>Detected version</h4><p>Samba smbd 3.X - 4.X</p></section>
+                    <section><h4>CVE references</h4><div class="cves"><span class="muted">No CVE reference</span></div></section>
+                  </div>
+                  <section><h4>Evidence and description</h4><pre class="evidence">SMB service exposed on port 445</pre></section>
+                  <section><h4>Remediation / verification note</h4><p>Not available</p></section>
+                  <section><h4>Recommendations</h4>
+                <div class="recommendation">
+                  <div class="recommendation-title">Recommendation 1: Guided service validation</div>
+                  <p>Review supported SMB dialects and security mode for netbios-ssn on 192.168.121.130:445; record the evidence.</p>
+                  <div class="rec-meta">Risk: LOW · Priority: 3 · Status: PENDING_APPROVAL</div>
+                  <pre><code>nmap -Pn -sV -p 445 --script smb-protocols,smb-security-mode --script-timeout 20s 192.168.121.130</code></pre>
+                </div></section>
+                </article>
+                <article class="finding">
+                  <div class="finding-head">
+                    <div><span class="finding-number">F-009</span><h3>MySQL service exposed on port 3306</h3></div>
+                    <span class="severity severity-medium">MEDIUM</span>
+                  </div>
+                  <div class="facts">
+                    <div><span>Target</span><strong>192.168.121.130:3306</strong></div>
+                    <div><span>Service</span><strong>mysql</strong></div>
+                    <div><span>Type</span><strong>Exposed Service</strong></div>
+                    <div><span>Status</span><strong>OPEN</strong></div>
+                  </div>
+                  <div class="detail-grid">
+                    <section><h4>Detected version</h4><p>MySQL 5.0.51a-3ubuntu5</p></section>
+                    <section><h4>CVE references</h4><div class="cves"><span class="muted">No CVE reference</span></div></section>
+                  </div>
+                  <section><h4>Evidence and description</h4><pre class="evidence">MySQL service exposed on port 3306</pre></section>
+                  <section><h4>Remediation / verification note</h4><p>Not available</p></section>
+                  <section><h4>Recommendations</h4>
+                <div class="recommendation">
+                  <div class="recommendation-title">Recommendation 1: Guided service validation</div>
+                  <p>Collect MySQL protocol and version metadata for mysql on 192.168.121.130:3306; record the evidence.</p>
+                  <div class="rec-meta">Risk: LOW · Priority: 3 · Status: PENDING_APPROVAL</div>
+                  <pre><code>nmap -Pn -sV -p 3306 --script mysql-info --script-timeout 20s 192.168.121.130</code></pre>
+                </div></section>
+                </article>
+                <article class="finding">
+                  <div class="finding-head">
+                    <div><span class="finding-number">F-010</span><h3>PostgreSQL service exposed on port 5432</h3></div>
+                    <span class="severity severity-medium">MEDIUM</span>
+                  </div>
+                  <div class="facts">
+                    <div><span>Target</span><strong>192.168.121.130:5432</strong></div>
+                    <div><span>Service</span><strong>postgresql</strong></div>
+                    <div><span>Type</span><strong>Exposed Service</strong></div>
+                    <div><span>Status</span><strong>OPEN</strong></div>
+                  </div>
+                  <div class="detail-grid">
+                    <section><h4>Detected version</h4><p>PostgreSQL DB 8.3.0 - 8.3.7</p></section>
+                    <section><h4>CVE references</h4><div class="cves"><span class="muted">No CVE reference</span></div></section>
+                  </div>
+                  <section><h4>Evidence and description</h4><pre class="evidence">PostgreSQL service exposed on port 5432</pre></section>
+                  <section><h4>Remediation / verification note</h4><p>Not available</p></section>
+                  <section><h4>Recommendations</h4><p class="muted">No stored validation recommendation for this finding.</p></section>
+                </article>
+                <article class="finding">
+                  <div class="finding-head">
+                    <div><span class="finding-number">F-011</span><h3>EDB-17491 (verified entry): vsftpd 2.3.4 - Backdoor Command Execution (Metasploit)</h3></div>
+                    <span class="severity severity-info">INFO</span>
+                  </div>
+                  <div class="facts">
+                    <div><span>Target</span><strong>192.168.121.130:21</strong></div>
+                    <div><span>Service</span><strong>ftp</strong></div>
+                    <div><span>Type</span><strong>Exploit Db Reference</strong></div>
+                    <div><span>Status</span><strong>OPEN</strong></div>
+                  </div>
+                  <div class="detail-grid">
+                    <section><h4>Detected version</h4><p>vsftpd 2.3.4</p></section>
+                    <section><h4>CVE references</h4><div class="cves"><a class="cve" href="https://nvd.nist.gov/vuln/detail/CVE-2011-2523">CVE-2011-2523</a></div></section>
+                  </div>
+                  <section><h4>Evidence and description</h4><pre class="evidence">EDB-17491 (verified entry): vsftpd 2.3.4 - Backdoor Command Execution (Metasploit)</pre></section>
+                  <section><h4>Remediation / verification note</h4><p>Research reference only. Confirm the exact product build, distribution backports, affected configuration, and vendor advisory before treating any listed CVE as applicable.</p></section>
+                  <section><h4>Recommendations</h4><p class="muted">No stored validation recommendation for this finding.</p></section>
+                </article>
+                <article class="finding">
+                  <div class="finding-head">
+                    <div><span class="finding-number">F-012</span><h3>EDB-49757 (verified entry): vsftpd 2.3.4 - Backdoor Command Execution</h3></div>
+                    <span class="severity severity-info">INFO</span>
+                  </div>
+                  <div class="facts">
+                    <div><span>Target</span><strong>192.168.121.130:21</strong></div>
+                    <div><span>Service</span><strong>ftp</strong></div>
+                    <div><span>Type</span><strong>Exploit Db Reference</strong></div>
+                    <div><span>Status</span><strong>OPEN</strong></div>
+                  </div>
+                  <div class="detail-grid">
+                    <section><h4>Detected version</h4><p>vsftpd 2.3.4</p></section>
+                    <section><h4>CVE references</h4><div class="cves"><a class="cve" href="https://nvd.nist.gov/vuln/detail/CVE-2011-2523">CVE-2011-2523</a></div></section>
+                  </div>
+                  <section><h4>Evidence and description</h4><pre class="evidence">EDB-49757 (verified entry): vsftpd 2.3.4 - Backdoor Command Execution</pre></section>
+                  <section><h4>Remediation / verification note</h4><p>Research reference only. Confirm the exact product build, distribution backports, affected configuration, and vendor advisory before treating any listed CVE as applicable.</p></section>
+                  <section><h4>Recommendations</h4><p class="muted">No stored validation recommendation for this finding.</p></section>
+                </article>
+                <article class="finding">
+                  <div class="finding-head">
+                    <div><span class="finding-number">F-013</span><h3>EDB-52524 (unverified entry): GNU InetUtils 2.6 - Telnetd Remote Privilege Escalation</h3></div>
+                    <span class="severity severity-info">INFO</span>
+                  </div>
+                  <div class="facts">
+                    <div><span>Target</span><strong>192.168.121.130:23</strong></div>
+                    <div><span>Service</span><strong>telnet</strong></div>
+                    <div><span>Type</span><strong>Exploit Db Reference</strong></div>
+                    <div><span>Status</span><strong>OPEN</strong></div>
+                  </div>
+                  <div class="detail-grid">
+                    <section><h4>Detected version</h4><p>Linux telnetd</p></section>
+                    <section><h4>CVE references</h4><div class="cves"><a class="cve" href="https://nvd.nist.gov/vuln/detail/CVE-2026-24061">CVE-2026-24061</a></div></section>
+                  </div>
+                  <section><h4>Evidence and description</h4><pre class="evidence">EDB-52524 (unverified entry): GNU InetUtils 2.6 - Telnetd Remote Privilege Escalation</pre></section>
+                  <section><h4>Remediation / verification note</h4><p>Research reference only. Confirm the exact product build, distribution backports, affected configuration, and vendor advisory before treating any listed CVE as applicable.</p></section>
+                  <section><h4>Recommendations</h4><p class="muted">No stored validation recommendation for this finding.</p></section>
+                </article>
+                <article class="finding">
+                  <div class="finding-head">
+                    <div><span class="finding-number">F-014</span><h3>EDB-18280 (verified entry): TelnetD encrypt_keyid - Function Pointer Overwrite</h3></div>
+                    <span class="severity severity-info">INFO</span>
+                  </div>
+                  <div class="facts">
+                    <div><span>Target</span><strong>192.168.121.130:23</strong></div>
+                    <div><span>Service</span><strong>telnet</strong></div>
+                    <div><span>Type</span><strong>Exploit Db Reference</strong></div>
+                    <div><span>Status</span><strong>OPEN</strong></div>
+                  </div>
+                  <div class="detail-grid">
+                    <section><h4>Detected version</h4><p>Linux telnetd</p></section>
+                    <section><h4>CVE references</h4><div class="cves"><a class="cve" href="https://nvd.nist.gov/vuln/detail/CVE-2011-4862">CVE-2011-4862</a></div></section>
+                  </div>
+                  <section><h4>Evidence and description</h4><pre class="evidence">EDB-18280 (verified entry): TelnetD encrypt_keyid - Function Pointer Overwrite</pre></section>
+                  <section><h4>Remediation / verification note</h4><p>Research reference only. Confirm the exact product build, distribution backports, affected configuration, and vendor advisory before treating any listed CVE as applicable.</p></section>
+                  <section><h4>Recommendations</h4><p class="muted">No stored validation recommendation for this finding.</p></section>
+                </article></section>
+<footer>Generated by the AI-Powered Penetration Testing Assist System · Validate all findings before remediation or further testing.</footer>
+</main></body></html>

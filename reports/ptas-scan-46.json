@@ -1,0 +1,272 @@
+{
+  "report_metadata": {
+    "title": "PTAS training assessment - scan 46",
+    "description": "Generated from the terminal-first student workflow",
+    "generated_at": "2026-09-01T07:42:56.318893+00:00",
+    "scan_id": 46,
+    "scan_type": "QUICK",
+    "scan_status": "COMPLETED"
+  },
+  "summary": {
+    "total_vulnerabilities": 14,
+    "total_recommendations": 5
+  },
+  "vulnerabilities": [
+    {
+      "id": 632,
+      "host": "192.168.121.130",
+      "port": 21,
+      "service": "ftp",
+      "type": "EXPOSED_SERVICE",
+      "severity": "MEDIUM",
+      "description": "FTP service exposed on port 21",
+      "version": "vsftpd 2.3.4",
+      "cves": null,
+      "remediation": null,
+      "status": "OPEN",
+      "recommendations": [
+        {
+          "id": 69,
+          "attack_technique": "Guided service validation",
+          "mitre_technique_id": "T1046",
+          "exploitation_method": "Collect FTP system and banner metadata for ftp on 192.168.121.130:21; record the evidence.",
+          "risk_level": "LOW",
+          "priority": 3,
+          "status": "PENDING_APPROVAL",
+          "tools_required": "nmap",
+          "execution_steps": "nmap -Pn -sV -p 21 --script ftp-syst,banner --script-timeout 20s 192.168.121.130"
+        }
+      ]
+    },
+    {
+      "id": 633,
+      "host": "192.168.121.130",
+      "port": 22,
+      "service": "ssh",
+      "type": "EXPOSED_SERVICE",
+      "severity": "INFO",
+      "description": "SSH service exposed on port 22",
+      "version": "OpenSSH 4.7p1 Debian 8ubuntu1",
+      "cves": null,
+      "remediation": null,
+      "status": "OPEN",
+      "recommendations": []
+    },
+    {
+      "id": 634,
+      "host": "192.168.121.130",
+      "port": 23,
+      "service": "telnet",
+      "type": "EXPOSED_SERVICE",
+      "severity": "HIGH",
+      "description": "Telnet service exposed on port 23",
+      "version": "Linux telnetd",
+      "cves": null,
+      "remediation": null,
+      "status": "OPEN",
+      "recommendations": [
+        {
+          "id": 68,
+          "attack_technique": "Guided service validation",
+          "mitre_technique_id": "T1046",
+          "exploitation_method": "Collect the Telnet service banner for telnet on 192.168.121.130:23; record the evidence.",
+          "risk_level": "LOW",
+          "priority": 3,
+          "status": "PENDING_APPROVAL",
+          "tools_required": "nmap",
+          "execution_steps": "nmap -Pn -sV -p 23 --script banner --script-timeout 20s 192.168.121.130"
+        }
+      ]
+    },
+    {
+      "id": 635,
+      "host": "192.168.121.130",
+      "port": 25,
+      "service": "smtp",
+      "type": "EXPOSED_SERVICE",
+      "severity": "LOW",
+      "description": "SMTP service exposed on port 25",
+      "version": "Postfix smtpd",
+      "cves": null,
+      "remediation": null,
+      "status": "OPEN",
+      "recommendations": []
+    },
+    {
+      "id": 636,
+      "host": "192.168.121.130",
+      "port": 53,
+      "service": "domain",
+      "type": "EXPOSED_SERVICE",
+      "severity": "INFO",
+      "description": "DNS service exposed on port 53",
+      "version": "ISC BIND 9.4.2",
+      "cves": null,
+      "remediation": null,
+      "status": "OPEN",
+      "recommendations": []
+    },
+    {
+      "id": 637,
+      "host": "192.168.121.130",
+      "port": 80,
+      "service": "http",
+      "type": "EXPOSED_SERVICE",
+      "severity": "INFO",
+      "description": "HTTP service exposed on port 80",
+      "version": "Apache httpd 2.2.8",
+      "cves": null,
+      "remediation": null,
+      "status": "OPEN",
+      "recommendations": []
+    },
+    {
+      "id": 638,
+      "host": "192.168.121.130",
+      "port": 139,
+      "service": "netbios-ssn",
+      "type": "EXPOSED_SERVICE",
+      "severity": "MEDIUM",
+      "description": "NetBIOS service exposed on port 139",
+      "version": "Samba smbd 3.X - 4.X",
+      "cves": null,
+      "remediation": null,
+      "status": "OPEN",
+      "recommendations": [
+        {
+          "id": 70,
+          "attack_technique": "Guided service validation",
+          "mitre_technique_id": "T1046",
+          "exploitation_method": "Collect NetBIOS names and host metadata for netbios-ssn on 192.168.121.130:139; record the evidence.",
+          "risk_level": "LOW",
+          "priority": 3,
+          "status": "PENDING_APPROVAL",
+          "tools_required": "nmap",
+          "execution_steps": "nmap -Pn -sV -p 139 --script nbstat --script-timeout 20s 192.168.121.130"
+        }
+      ]
+    },
+    {
+      "id": 639,
+      "host": "192.168.121.130",
+      "port": 445,
+      "service": "netbios-ssn",
+      "type": "EXPOSED_SERVICE",
+      "severity": "MEDIUM",
+      "description": "SMB service exposed on port 445",
+      "version": "Samba smbd 3.X - 4.X",
+      "cves": null,
+      "remediation": null,
+      "status": "OPEN",
+      "recommendations": [
+        {
+          "id": 71,
+          "attack_technique": "Guided service validation",
+          "mitre_technique_id": "T1046",
+          "exploitation_method": "Review supported SMB dialects and security mode for netbios-ssn on 192.168.121.130:445; record the evidence.",
+          "risk_level": "LOW",
+          "priority": 3,
+          "status": "PENDING_APPROVAL",
+          "tools_required": "nmap",
+          "execution_steps": "nmap -Pn -sV -p 445 --script smb-protocols,smb-security-mode --script-timeout 20s 192.168.121.130"
+        }
+      ]
+    },
+    {
+      "id": 640,
+      "host": "192.168.121.130",
+      "port": 3306,
+      "service": "mysql",
+      "type": "EXPOSED_SERVICE",
+      "severity": "MEDIUM",
+      "description": "MySQL service exposed on port 3306",
+      "version": "MySQL 5.0.51a-3ubuntu5",
+      "cves": null,
+      "remediation": null,
+      "status": "OPEN",
+      "recommendations": [
+        {
+          "id": 72,
+          "attack_technique": "Guided service validation",
+          "mitre_technique_id": "T1046",
+          "exploitation_method": "Collect MySQL protocol and version metadata for mysql on 192.168.121.130:3306; record the evidence.",
+          "risk_level": "LOW",
+          "priority": 3,
+          "status": "PENDING_APPROVAL",
+          "tools_required": "nmap",
+          "execution_steps": "nmap -Pn -sV -p 3306 --script mysql-info --script-timeout 20s 192.168.121.130"
+        }
+      ]
+    },
+    {
+      "id": 641,
+      "host": "192.168.121.130",
+      "port": 5432,
+      "service": "postgresql",
+      "type": "EXPOSED_SERVICE",
+      "severity": "MEDIUM",
+      "description": "PostgreSQL service exposed on port 5432",
+      "version": "PostgreSQL DB 8.3.0 - 8.3.7",
+      "cves": null,
+      "remediation": null,
+      "status": "OPEN",
+      "recommendations": []
+    },
+    {
+      "id": 689,
+      "host": "192.168.121.130",
+      "port": 21,
+      "service": "ftp",
+      "type": "EXPLOIT_DB_REFERENCE",
+      "severity": "INFO",
+      "description": "EDB-17491 (verified entry): vsftpd 2.3.4 - Backdoor Command Execution (Metasploit)",
+      "version": "vsftpd 2.3.4",
+      "cves": "CVE-2011-2523",
+      "remediation": "Research reference only. Confirm the exact product build, distribution backports, affected configuration, and vendor advisory before treating any listed CVE as applicable.",
+      "status": "OPEN",
+      "recommendations": []
+    },
+    {
+      "id": 690,
+      "host": "192.168.121.130",
+      "port": 21,
+      "service": "ftp",
+      "type": "EXPLOIT_DB_REFERENCE",
+      "severity": "INFO",
+      "description": "EDB-49757 (verified entry): vsftpd 2.3.4 - Backdoor Command Execution",
+      "version": "vsftpd 2.3.4",
+      "cves": "CVE-2011-2523",
+      "remediation": "Research reference only. Confirm the exact product build, distribution backports, affected configuration, and vendor advisory before treating any listed CVE as applicable.",
+      "status": "OPEN",
+      "recommendations": []
+    },
+    {
+      "id": 691,
+      "host": "192.168.121.130",
+      "port": 23,
+      "service": "telnet",
+      "type": "EXPLOIT_DB_REFERENCE",
+      "severity": "INFO",
+      "description": "EDB-52524 (unverified entry): GNU InetUtils 2.6 - Telnetd Remote Privilege Escalation",
+      "version": "Linux telnetd",
+      "cves": "CVE-2026-24061",
+      "remediation": "Research reference only. Confirm the exact product build, distribution backports, affected configuration, and vendor advisory before treating any listed CVE as applicable.",
+      "status": "OPEN",
+      "recommendations": []
+    },
+    {
+      "id": 692,
+      "host": "192.168.121.130",
+      "port": 23,
+      "service": "telnet",
+      "type": "EXPLOIT_DB_REFERENCE",
+      "severity": "INFO",
+      "description": "EDB-18280 (verified entry): TelnetD encrypt_keyid - Function Pointer Overwrite",
+      "version": "Linux telnetd",
+      "cves": "CVE-2011-4862",
+      "remediation": "Research reference only. Confirm the exact product build, distribution backports, affected configuration, and vendor advisory before treating any listed CVE as applicable.",
+      "status": "OPEN",
+      "recommendations": []
+    }
+  ]
+}

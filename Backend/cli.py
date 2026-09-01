@@ -292,7 +292,24 @@ def _report_command(args: argparse.Namespace) -> int:
 
     from Backend.terminal_workflow import save_report
 
-    return save_report(args.scan_id, Path(args.output))
+    positional_scan_id = args.scan_id
+    option_scan_id = args.scan_id_option
+    if positional_scan_id is None and option_scan_id is None:
+        raise SystemExit("ptas report requires a scan ID, for example: ptas report 46")
+    if (
+        positional_scan_id is not None
+        and option_scan_id is not None
+        and positional_scan_id != option_scan_id
+    ):
+        raise SystemExit("positional scan ID and --scan-id must match when both are supplied")
+
+    scan_id = positional_scan_id if positional_scan_id is not None else option_scan_id
+    output = (
+        Path(args.output)
+        if args.output
+        else Path("reports") / f"ptas-scan-{scan_id}.json"
+    )
+    return save_report(scan_id, output)
 
 
 # Display the next stored validation recommendation for a completed scan.
@@ -405,8 +422,22 @@ def build_parser() -> argparse.ArgumentParser:
         "report",
         help="Generate and save a completed scan report",
     )
-    report_parser.add_argument("--scan-id", type=int, required=True)
-    report_parser.add_argument("--output", required=True)
+    report_parser.add_argument(
+        "scan_id",
+        nargs="?",
+        type=int,
+        help="Completed scan ID; defaults output to reports/ptas-scan-ID.json",
+    )
+    report_parser.add_argument(
+        "--scan-id",
+        dest="scan_id_option",
+        type=int,
+        help="Completed scan ID (legacy explicit form)",
+    )
+    report_parser.add_argument(
+        "--output",
+        help="Custom JSON output path; the HTML report uses the same basename",
+    )
     report_parser.set_defaults(func=_report_command)
 
     recommend_parser = subparsers.add_parser(
