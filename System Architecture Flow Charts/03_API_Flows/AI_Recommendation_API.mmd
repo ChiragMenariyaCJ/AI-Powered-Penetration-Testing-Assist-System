@@ -5,15 +5,34 @@ flowchart TD
 
     D --> E{Local Ollama provider configured?}
     E -->|Yes| F[Request up to three evidence-only suggestions]
-    F -->|Advisor failure or no usable result| G[Create deterministic safe fallback]
-    E -->|No| G
+    E -->|No| G[Return 201 with an empty recommendation collection]
+    F --> H{Usable Ollama output returned?}
+    H -->|No| G
+    H -->|Yes| I[Filter output through safety and scope rules]
+    I --> J{Output accepted?}
+    J -->|No| G
+    J -->|Yes| K[Format risk, priority, likelihood,<br/>impact, confidence and manual steps]
+    K --> L[Persist recommendation with PENDING_APPROVAL status]
+    L --> M[(recommendations table)]
+    M --> N[Return 201 recommendation collection]
 
-    F --> H[Filter suggestions through safety and scope rules]
-    G --> H
-    H --> I[Format risk, priority, likelihood,<br/>impact, confidence and manual steps]
-    I --> J[Persist recommendation with PENDING_APPROVAL status]
-    J --> K[(recommendations table)]
-    K --> L[Return 201 recommendation collection]
+    CA["CLI: ./ptas.sh recommend --scan-id ID --all"] --> CB[Load every stored finding for the scan]
+    CB --> CC[Skip findings already covered by an active validated Ollama recommendation]
+    CC --> CD{Any uncovered findings?}
+    CD -->|No| CM[Display genuine coverage and any missing finding IDs]
+    CD -->|Yes| CE[Split uncovered findings into small batches]
+    CE --> CF[Request strict JSON from local Ollama<br/>with one item for each finding ID]
+    CF --> CG{Model response available?}
+    CG -->|No| CL[Keep finding uncovered and display safe failure]
+    CG -->|Yes| CH[Validate finding ID, exact target,<br/>tool allowlist, safety and service port]
+    CH --> CI{Recommendation accepted?}
+    CI -->|No| CL
+    CI -->|Yes| CJ[Persist as realtime-ollama<br/>with PENDING_APPROVAL status]
+    CJ --> CK{More batches in this run?}
+    CL --> CK
+    CK -->|Yes| CE
+    CK -->|No| CM[Display genuine coverage and any missing finding IDs]
 
-    NOTE[The engine does not map CWE or OWASP fields<br/>and does not execute the recommendation]
-    NOTE -.-> H
+    NOTE[There is no static or rule-based recommendation fallback.<br/>Recommendations remain advisory and PTAS never executes them.]
+    NOTE -.-> G
+    NOTE -.-> CH

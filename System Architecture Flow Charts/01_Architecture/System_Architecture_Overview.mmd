@@ -9,7 +9,7 @@ flowchart TB
     subgraph ANALYSIS["Security Analysis Layer"]
         C["Nmap and<br/>Service Checks"]
         D["Finding Parser and<br/>CVE Correlation"]
-        E["Ollama LLM or<br/>Rule-Based Engine"]
+        E["Local Ollama Advisor<br/>and Safety Validator"]
     end
 
     subgraph CONTROL["Human-Controlled Output"]
@@ -34,3 +34,6 @@ flowchart TB
     D <--> DB
     E <--> DB
     G <--> DB
+
+    NOTE[No static recommendation fallback.<br/>All suggested commands require human review.]
+    NOTE -.-> E

@@ -17,10 +17,11 @@ flowchart TD
     O -->|Valid| Q[Update export format and timestamp]
     Q --> R[Return export metadata]
 
-    S[CLI: ./ptas.sh report --scan-id ID] --> T[Generate database report content]
-    T --> U[Write JSON report]
-    U --> V[Render standalone HTML report]
-    V --> W[Optional browser Print to PDF]
+    S[CLI: ptas report ID] --> T[Load the scan, findings and active Ollama recommendations]
+    T --> U[Generate and persist database report content]
+    U --> V[Write reports/ptas-scan-ID.json]
+    V --> W[Render reports/ptas-scan-ID.html]
+    W --> X[Optional browser Print to PDF]
 
     NOTE[The API export endpoint records export metadata;<br/>the terminal report command writes the JSON and HTML files]
     NOTE -.-> R

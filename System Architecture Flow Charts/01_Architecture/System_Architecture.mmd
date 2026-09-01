@@ -19,21 +19,34 @@ flowchart TD
 
     N --> O{Local Ollama configured?}
     O -->|Yes| P[Generate evidence-based suggestions]
-    O -->|No| Q[Generate deterministic rules fallback]
+    O -->|No| Q[Store no recommendation and report Ollama unavailable]
     P --> R[Apply independent scope and command safety validation]
-    Q --> R
-    R --> S[Persist reviewable recommendations]
+    R -->|Accepted| S[Persist as PENDING_APPROVAL]
+    R -->|Rejected| Q
 
-    S --> T[Display recommendations in read-only pane]
+    S --> T[Display recommendation status and commands in read-only pane]
+    Q --> T
+    T --> ALL[Student requests recommendations for all uncovered findings]
+    ALL --> BATCH[Generate small Ollama batches tied to exact finding IDs]
+    BATCH --> CHECK[Validate exact target, tool, command safety and service port]
+    CHECK -->|Accepted| S
+    CHECK -->|Rejected or unavailable| SAFE[Keep finding uncovered and display safe failure]
     T --> U[Student manually runs an allowed command in left shell]
     U --> V[Sanitize and analyze completed terminal output]
-    V --> W[Offer next validated recommendation]
-    W --> U
+    V --> W{New validated Ollama command available?}
+    W -->|Yes| U
+    W -->|No| SAFE
 
     S --> X{Exact registered Metasploitable 2 lab verified?}
     X -->|Yes| Y[Offer separate access-test command and confirmation gate]
     X -->|No| Z[Keep evidence-only recommendation policy]
 
-    S --> AA[Generate scan-specific JSON and HTML report]
-    AA --> AB[Optionally print HTML to PDF in browser]
-    AB --> AC([End])
+    S --> AA[Run ptas report ID]
+    SAFE --> AA
+    AA --> AB[Generate scan-specific JSON and HTML report]
+    AB --> PRINT[Optionally print HTML to PDF in browser]
+    PRINT --> AC([End])
+
+    NOTE[There is no static recommendation fallback.<br/>PTAS never automatically executes an AI-generated command.]
+    NOTE -.-> Q
+    NOTE -.-> CHECK

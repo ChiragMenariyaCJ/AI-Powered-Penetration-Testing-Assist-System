@@ -27,25 +27,44 @@ flowchart TD
     U --> V[Load final stored findings]
 
     V --> W{Local Ollama ready?}
-    W -->|Yes| X[Generate evidence-based commands from findings]
-    W -->|No| Y[Generate deterministic rules fallback]
+    W -->|Yes| X[Generate initial evidence-based commands from findings]
+    W -->|No| Y[Store no recommendation and display Ollama unavailable]
     X --> Z[Validate tool allowlist, exact scope and command safety]
-    Y --> Z
-    Z --> AA[Persist safe recommendations]
-    AA --> AB[Send recommendation and report commands to right pane]
+    Z -->|Accepted| AA[Persist recommendations as PENDING_APPROVAL]
+    Z -->|Rejected| Y
+    AA --> AB[Send --all recommendation and short report commands to right pane]
+    Y --> AB
+
+    AB --> BA[Student runs recommend --scan-id ID --all]
+    BA --> BB[Load every uncovered finding]
+    BB --> BC[Generate Ollama recommendations in small batches]
+    BC --> BD[Validate finding ID, target, safety and service port]
+    BD -->|Accepted| BE[Persist as PENDING_APPROVAL]
+    BD -->|Rejected or unavailable| BF[Leave finding uncovered and report the reason]
+    BE --> BG{More batches in this run?}
+    BF --> BG
+    BG -->|Yes| BC
+    BG -->|No| BH[Display genuine recommendation coverage]
 
     AB --> AC[Left pane becomes normal shell]
+    AC --> BA
+    BH --> AC
     AC --> AD[Student manually runs a displayed command]
     AD --> AE[Dashboard waits for returned shell prompt]
     AE --> AF[Sanitize and analyze completed output]
     AF --> AG{Valid next step available?}
-    AG -->|Yes| AH[Display adaptive or safety fallback command]
+    AG -->|Yes| AH[Display validated adaptive Ollama recommendation]
     AH --> AD
-    AG -->|No| AI{Verified Metasploitable 2 lab?}
+    AG -->|No or repeated command| AI{Verified Metasploitable 2 lab?}
     AI -->|Yes| AJ[Offer separate access-test command and confirmation gate]
-    AI -->|No| AK[Stop recommendation sequence]
+    AI -->|No| AK[Display NO SAFE MODEL RECOMMENDATION and stop]
 
-    AA --> AL[Run scan-specific report command]
+    AA --> AL[Run ptas report ID]
+    BH --> AL
     AL --> AM[Save JSON report and render HTML]
     AM --> AN[Optionally print HTML to PDF]
     AN --> AO([Assessment complete])
+
+    NOTE[No rule-based fallback is used.<br/>Suggested commands require human review and are never auto-executed.]
+    NOTE -.-> Y
+    NOTE -.-> BD
