@@ -2,16 +2,14 @@
 
 set -euo pipefail
 
-# Register a Metasploitable 2 VMware guest by IP from inside the Kali guest.
-# Rerunning this script with the same lab name safely replaces the old IP/MAC
-# registration when VMware DHCP assigns a different address.
+# This script registers the authorised Metasploitable 2 VM.
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")"; pwd)"
 TARGET_IP="${PTAS_METASPLOITABLE_IP:-192.168.121.130}"
 LAB_NAME="${PTAS_METASPLOITABLE_LAB:-msf2-local}"
 SCAN_ID=""
 
-# Print command usage, supported options, and examples without changing project state.
+# Show the available setup options.
 show_help() {
     cat <<'HELP'
 Usage:
@@ -33,7 +31,7 @@ through PTAS_METASPLOITABLE_LAB.
 HELP
 }
 
-# Parse explicit arguments after loading optional environment defaults.
+# Read the supplied command options.
 while [ "$#" -gt 0 ]; do
     case "$1" in
         --target)
@@ -63,7 +61,7 @@ while [ "$#" -gt 0 ]; do
     esac
 done
 
-# Validate values before using them in paths, commands, or the .env file.
+# Check every value before using it.
 if [ -z "$TARGET_IP" ]; then
     echo "Provide the current Metasploitable IP with --target IP." >&2
     exit 2
@@ -91,8 +89,7 @@ if [ ! -x "$PROJECT_DIR/.venv/bin/python" ]; then
     exit 1
 fi
 
-# Ping populates Kali's neighbor table so PTAS can pin the exact VMware MAC.
-# This step does not scan or change anything on the target.
+# Ping once so Kali can read the VM MAC address without changing the target.
 echo "[PTAS] Checking Metasploitable connectivity at $TARGET_IP..."
 if ! ping -c 1 -W 3 -- "$TARGET_IP" >/dev/null 2>&1; then
     echo "Could not reach $TARGET_IP. Start the VM and check its host-only IP." >&2
@@ -106,20 +103,18 @@ else
     echo "[PTAS] Creating lab '$LAB_NAME' for $TARGET_IP."
 fi
 
-# vmware-network is designed for Kali and Metasploitable running as separate
-# guests. It does not require the physical host's inaccessible .vmx path.
+# Use VMware network checks when both systems are separate guests.
 "$PROJECT_DIR/ptas.sh" lab-register \
     --name "$LAB_NAME" \
     --provider vmware-network \
     --target "$TARGET_IP"
 "$PROJECT_DIR/ptas.sh" lab-check --name "$LAB_NAME"
 
-# Store only the non-secret lab selection. Rerunning with another IP updates
-# both these values and the manifest while preserving unrelated .env settings.
+# Save only the non-secret lab name and IP address.
 if [ ! -f .env ]; then
     cp .env.example .env
 fi
-# Update one non-secret .env value while preserving every unrelated student setting.
+# Update one .env value without changing the others.
 set_env_value() {
     local key="$1"
     local value="$2"
@@ -136,7 +131,7 @@ echo "[PTAS] Metasploitable registration is ready."
 echo "[PTAS] Lab: $LAB_NAME"
 echo "[PTAS] Target: $TARGET_IP"
 
-# A scan ID is optional because a new installation may not have scanned yet.
+# Allow setup before the first scan has been created.
 if [ -n "$SCAN_ID" ]; then
     "$PROJECT_DIR/ptas.sh" access-test --scan-id "$SCAN_ID" --lab "$LAB_NAME"
 else

@@ -1,5 +1,5 @@
-"""Business rules for creating and managing scan records."""
 
+# This file handles scan usecase.
 from fastapi import HTTPException, status
 
 from Backend.api_logging import trace_usecase
@@ -7,14 +7,11 @@ from Backend.repositories.target_repository import TargetRepository
 from Backend.repositories.scan_repository import ScanRepository
 
 
+# Handle the scan use case.
 @trace_usecase
 class ScanUseCase:
 
-    """Apply scan business rules between controllers and persistence.
-
-    The use case validates related state and coordinates repositories or services.
-    """
-    # Store the repositories and services used to enforce this feature’s business rules.
+    # Set up this object.
     def __init__(
         self,
         scan_repository: ScanRepository,
@@ -23,13 +20,8 @@ class ScanUseCase:
         self.scan_repository = scan_repository
         self.target_repository = target_repository
 
-    # Validate related records and coordinate repositories to create scan.
+    # Create scan.
     def create_scan(self, request):
-        """Apply business validation and orchestration needed to create scan.
-
-        Invalid related records or state produce a clear HTTP error; valid work is
-        delegated to repositories or services.
-        """
         target = self.target_repository.get_target_by_id(request.target_id)
 
         if not target:
@@ -45,13 +37,8 @@ class ScanUseCase:
             status=request.status,
         )
 
-    # Validate related records and coordinate repositories to get all scans.
+    # Get all scans.
     def get_all_scans(self, target_id: int | None = None):
-        """Apply business validation and orchestration needed to get all scans.
-
-        Invalid related records or state produce a clear HTTP error; valid work is
-        delegated to repositories or services.
-        """
         if target_id is not None:
             target = self.target_repository.get_target_by_id(target_id)
 
@@ -70,13 +57,8 @@ class ScanUseCase:
             "scans": scans,
         }
 
-    # Validate related records and coordinate repositories to get scan by id.
+    # Get scan by ID.
     def get_scan_by_id(self, scan_id: int):
-        """Apply business validation and orchestration needed to get scan by id.
-
-        Invalid related records or state produce a clear HTTP error; valid work is
-        delegated to repositories or services.
-        """
         scan = self.scan_repository.get_scan_by_id(scan_id)
 
         if not scan:
@@ -87,13 +69,8 @@ class ScanUseCase:
 
         return scan
 
-    # Validate related records and coordinate repositories to update scan.
+    # Update scan.
     def update_scan(self, scan_id: int, request):
-        """Apply business validation and orchestration needed to update scan.
-
-        Invalid related records or state produce a clear HTTP error; valid work is
-        delegated to repositories or services.
-        """
         scan = self.scan_repository.get_scan_by_id(scan_id)
 
         if not scan:
@@ -115,13 +92,8 @@ class ScanUseCase:
             update_data,
         )
 
-    # Validate related records and coordinate repositories to delete scan.
+    # Delete scan.
     def delete_scan(self, scan_id: int):
-        """Apply business validation and orchestration needed to delete scan.
-
-        Invalid related records or state produce a clear HTTP error; valid work is
-        delegated to repositories or services.
-        """
         scan = self.scan_repository.get_scan_by_id(scan_id)
 
         if not scan:

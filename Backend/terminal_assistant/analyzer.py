@@ -1,5 +1,5 @@
-"""Extract commands and findings from sanitized terminal transcripts."""
 
+# This file handles analyzer.
 import re
 import shlex
 
@@ -59,25 +59,16 @@ WEB_PATH = re.compile(
 HTTP_STATUS = re.compile(r"(?m)^HTTP/\d(?:\.\d)?\s+(?P<status>\d{3})\b")
 
 
+# Handle the terminal analyzer.
 class TerminalAnalyzer:
-    """Represent or coordinate TerminalAnalyzer in the terminal guidance pipeline.
 
-    The assistant analyzes evidence but never automatically executes its
-    recommendations.
-    """
-
-    # Store the scope guard used to classify targets found in terminal evidence.
+    # Set up this object.
     def __init__(self, scope_guard: ScopeGuard):
         self.scope_guard = scope_guard
 
-    # Recover the most recent supported command from normal or repainted Kali terminal text.
+    # Extract latest command.
     @staticmethod
     def extract_latest_command(text: str) -> str | None:
-        """Perform the extract latest command step of the terminal guidance pipeline.
-
-        The operation works with sanitized evidence and does not execute a recommended
-        security command.
-        """
         matches = list(PROMPT_COMMAND.finditer(text))
         if matches:
             return matches[-1].group("command").strip()
@@ -90,25 +81,15 @@ class TerminalAnalyzer:
                     return candidate
         return None
 
-    # Return only a command visibly entered at a shell prompt.
+    # Extract latest prompt command.
     @staticmethod
     def extract_latest_prompt_command(text: str) -> str | None:
-        """Return only a command visibly entered at a shell prompt.
-
-        Pane monitoring uses this stricter form so commands printed in PTAS
-        recommendations are not mistaken for commands executed by the student.
-        """
         matches = list(PROMPT_COMMAND.finditer(text))
         return matches[-1].group("command").strip() if matches else None
 
-    # Return the executable name from a simple command without executing or expanding it.
+    # Work with command tool.
     @staticmethod
     def command_tool(command: str | None) -> str | None:
-        """Perform the command tool step of the terminal guidance pipeline.
-
-        The operation works with sanitized evidence and does not execute a recommended
-        security command.
-        """
         if not command:
             return None
         try:
@@ -122,18 +103,13 @@ class TerminalAnalyzer:
         tool = parts[0].rsplit("/", 1)[-1].lower()
         return tool if tool in SUPPORTED_TOOLS else None
 
-    # Combine command extraction, target scope checks, finding parsing, and fallback suggestions.
+    # Analyse the terminal evidence.
     def analyze(
         self,
         text: str,
         context_command: str | None = None,
         explicit_targets: list[str] | None = None,
     ) -> AnalysisResult:
-        """Perform the analyze step of the terminal guidance pipeline.
-
-        The operation works with sanitized evidence and does not execute a recommended
-        security command.
-        """
         clean_text = sanitize_terminal_text(text)
         command = self.extract_latest_command(clean_text) or context_command
         tool = self.command_tool(command)
@@ -168,9 +144,6 @@ class TerminalAnalyzer:
                     evidence=", ".join(blocked_targets),
                 )
             )
-            result.suggestions.append(
-                "Stop and confirm written authorization before interacting with the blocked target."
-            )
             return result
 
         if scope_allowed is None:
@@ -182,22 +155,13 @@ class TerminalAnalyzer:
                     evidence="Supply --target or use a command containing an IP, CIDR, domain, or URL",
                 )
             )
-            result.suggestions.append(
-                "Confirm the target is inside the declared scope before continuing."
-            )
             return result
 
         self._collect_findings(clean_text, result)
-        self._build_suggestions(clean_text, result)
         return result
 
-    # Extract service, port, version, and relevant script evidence from sanitised terminal output.
+    # Collect findings.
     def _collect_findings(self, text: str, result: AnalysisResult) -> None:
-        """Perform the collect findings step of the terminal guidance pipeline.
-
-        The operation works with sanitized evidence and does not execute a recommended
-        security command.
-        """
         for match in NMAP_PORT.finditer(text):
             port = int(match.group("port"))
             if not 0 < port <= 65535:
@@ -255,51 +219,3 @@ class TerminalAnalyzer:
                         severity="LOW",
                     )
                 )
-
-    # Append a finding only when the same severity, title, and evidence are not already present.
-    @staticmethod
-    def _append_unique(items: list[str], value: str) -> None:
-        """Perform the append unique step of the terminal guidance pipeline.
-
-        The operation works with sanitized evidence and does not execute a recommended
-        security command.
-        """
-        if value not in items:
-            items.append(value)
-
-    # Create deterministic next-step guidance from the services identified in current evidence.
-    def _build_suggestions(self, text: str, result: AnalysisResult) -> None:
-        """Perform the build suggestions step of the terminal guidance pipeline.
-
-        The operation works with sanitized evidence and does not execute a recommended
-        security command.
-        """
-        open_services = [
-            finding.evidence
-            for finding in result.findings
-            if finding.kind == "open_port"
-        ]
-        if open_services:
-            summary = ", ".join(open_services[:6])
-            self._append_unique(
-                result.suggestions,
-                f"Use the current open-service evidence ({summary}) to choose the next non-destructive validation step.",
-            )
-
-        if any(finding.kind == "web_path" for finding in result.findings):
-            self._append_unique(
-                result.suggestions,
-                "Record the discovered paths as evidence and review access controls before deeper testing.",
-            )
-
-        if any(finding.kind == "runtime_error" for finding in result.findings):
-            self._append_unique(
-                result.suggestions,
-                "Resolve the reported local/network error before changing scan intensity.",
-            )
-
-        if result.findings and not result.suggestions:
-            self._append_unique(
-                result.suggestions,
-                "Correlate identified versions with authoritative advisories and document evidence before validation.",
-            )

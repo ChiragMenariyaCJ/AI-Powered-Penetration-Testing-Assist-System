@@ -32,7 +32,6 @@ There is currently no separate browser frontend in this repository. During devel
 | Kali installer | `./kali-setup.sh` |
 | API launcher | `./start.sh` |
 | Terminal assistant launcher | `./ptas.sh` |
-| Tests | `tests/` |
 | Docker services | `docker-compose.yml` |
 
 All commands in this guide are run from the repository root unless stated otherwise:
@@ -54,8 +53,8 @@ chmod +x kali-setup.sh start.sh ptas.sh
 ```
 
 The Ollama model download can take several minutes. Re-running setup reuses the
-installed service and downloaded model layers. For a deliberately rules-only
-installation, skip that step with:
+installed service and downloaded model layers. To install PTAS without AI
+recommendation generation, skip that step with:
 
 ```bash
 PTAS_SKIP_OLLAMA=1 ./kali-setup.sh
@@ -203,7 +202,7 @@ Development settings and their purpose:
 | `NMAP_PATH` | Nmap executable | `/usr/bin/nmap` |
 | `NMAP_TIMEOUT` | Scan timeout in seconds | `300` |
 | `CORS_ORIGINS` | Allowed browser origins | JSON array of trusted URLs |
-| `PTAS_LLM_PROVIDER` | Terminal assistant provider | `ollama` after Kali setup; `rules` in the generic template |
+| `PTAS_LLM_PROVIDER` | Terminal assistant provider | `ollama` |
 | `OLLAMA_BASE_URL` | Local Ollama server | `http://127.0.0.1:11434` |
 | `OLLAMA_MODEL` | Installed recommendation model | `qwen2.5:3b-instruct` after Kali setup |
 
@@ -395,24 +394,24 @@ ptas start --provider ollama --model YOUR_INSTALLED_MODEL
 The completed session displays a command similar to:
 
 ```bash
-./ptas.sh report --scan-id 12 --output reports/ptas-scan-12.json
+ptas report 12
 ```
 
 Run the displayed command from the repository root. PTAS generates the report,
 creates the `reports/` directory if necessary, and prints the absolute saved
 file path.
 
-Request refreshed realtime recommendations one at a time:
+Generate a validated Ollama recommendation for every finding:
+
+```bash
+./ptas.sh recommend --scan-id 12 --all --provider ollama --model YOUR_INSTALLED_MODEL
+```
+
+PTAS skips findings that already have a valid recommendation and never executes
+the generated commands. Display the stored recommendations one at a time with:
 
 ```bash
 ./ptas.sh recommend --scan-id 12 --provider ollama --model YOUR_INSTALLED_MODEL
-```
-
-Repeat that command for the next recommendation. PTAS records presentation
-progress locally and does not execute recommendations. Restart the sequence with:
-
-```bash
-./ptas.sh recommend --scan-id 12 --provider ollama --model YOUR_INSTALLED_MODEL --reset
 ```
 
 Report generation saves JSON and a styled HTML file with the same base name.
@@ -530,31 +529,7 @@ ping -c 1 192.168.121.130
 ./ptas.sh access-test --scan-id 33 --lab msf2-local
 ```
 
-## 10. Running automated tests
-
-Activate the same environment used by the application:
-
-```bash
-source .venv/bin/activate
-python -m pytest -v
-```
-
-The standard-library runner is also supported:
-
-```bash
-python -m unittest discover -v
-```
-
-Run one test module:
-
-```bash
-python -m pytest -v tests/test_terminal_assistant.py
-python -m pytest -v tests/test_backend_workflows.py
-```
-
-The existing workflow tests use an in-memory SQLite database and a fake Nmap service, so they do not scan a real target.
-
-## 11. Docker Compose setup
+## 10. Docker Compose setup
 
 Docker Compose starts a MariaDB container and a production API container.
 
@@ -619,7 +594,7 @@ Rebuild after dependency or Dockerfile changes:
 sudo docker compose up --build -d
 ```
 
-## 12. Direct production process
+## 11. Direct production process
 
 For a non-container production-like process, activate the environment and provide production environment variables before starting Gunicorn:
 
@@ -637,7 +612,7 @@ python -m gunicorn Backend.main:app \
 
 Do not place real secrets into shell history. Prefer a protected environment file managed by systemd or a secrets manager. Put a TLS reverse proxy in front of the API and bind Gunicorn to a private interface.
 
-## 13. Database inspection, backup, and restore
+## 12. Database inspection, backup, and restore
 
 Connect to the local development database:
 
@@ -667,7 +642,7 @@ mariadb -u ptas_user -p ptas_db < ptas_backup.sql
 
 Treat backups as sensitive because they can contain accounts, scan targets, findings, and reports.
 
-## 14. Updating dependencies or pulling changes
+## 13. Updating dependencies or pulling changes
 
 After repository changes:
 
@@ -675,12 +650,11 @@ After repository changes:
 git pull
 source .venv/bin/activate
 python -m pip install -r Backend/requirements-kali.txt
-python -m pytest -v
 ```
 
 Review changes before applying them in a real environment. Back up the database before migrations or major upgrades. The current application creates missing tables automatically but does not provide a migration tool for schema changes.
 
-## 15. Troubleshooting
+## 14. Troubleshooting
 
 ### `ModuleNotFoundError: No module named 'jose'`
 
@@ -798,7 +772,7 @@ If the command or service is missing, rerun `./kali-setup.sh`. Keep
 `OLLAMA_BASE_URL` on localhost unless remote transfer has been deliberately
 authorized.
 
-## 16. Safe shutdown checklist
+## 15. Safe shutdown checklist
 
 For a local development session:
 
@@ -816,13 +790,12 @@ sudo docker compose down
 
 Database data remains in the named volume unless it is explicitly deleted.
 
-## 17. Recommended daily development routine
+## 16. Recommended daily development routine
 
 ```bash
 cd ~/Projects/AI-Powered-Penetration-Testing-Assist-System
 source .venv/bin/activate
 sudo systemctl start mariadb
-python -m pytest -v
 ./start.sh
 ```
 

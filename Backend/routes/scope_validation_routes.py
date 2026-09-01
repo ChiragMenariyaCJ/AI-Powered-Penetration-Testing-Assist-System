@@ -1,5 +1,5 @@
-"""Authorized-scope configuration and target validation endpoints."""
 
+# This file handles scope validation routes.
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
@@ -17,11 +17,10 @@ from Backend.schemas.scope_validation_schema import (
     ScopeCheckResponse,
 )
 
-# Every route uses the shared terminal request logger.
 router = APIRouter(route_class=LoggedRoute)
 
 
-# Validate HTTP inputs and delegate the create scope validation request to the scope validation controller.
+# Create scope validation.
 @router.post(
     "/",
     response_model=ScopeValidationResponse,
@@ -31,86 +30,56 @@ def create_scope_validation(
     request: ScopeValidationCreateRequest,
     db: Session = Depends(get_db),
 ):
-    """Handle the HTTP request that asks PTAS to create scope validation.
-
-    FastAPI validates inputs and supplies a database session before this endpoint
-    delegates to its controller.
-    """
     controller = ScopeValidationController(db)
     return controller.create_scope_validation(request)
 
 
-# Validate HTTP inputs and delegate the get all scope validations request to the scope validation controller.
+# Get all scope validations.
 @router.get("/", response_model=ScopeValidationListResponse)
 def get_all_scope_validations(
     project_id: int | None = Query(default=None, gt=0),
     db: Session = Depends(get_db),
 ):
-    """Handle the HTTP request that asks PTAS to get all scope validations.
-
-    FastAPI validates inputs and supplies a database session before this endpoint
-    delegates to its controller.
-    """
     controller = ScopeValidationController(db)
     return controller.get_all_scope_validations(project_id)
 
 
-# Validate HTTP inputs and delegate the get scope validation by id request to the scope validation controller.
+# Get scope validation by ID.
 @router.get("/{scope_validation_id}", response_model=ScopeValidationResponse)
 def get_scope_validation_by_id(
     scope_validation_id: int,
     db: Session = Depends(get_db),
 ):
-    """Handle the HTTP request that asks PTAS to get scope validation by id.
-
-    FastAPI validates inputs and supplies a database session before this endpoint
-    delegates to its controller.
-    """
     controller = ScopeValidationController(db)
     return controller.get_scope_validation_by_id(scope_validation_id)
 
 
-# Validate HTTP inputs and delegate the update scope validation request to the scope validation controller.
+# Update scope validation.
 @router.put("/{scope_validation_id}", response_model=ScopeValidationResponse)
 def update_scope_validation(
     scope_validation_id: int,
     request: ScopeValidationUpdateRequest,
     db: Session = Depends(get_db),
 ):
-    """Handle the HTTP request that asks PTAS to update scope validation.
-
-    FastAPI validates inputs and supplies a database session before this endpoint
-    delegates to its controller.
-    """
     controller = ScopeValidationController(db)
     return controller.update_scope_validation(scope_validation_id, request)
 
 
-# Validate HTTP inputs and delegate the delete scope validation request to the scope validation controller.
+# Delete scope validation.
 @router.delete("/{scope_validation_id}")
 def delete_scope_validation(
     scope_validation_id: int,
     db: Session = Depends(get_db),
 ):
-    """Handle the HTTP request that asks PTAS to delete scope validation.
-
-    FastAPI validates inputs and supplies a database session before this endpoint
-    delegates to its controller.
-    """
     controller = ScopeValidationController(db)
     return controller.delete_scope_validation(scope_validation_id)
 
 
-# Validate HTTP inputs and delegate the check target scope request to the scope validation controller.
+# Check target scope.
 @router.post("/check-target-scope", response_model=ScopeCheckResponse)
 def check_target_scope(
     request: ScopeCheckRequest,
     db: Session = Depends(get_db),
 ):
-    """Handle the HTTP request that asks PTAS to check target scope.
-
-    FastAPI validates inputs and supplies a database session before this endpoint
-    delegates to its controller.
-    """
     controller = ScopeValidationController(db)
     return controller.check_target_in_scope(request.project_id, request.target_value)

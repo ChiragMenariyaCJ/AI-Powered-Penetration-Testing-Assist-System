@@ -1,9 +1,7 @@
 __pycache__/
-.pytest_cache/
 *.pyc
 .venv/
 venv/
 .env
 .ptas/
-tests/test_generated_*.py
 *.log

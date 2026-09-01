@@ -1,13 +1,5 @@
-"""Launch PTAS as two genuine terminal panes without tmux.
 
-Inside QTerminal, PTAS invokes its native left/right split action over D-Bus.
-Terminator provides the same two-VTE layout as a fallback. The left terminal
-runs the student workflow and then becomes the student's normal shell. The
-right terminal runs the read-only recommendation dashboard. A ``script``
-transcript lets the dashboard observe new left-terminal output without trying
-to emulate terminal input or requiring tmux.
-"""
-
+# This file handles split terminal.
 from __future__ import annotations
 
 import json
@@ -20,31 +12,22 @@ import subprocess
 import time
 
 
+# Handle the native terminal error.
 class NativeTerminalError(RuntimeError):
-    """Signal that NativeTerminal could not complete safely.
-
-    Callers catch this specific error to present a controlled failure instead of
-    continuing with invalid state.
-    """
+    pass
 
 
-# ---------------------------------------------------------------------------
-# QTerminal: split the current window into two native terminal panes
-# ---------------------------------------------------------------------------
+# QTerminal: split the current window into two native terminal panes.
 
 
-# Escape a command as a GLib variant string for QTerminal D-Bus calls.
+# Work with gvariant string.
 def _gvariant_string(value: str) -> str:
 
     return "'" + value.replace("\\", "\\\\").replace("'", "\\'") + "'"
 
 
-# Build the escaped QTerminal D-Bus argument map used to start the recommendation pane.
+# Work with qterminal argument map.
 def qterminal_argument_map(project_dir: Path, command: list[str]) -> str:
-    """Perform the qterminal argument map operation.
-
-    The type hints describe accepted inputs and the value returned to the caller.
-    """
 
     shell = ", ".join(_gvariant_string(value) for value in command)
     return (
@@ -56,17 +39,13 @@ def qterminal_argument_map(project_dir: Path, command: list[str]) -> str:
     )
 
 
-# Ask the current QTerminal window to create a native left/right pane and run the dashboard.
+# Work with split qterminal recommendations.
 def split_qterminal_recommendations(
     service: str,
     terminal_object: str,
     project_dir: Path,
     dashboard_command: list[str],
 ) -> int:
-    """Perform the split qterminal recommendations operation.
-
-    The type hints describe accepted inputs and the value returned to the caller.
-    """
 
     if not re.fullmatch(r"org\.lxqt\.QTerminal(?:-\d+)?", service):
         raise NativeTerminalError("The QTerminal D-Bus service name is invalid")
@@ -86,8 +65,7 @@ def split_qterminal_recommendations(
             "--object-path",
             terminal_object,
             "--method",
-            # QTerminal's D-Bus implementation passes splitHorizontal to a
-            # Qt::Horizontal splitter, which produces the left/right layout.
+            # Use the horizontal splitter to create left and right panes.
             "org.lxqt.QTerminal.Terminal.splitHorizontal",
             qterminal_argument_map(project_dir, dashboard_command),
         ],
@@ -99,9 +77,7 @@ def split_qterminal_recommendations(
         detail = result.stderr.strip() or result.stdout.strip() or "unknown D-Bus error"
         raise NativeTerminalError(f"QTerminal could not create the right pane: {detail}")
 
-    # QTerminal focuses the newly created pane. On X11, use QTerminal's normal
-    # Alt+Left navigation shortcut so the student can type immediately in the
-    # original left terminal. This is best-effort (Wayland may block xdotool).
+    # QTerminal focuses the newly created pane.
     focus_tool = shutil.which("xdotool") if os.getenv("DISPLAY") else None
     if focus_tool:
         subprocess.run(
@@ -112,17 +88,11 @@ def split_qterminal_recommendations(
     return 0
 
 
-# ---------------------------------------------------------------------------
-# Student shell: record output while preserving normal terminal behavior
-# ---------------------------------------------------------------------------
+# Student shell: record output while preserving normal terminal behavior.
 
 
-# Run the student’s normal interactive shell through script so its transcript can be monitored.
+# Run recorded shell.
 def run_recorded_shell(project_dir: Path, transcript: Path, login_shell: str) -> int:
-    """Perform the run recorded shell operation.
-
-    The type hints describe accepted inputs and the value returned to the caller.
-    """
 
     script = shutil.which("script")
     if not script:
@@ -134,12 +104,10 @@ def run_recorded_shell(project_dir: Path, transcript: Path, login_shell: str) ->
     ).returncode
 
 
-# ---------------------------------------------------------------------------
-# Terminator fallback: create one window containing two real terminals
-# ---------------------------------------------------------------------------
+# Terminator fallback: create one window containing two real terminals.
 
 
-# Write a two-pane Terminator layout containing an interactive shell and read-only dashboard.
+# Build terminator layout.
 def build_terminator_layout(
     project_dir: Path,
     event_log: Path,
@@ -147,10 +115,6 @@ def build_terminator_layout(
     realtime_prefix: str = "",
     login_shell: str = "/bin/bash",
 ) -> dict:
-    """Perform the build terminator layout operation.
-
-    The type hints describe accepted inputs and the value returned to the caller.
-    """
 
     launcher = project_dir / "ptas.sh"
     quoted_project = shlex.quote(str(project_dir))
@@ -194,7 +158,7 @@ def build_terminator_layout(
     }
 
 
-# Prefer QTerminal native splitting and fall back to Terminator when native splitting is unavailable.
+# Work with launch split terminals.
 def launch_split_terminals(
     project_dir: Path,
     event_log: Path,
@@ -203,10 +167,6 @@ def launch_split_terminals(
     realtime_prefix: str = "",
     login_shell: str = "/bin/bash",
 ) -> int:
-    """Perform the launch split terminals operation.
-
-    The type hints describe accepted inputs and the value returned to the caller.
-    """
 
     executable = shutil.which("terminator")
     if not executable:

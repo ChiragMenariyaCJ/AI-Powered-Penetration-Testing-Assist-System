@@ -1,5 +1,5 @@
-"""SQLAlchemy model for explicit project authorization boundaries."""
 
+# This file handles scope validation model.
 from datetime import UTC, datetime
 
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text, Boolean
@@ -8,11 +8,8 @@ from sqlalchemy.orm import relationship
 from Backend.database import Base
 
 
+# Handle the scope validation.
 class ScopeValidation(Base):
-    """Represent the scope validation table in the application database.
-
-    SQLAlchemy maps these attributes and relationships to persisted records.
-    """
     __tablename__ = "scope_validations"
 
     id = Column(Integer, primary_key=True, index=True)

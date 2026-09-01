@@ -1,9 +1,5 @@
-"""Central tracing for API routes, controllers, use cases, and repositories.
 
-The shared decorators keep debugging output consistent without placing
-repetitive logging statements inside every application function.
-"""
-
+# This file handles api logging.
 from __future__ import annotations
 
 import inspect
@@ -20,14 +16,14 @@ from fastapi.routing import APIRoute
 logger = logging.getLogger("uvicorn.error")
 
 
-# Wrap one controller, use-case, or repository method with start, return, error, and duration logs.
+# Work with logged layer method.
 def _logged_layer_method(method, layer: str):
 
     method_name = f"{method.__module__}.{method.__qualname__}"
 
     if inspect.iscoroutinefunction(method):
 
-        # Await an asynchronous layer method while logging its duration, return, or exception.
+        # Log an asynchronous function call.
         @wraps(method)
         async def async_wrapper(*args, **kwargs):
             started_at = perf_counter()
@@ -55,7 +51,7 @@ def _logged_layer_method(method, layer: str):
 
         return async_wrapper
 
-    # Trace a normal synchronous layer method and preserve its original metadata.
+    # Work with sync wrapper.
     @wraps(method)
     def sync_wrapper(*args, **kwargs):
         started_at = perf_counter()
@@ -84,7 +80,7 @@ def _logged_layer_method(method, layer: str):
     return sync_wrapper
 
 
-# Decorate each public method on a layer class while leaving private helpers unchanged.
+# Work with trace class.
 def _trace_class(application_class, layer: str):
 
     for name, attribute in vars(application_class).items():
@@ -102,53 +98,34 @@ def _trace_class(application_class, layer: str):
     return application_class
 
 
-# Apply controller tracing to every public method on the supplied controller class.
+# Work with trace controller.
 def trace_controller(controller_class):
-    """Perform the trace controller operation.
-
-    The type hints describe accepted inputs and the value returned to the caller.
-    """
 
     return _trace_class(controller_class, "controller")
 
 
-# Apply use-case tracing to every public method on the supplied business-layer class.
+# Work with trace usecase.
 def trace_usecase(usecase_class):
-    """Perform the trace usecase operation.
-
-    The type hints describe accepted inputs and the value returned to the caller.
-    """
 
     return _trace_class(usecase_class, "usecase")
 
 
-# Apply repository tracing to every public method on the supplied persistence class.
+# Work with trace repository.
 def trace_repository(repository_class):
-    """Perform the trace repository operation.
-
-    The type hints describe accepted inputs and the value returned to the caller.
-    """
 
     return _trace_class(repository_class, "repository")
 
 
+# Handle the logged route.
 class LoggedRoute(APIRoute):
-    """Coordinate the responsibilities of LoggedRoute.
 
-    Its public methods provide the supported interface used by the rest of PTAS.
-    """
-
-    # Wrap FastAPI route execution so each request logs its handler, status, and duration.
+    # Get route handler.
     def get_route_handler(self):
-        """Perform the get route handler operation for LoggedRoute.
-
-        The type hints describe accepted inputs and the value returned to the caller.
-        """
 
         original_handler = super().get_route_handler()
         endpoint_name = f"{self.endpoint.__module__}.{self.endpoint.__qualname__}"
 
-        # Trace a synchronous route handler and return its response unchanged.
+        # Work with logged handler.
         async def logged_handler(request: Request) -> Response:
             started_at = perf_counter()
             logger.info(

@@ -1,5 +1,5 @@
-"""Command-line entry point for the PTAS student workflow."""
 
+# This file handles cli.
 import argparse
 from collections import deque
 import os
@@ -8,9 +8,7 @@ import shutil
 import sys
 import time
 
-# CLI argument defaults use PTAS_LLM_PROVIDER and OLLAMA_MODEL. Load the
-# repository's .env before build_parser() reads those values; importing the
-# heavier application configuration later is too late for argparse defaults.
+# CLI argument defaults use PTAS_LLM_PROVIDER and OLLAMA_MODEL.
 try:
     from dotenv import load_dotenv
 except ImportError:  # Explicit process environment variables still work.
@@ -27,12 +25,10 @@ from Backend.terminal_assistant.scope_guard import ScopeGuard
 from Backend.terminal_assistant.sources import FollowFileSource
 
 
-# ---------------------------------------------------------------------------
-# Shared command-line options
-# ---------------------------------------------------------------------------
+# Shared command-line options.
 
 
-# Combine repeated --scope values and scope-file lines into one clean authorised-scope list.
+# Build the scope list.
 def _scope_entries(args: argparse.Namespace) -> list[str]:
 
     entries = list(args.scope or [])
@@ -42,7 +38,7 @@ def _scope_entries(args: argparse.Namespace) -> list[str]:
     return [entry.strip() for entry in entries if entry.strip() and not entry.startswith("#")]
 
 
-# Add the shared authorised target and scope-file options to a CLI subcommand.
+# Add scope arguments.
 def _add_scope_arguments(parser: argparse.ArgumentParser) -> None:
 
     parser.add_argument(
@@ -56,13 +52,13 @@ def _add_scope_arguments(parser: argparse.ArgumentParser) -> None:
     )
 
 
-# Add provider, model, Ollama URL, and remote-model permission options to a subcommand.
+# Add realtime arguments.
 def _add_realtime_arguments(parser: argparse.ArgumentParser) -> None:
 
     parser.add_argument(
         "--provider",
-        choices=("rules", "ollama"),
-        default=os.getenv("PTAS_LLM_PROVIDER", "rules"),
+        choices=("ollama",),
+        default="ollama",
         help="Realtime recommendation provider",
     )
     parser.add_argument("--model", help="Ollama model name for realtime recommendations")
@@ -74,7 +70,7 @@ def _add_realtime_arguments(parser: argparse.ArgumentParser) -> None:
     )
 
 
-# Add evidence-analysis and model options used by the standalone advisor commands.
+# Add advisor arguments.
 def _add_advisor_arguments(parser: argparse.ArgumentParser) -> None:
 
     parser.add_argument(
@@ -84,8 +80,8 @@ def _add_advisor_arguments(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument(
         "--provider",
-        choices=("rules", "ollama"),
-        default=os.getenv("PTAS_LLM_PROVIDER", "rules"),
+        choices=("ollama",),
+        default="ollama",
     )
     parser.add_argument("--model", help="Ollama model name")
     parser.add_argument("--ollama-url", help="Ollama base URL")
@@ -96,11 +92,8 @@ def _add_advisor_arguments(parser: argparse.ArgumentParser) -> None:
     )
 
 
-# Create an Ollama advisor only when the selected provider is the local model.
+# Build advisor.
 def _build_advisor(args: argparse.Namespace):
-
-    if args.provider == "rules":
-        return None
     model = args.model or os.getenv("OLLAMA_MODEL", "")
     return OllamaAdvisor(
         model=model,
@@ -109,12 +102,10 @@ def _build_advisor(args: argparse.Namespace):
     )
 
 
-# ---------------------------------------------------------------------------
-# Command handlers
-# ---------------------------------------------------------------------------
+# Command handlers.
 
 
-# Read one terminal transcript, enforce scope, analyse evidence, and print recommendations.
+# Analyse command.
 def _analyze_command(args: argparse.Namespace) -> int:
 
     try:
@@ -148,7 +139,7 @@ def _analyze_command(args: argparse.Namespace) -> int:
     return 1 if result.scope_allowed is False else 0
 
 
-# Continuously follow a transcript and display each new deduplicated analysis result.
+# Run the live transcript command.
 def _watch_command(args: argparse.Namespace) -> int:
 
     try:
@@ -208,7 +199,7 @@ def _watch_command(args: argparse.Namespace) -> int:
         return 1
 
 
-# Check required executables and report whether the local PTAS environment is ready.
+# Run the system readiness command.
 def _doctor_command(_: argparse.Namespace) -> int:
 
     renderer = ConsoleRenderer()
@@ -241,7 +232,7 @@ def _doctor_command(_: argparse.Namespace) -> int:
     return 0 if required_ok else 1
 
 
-# Start the guided two-pane terminal workflow with the selected realtime-model settings.
+# Start command.
 def _start_command(args: argparse.Namespace) -> int:
 
     from Backend.terminal_workflow import start_terminal_workflow
@@ -255,7 +246,7 @@ def _start_command(args: argparse.Namespace) -> int:
     )
 
 
-# Run only the interactive student session in the current terminal process.
+# Run the student terminal command.
 def _student_command(args: argparse.Namespace) -> int:
 
     from Backend.terminal_workflow import configure_realtime_advisor_env, run_student_session
@@ -269,7 +260,7 @@ def _student_command(args: argparse.Namespace) -> int:
     return run_student_session(Path(args.event_log) if args.event_log else None)
 
 
-# Run the read-only live recommendation dashboard for an existing transcript.
+# Run the recommendation dashboard command.
 def _dashboard_command(args: argparse.Namespace) -> int:
 
     from Backend.terminal_workflow import configure_realtime_advisor_env, run_dashboard
@@ -287,7 +278,7 @@ def _dashboard_command(args: argparse.Namespace) -> int:
     )
 
 
-# Generate and save the structured JSON report requested on the command line.
+# Run the report command.
 def _report_command(args: argparse.Namespace) -> int:
 
     from Backend.terminal_workflow import save_report
@@ -312,7 +303,7 @@ def _report_command(args: argparse.Namespace) -> int:
     return save_report(scan_id, output)
 
 
-# Display the next stored validation recommendation for a completed scan.
+# Run the recommendation command.
 def _recommend_command(args: argparse.Namespace) -> int:
 
     from Backend.terminal_workflow import next_recommendation
@@ -320,6 +311,7 @@ def _recommend_command(args: argparse.Namespace) -> int:
     return next_recommendation(
         args.scan_id,
         reset=args.reset,
+        all_findings=args.all_findings,
         provider=args.provider,
         model=args.model,
         ollama_url=args.ollama_url,
@@ -328,7 +320,7 @@ def _recommend_command(args: argparse.Namespace) -> int:
     )
 
 
-# Convert an existing structured report into the standalone HTML presentation.
+# Render report command.
 def _render_report_command(args: argparse.Namespace) -> int:
 
     from Backend.terminal_workflow import render_existing_report
@@ -339,7 +331,7 @@ def _render_report_command(args: argparse.Namespace) -> int:
     )
 
 
-# Register an isolated Metasploitable 2 target using the selected virtualisation provider.
+# Run the lab registration command.
 def _lab_register_command(args: argparse.Namespace) -> int:
 
     from Backend.terminal_workflow import register_metasploitable2_lab
@@ -354,7 +346,7 @@ def _lab_register_command(args: argparse.Namespace) -> int:
     )
 
 
-# Recheck a registered lab identity, network isolation, and optional scan fingerprint.
+# Run the lab check command.
 def _lab_check_command(args: argparse.Namespace) -> int:
 
     from Backend.terminal_workflow import check_metasploitable2_lab
@@ -362,7 +354,7 @@ def _lab_check_command(args: argparse.Namespace) -> int:
     return check_metasploitable2_lab(args.name)
 
 
-# Display the next gated access exercise for an exactly verified Metasploitable 2 lab.
+# Run the gated access-test command.
 def _access_test_command(args: argparse.Namespace) -> int:
 
     from Backend.terminal_workflow import next_access_exercise
@@ -370,17 +362,11 @@ def _access_test_command(args: argparse.Namespace) -> int:
     return next_access_exercise(args.scan_id, args.lab, reset=args.reset)
 
 
-# ---------------------------------------------------------------------------
-# Parser construction
-# ---------------------------------------------------------------------------
+# Parser construction.
 
 
-# Define every PTAS subcommand, option, default, and command-handler mapping.
+# Build parser.
 def build_parser() -> argparse.ArgumentParser:
-    """Perform the build parser operation.
-
-    The type hints describe accepted inputs and the value returned to the caller.
-    """
 
     parser = argparse.ArgumentParser(
         prog="ptas",
@@ -449,6 +435,12 @@ def build_parser() -> argparse.ArgumentParser:
         "--reset",
         action="store_true",
         help="Restart the recommendation sequence from the first item",
+    )
+    recommend_parser.add_argument(
+        "--all",
+        dest="all_findings",
+        action="store_true",
+        help="Generate one validated Ollama recommendation for every uncovered finding",
     )
     recommend_parser.add_argument(
         "--lab",
@@ -542,17 +534,11 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-# ---------------------------------------------------------------------------
-# Entrypoint
-# ---------------------------------------------------------------------------
+# Entrypoint.
 
 
-# Parse command-line arguments and run the selected PTAS command handler.
+# Start the program.
 def main() -> int:
-    """Perform the main operation.
-
-    The type hints describe accepted inputs and the value returned to the caller.
-    """
 
     parser = build_parser()
     arguments = sys.argv[1:] or ["start"]

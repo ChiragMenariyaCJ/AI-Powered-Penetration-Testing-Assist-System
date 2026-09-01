@@ -1,5 +1,5 @@
-"""Check observed hosts against explicit IP, network, and domain scope."""
 
+# This file handles scope guard.
 from dataclasses import dataclass
 import ipaddress
 import re
@@ -19,25 +19,17 @@ LAB_HOSTNAME_PATTERN = re.compile(
 )
 
 
+# Handle the scope decision.
 @dataclass(frozen=True)
 class ScopeDecision:
-    """Represent or coordinate ScopeDecision in the terminal guidance pipeline.
-
-    The assistant analyzes evidence but never automatically executes its
-    recommendations.
-    """
     allowed: bool
     blocked_targets: list[str]
 
 
+# Handle the scope guard.
 class ScopeGuard:
-    """Represent or coordinate ScopeGuard in the terminal guidance pipeline.
 
-    The assistant analyzes evidence but never automatically executes its
-    recommendations.
-    """
-
-    # Parse authorised IP, network, hostname, and domain entries into searchable scope rules.
+    # Set up this object.
     def __init__(self, entries: list[str]):
         if not entries:
             raise ValueError("At least one authorized scope entry is required")
@@ -54,13 +46,8 @@ class ScopeGuard:
         if not self.networks and not self.domains:
             raise ValueError("No valid scope entries were supplied")
 
-    # Parse one configured scope value into an IP network, exact hostname, or domain suffix rule.
+    # Add entry.
     def _add_entry(self, entry: str) -> None:
-        """Perform the add entry step of the terminal guidance pipeline.
-
-        The operation works with sanitized evidence and does not execute a recommended
-        security command.
-        """
         hostname = self._hostname(entry) if "://" in entry else None
         candidate = hostname or entry
 
@@ -88,27 +75,17 @@ class ScopeGuard:
             raise ValueError(f"Invalid scope entry: {entry}")
         self.domains.append(domain)
 
-    # Normalise a hostname by removing brackets, ports, trailing dots, and letter-case differences.
+    # Clean a hostname before checking scope.
     @staticmethod
     def _hostname(value: str) -> str | None:
-        """Perform the hostname step of the terminal guidance pipeline.
-
-        The operation works with sanitized evidence and does not execute a recommended
-        security command.
-        """
         parsed_value = value if "://" in value else f"//{value}"
         try:
             return urlparse(parsed_value).hostname
         except ValueError:
             return None
 
-    # Return whether one extracted target matches any configured IP, network, or hostname rule.
+    # Check whether allowed.
     def is_allowed(self, target: str) -> bool:
-        """Perform the is allowed step of the terminal guidance pipeline.
-
-        The operation works with sanitized evidence and does not execute a recommended
-        security command.
-        """
         hostname = self._hostname(target) if "://" in target else target
         hostname = hostname.strip().strip("[]").lower().rstrip(".")
 
@@ -129,24 +106,14 @@ class ScopeGuard:
                 for domain in self.domains
             )
 
-    # Check all targets together and return the rejected values for a clear scope decision.
+    # Check check.
     def check(self, targets: list[str]) -> ScopeDecision:
-        """Perform the check step of the terminal guidance pipeline.
-
-        The operation works with sanitized evidence and does not execute a recommended
-        security command.
-        """
         blocked = [target for target in targets if not self.is_allowed(target)]
         return ScopeDecision(allowed=not blocked, blocked_targets=blocked)
 
-    # Extract candidate IP addresses and hostnames from a command without resolving DNS.
+    # Extract targets.
     @staticmethod
     def extract_targets(text: str) -> list[str]:
-        """Perform the extract targets step of the terminal guidance pipeline.
-
-        The operation works with sanitized evidence and does not execute a recommended
-        security command.
-        """
         targets: list[str] = []
 
         for url in URL_PATTERN.findall(text):

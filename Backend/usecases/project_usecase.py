@@ -1,5 +1,5 @@
-"""Business rules for creating and managing student projects."""
 
+# This file handles project usecase.
 from fastapi import HTTPException, status
 
 from Backend.api_logging import trace_usecase
@@ -7,14 +7,11 @@ from Backend.repositories.project_repository import ProjectRepository
 from Backend.repositories.user_repository import UserRepository
 
 
+# Handle the project use case.
 @trace_usecase
 class ProjectUseCase:
 
-    """Apply project business rules between controllers and persistence.
-
-    The use case validates related state and coordinates repositories or services.
-    """
-    # Store the repositories and services used to enforce this feature’s business rules.
+    # Set up this object.
     def __init__(
         self,
         project_repository: ProjectRepository,
@@ -23,13 +20,8 @@ class ProjectUseCase:
         self.project_repository = project_repository
         self.user_repository = user_repository
 
-    # Validate related records and coordinate repositories to create project.
+    # Create project.
     def create_project(self, request):
-        """Apply business validation and orchestration needed to create project.
-
-        Invalid related records or state produce a clear HTTP error; valid work is
-        delegated to repositories or services.
-        """
         user = self.user_repository.get_user_by_id(request.user_id)
 
         if not user:
@@ -45,13 +37,8 @@ class ProjectUseCase:
             status=request.status,
         )
 
-    # Validate related records and coordinate repositories to get all projects.
+    # Get all projects.
     def get_all_projects(self, user_id: int | None = None):
-        """Apply business validation and orchestration needed to get all projects.
-
-        Invalid related records or state produce a clear HTTP error; valid work is
-        delegated to repositories or services.
-        """
         if user_id is not None:
             user = self.user_repository.get_user_by_id(user_id)
 
@@ -72,13 +59,8 @@ class ProjectUseCase:
             "projects": projects,
         }
 
-    # Validate related records and coordinate repositories to get project by id.
+    # Get project by ID.
     def get_project_by_id(self, project_id: int):
-        """Apply business validation and orchestration needed to get project by id.
-
-        Invalid related records or state produce a clear HTTP error; valid work is
-        delegated to repositories or services.
-        """
         project = self.project_repository.get_project_by_id(project_id)
 
         if not project:
@@ -89,13 +71,8 @@ class ProjectUseCase:
 
         return project
 
-    # Validate related records and coordinate repositories to update project.
+    # Update project.
     def update_project(self, project_id: int, request):
-        """Apply business validation and orchestration needed to update project.
-
-        Invalid related records or state produce a clear HTTP error; valid work is
-        delegated to repositories or services.
-        """
         project = self.project_repository.get_project_by_id(project_id)
 
         if not project:
@@ -117,13 +94,8 @@ class ProjectUseCase:
             update_data,
         )
 
-    # Validate related records and coordinate repositories to delete project.
+    # Delete project.
     def delete_project(self, project_id: int):
-        """Apply business validation and orchestration needed to delete project.
-
-        Invalid related records or state produce a clear HTTP error; valid work is
-        delegated to repositories or services.
-        """
         project = self.project_repository.get_project_by_id(project_id)
 
         if not project:

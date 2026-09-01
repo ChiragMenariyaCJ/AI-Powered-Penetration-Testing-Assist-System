@@ -1,5 +1,5 @@
-"""Strict local-lab identity checks for opt-in access testing."""
 
+# This file handles lab profile service.
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
@@ -12,10 +12,12 @@ import shutil
 import subprocess
 
 
+# Handle the lab verification error.
 class LabVerificationError(RuntimeError):
     pass
 
 
+# Handle the lab manifest.
 @dataclass(frozen=True)
 class LabManifest:
     name: str
@@ -31,6 +33,7 @@ class LabManifest:
     kali_source: str | None = None
 
 
+# Handle the access exercise.
 @dataclass(frozen=True)
 class AccessExercise:
     key: str
@@ -42,6 +45,7 @@ class AccessExercise:
     credential_note: str
 
 
+# Handle the metasploitable2 lab service.
 class Metasploitable2LabService:
     PROFILE = "metasploitable2"
     EXPECTED_PORTS = {
@@ -51,12 +55,12 @@ class Metasploitable2LabService:
     DISTINCTIVE_PORTS = {21, 23, 139, 445, 1524, 2121, 3306, 5432, 6667, 8180}
     VMWARE_MAC_PREFIXES = {"00:05:69", "00:0c:29", "00:1c:14", "00:50:56"}
 
-    # Store the project path and location used for isolated-lab identity manifests.
+    # Set up this object.
     def __init__(self, project_dir: Path):
         self.project_dir = project_dir.resolve()
         self.lab_dir = self.project_dir / ".ptas" / "labs"
 
-    # Require one non-loopback private IP before any access-testing lab can be registered.
+    # Work with private host.
     @staticmethod
     def _private_host(target: str) -> str:
         if "/" in target:
@@ -69,7 +73,7 @@ class Metasploitable2LabService:
             raise LabVerificationError("Access testing requires a non-loopback private lab IP")
         return str(address)
 
-    # Normalise a virtual-machine MAC address into lowercase colon-separated notation.
+    # Normalise mac.
     @staticmethod
     def _normalize_mac(value: str) -> str:
         compact = re.sub(r"[^0-9a-fA-F]", "", value).lower()
@@ -77,7 +81,7 @@ class Metasploitable2LabService:
             raise LabVerificationError("VirtualBox did not return a valid VM MAC address")
         return ":".join(compact[index:index + 2] for index in range(0, 12, 2))
 
-    # Parse VirtualBox machine-readable key/value output into a dictionary.
+    # Work with machine values.
     @staticmethod
     def _machine_values(output: str) -> dict[str, str]:
         values = {}
@@ -88,7 +92,7 @@ class Metasploitable2LabService:
             values[key.strip()] = value.strip().strip('"')
         return values
 
-    # Read a VMware VMX file and parse its quoted configuration values.
+    # Work with vmx values.
     @staticmethod
     def _vmx_values(path: Path) -> dict[str, str]:
         try:
@@ -103,7 +107,7 @@ class Metasploitable2LabService:
             values[key.strip()] = value.strip().strip('"')
         return values
 
-    # Run one bounded lab-verification command and convert failures into clear verification errors.
+    # Run run.
     @staticmethod
     def _run(command: list[str], timeout: int = 20) -> str:
         try:
@@ -120,13 +124,13 @@ class Metasploitable2LabService:
             raise LabVerificationError(detail)
         return result.stdout
 
-    # Validate a lab name before mapping it to its JSON manifest path.
+    # Work with manifest path.
     def manifest_path(self, name: str) -> Path:
         if not re.fullmatch(r"[a-zA-Z0-9_-]{1,50}", name):
             raise LabVerificationError("Lab name may contain only letters, numbers, _ and -")
         return self.lab_dir / f"{name}.json"
 
-    # Verify a host-only VirtualBox VM and save its exact identity as a lab manifest.
+    # Register virtualbox.
     def register_virtualbox(self, name: str, target: str, vm_identifier: str) -> LabManifest:
         target = self._private_host(target)
         executable = shutil.which("VBoxManage")
@@ -176,7 +180,7 @@ class Metasploitable2LabService:
         temporary.replace(path)
         return manifest
 
-    # Read the interface and source IP Linux would use to reach the lab target.
+    # Work with route to target.
     def _route_to_target(self, target: str) -> tuple[str | None, str | None]:
         executable = shutil.which("ip")
         if not executable:
@@ -189,9 +193,8 @@ class Metasploitable2LabService:
             src_match.group(1) if src_match else None,
         )
 
-    # Return the interface Kali uses for its default/internet route.
+    # Work with default route interface.
     def _default_route_interface(self) -> str | None:
-        """Return the interface Kali uses for its default/internet route."""
 
         executable = shutil.which("ip")
         if not executable:
@@ -200,9 +203,8 @@ class Metasploitable2LabService:
         match = re.search(r"\bdev\s+(\S+)", output)
         return match.group(1) if match else None
 
-    # Read and normalize the MAC currently associated with a target IP.
+    # Work with neighbor mac.
     def _neighbor_mac(self, target: str) -> str:
-        """Read and normalize the MAC currently associated with a target IP."""
 
         executable = shutil.which("ip")
         if not executable:
@@ -215,7 +217,7 @@ class Metasploitable2LabService:
             )
         return self._normalize_mac(match.group(1))
 
-    # Verify a host-only VMware VMX definition and save its exact identity.
+    # Register vmware.
     def register_vmware(
         self,
         name: str,
@@ -288,7 +290,7 @@ class Metasploitable2LabService:
         temporary.replace(path)
         return manifest
 
-    # Register a VMware lab from inside a Kali guest using network identity.
+    # Register vmware network.
     def register_vmware_network(
         self,
         name: str,
@@ -296,13 +298,6 @@ class Metasploitable2LabService:
         interface: str | None = None,
         kali_source: str | None = None,
     ) -> LabManifest:
-        """Register a VMware lab from inside a Kali guest using network identity.
-
-        Kali normally cannot read the physical host's ``.vmx`` file. This mode
-        therefore pins the exact private IP, isolated non-default route,
-        interface, Kali source address, and VMware-owned neighbor MAC. The scan
-        fingerprint and explicit access confirmation remain required later.
-        """
 
         target = self._private_host(target)
         route_interface, route_source = self._route_to_target(target)
@@ -352,7 +347,7 @@ class Metasploitable2LabService:
         temporary.replace(path)
         return manifest
 
-    # Load and validate a previously registered lab manifest from disk.
+    # Load load.
     def load(self, name: str) -> LabManifest:
         path = self.manifest_path(name)
         if not path.is_file():
@@ -362,7 +357,7 @@ class Metasploitable2LabService:
         except (OSError, json.JSONDecodeError, TypeError) as exc:
             raise LabVerificationError(f"Invalid lab manifest: {exc}") from exc
 
-    # Confirm the current VirtualBox VM still matches its saved UUID, MAC, and isolation mode.
+    # Verify virtualbox.
     def verify_virtualbox(self, manifest: LabManifest) -> list[str]:
         executable = shutil.which("VBoxManage")
         if not executable:
@@ -403,7 +398,7 @@ class Metasploitable2LabService:
             raise LabVerificationError("Create a clean VirtualBox snapshot before access testing")
         return snapshots
 
-    # Confirm the current VMware VM still matches its saved VMX identity and isolation mode.
+    # Verify vmware.
     def verify_vmware(self, manifest: LabManifest) -> list[str]:
         vmx_path = Path(manifest.vm_identifier).expanduser().resolve()
         values = self._vmx_values(vmx_path)
@@ -460,7 +455,7 @@ class Metasploitable2LabService:
             raise LabVerificationError("Create a clean VMware snapshot before access testing")
         return snapshots
 
-    # Confirm the target route and local interface still match the registered isolated lab.
+    # Verify runtime.
     def verify_runtime(self, manifest: LabManifest) -> list[str]:
         # Provider-specific checks prove that the saved VM identity is still the active target.
         if manifest.provider == "virtualbox":
@@ -489,12 +484,12 @@ class Metasploitable2LabService:
             "Only registered VirtualBox or VMware Metasploitable 2 labs are allowed"
         )
 
-    # Confirm the target neighbour MAC still matches the registered virtual-machine identity.
+    # Verify neighbor.
     def verify_neighbor(self, manifest: LabManifest) -> None:
         if self._neighbor_mac(manifest.target) != manifest.expected_mac:
             raise LabVerificationError("Target IP resolves to a different MAC than the registered VM")
 
-    # Require the scan target and distinctive open ports to match the Metasploitable 2 profile.
+    # Verify scan.
     def verify_scan(self, manifest: LabManifest, scan, findings: list) -> set[int]:
         if manifest.profile != self.PROFILE or manifest.provider not in {
             "virtualbox",
@@ -514,7 +509,7 @@ class Metasploitable2LabService:
             )
         return ports
 
-    # Build only the access exercises supported by services actually observed in the scan.
+    # Work with exercises.
     @staticmethod
     def exercises(target: str, ports: set[int]) -> list[AccessExercise]:
         catalog = [

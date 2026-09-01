@@ -1,5 +1,5 @@
 services:
-  # MySQL/MariaDB Database
+  # Run the MariaDB database.
   db:
     image: mariadb:11.4
     container_name: ptas-db
@@ -20,7 +20,7 @@ services:
       retries: 10
       interval: 10s
 
-  # FastAPI Backend
+  # Run the FastAPI backend.
   api:
     build:
       context: .

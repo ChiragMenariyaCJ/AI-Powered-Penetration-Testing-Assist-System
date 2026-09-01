@@ -1,5 +1,5 @@
-"""Render analysis results and optional sanitized audit events."""
 
+# This file handles renderer.
 import json
 import os
 from pathlib import Path
@@ -8,50 +8,26 @@ import sys
 from Backend.terminal_assistant.models import AnalysisResult
 
 
+# Handle the console renderer.
 class ConsoleRenderer:
-    """Represent or coordinate ConsoleRenderer in the terminal guidance pipeline.
-
-    The assistant analyzes evidence but never automatically executes its
-    recommendations.
-    """
-    # Enable or disable ANSI colour according to terminal support or caller preference.
+    # Set up this object.
     def __init__(self):
         self.color = sys.stdout.isatty() and "NO_COLOR" not in os.environ
 
-    # Wrap terminal text in an ANSI colour only when colour output is enabled.
+    # Add terminal colour when it is supported.
     def _paint(self, code: str, text: str) -> str:
-        """Perform the paint step of the terminal guidance pipeline.
-
-        The operation works with sanitized evidence and does not execute a recommended
-        security command.
-        """
         return f"\033[{code}m{text}\033[0m" if self.color else text
 
-    # Print an informational PTAS status line to the recommendation terminal.
+    # Print a PTAS status message.
     def status(self, message: str) -> None:
-        """Perform the status step of the terminal guidance pipeline.
-
-        The operation works with sanitized evidence and does not execute a recommended
-        security command.
-        """
         print(self._paint("36", f"[PTAS] {message}"), flush=True)
 
-    # Print a visually distinct warning without interrupting the monitoring loop.
+    # Print a PTAS warning.
     def warning(self, message: str) -> None:
-        """Perform the warning step of the terminal guidance pipeline.
-
-        The operation works with sanitized evidence and does not execute a recommended
-        security command.
-        """
         print(self._paint("33", f"[PTAS] {message}"), flush=True)
 
-    # Display command, scope, findings, analysis, and suggestions from one analysis result.
+    # Render render.
     def render(self, result: AnalysisResult) -> None:
-        """Perform the render step of the terminal guidance pipeline.
-
-        The operation works with sanitized evidence and does not execute a recommended
-        security command.
-        """
         print()
         print(self._paint("1;36", "PTAS terminal observation"))
         if result.command:
@@ -81,13 +57,8 @@ class ConsoleRenderer:
         print(flush=True)
 
 
-# Append one timestamped analysis result as JSON to the optional audit log.
+# Add audit event.
 def append_audit_event(path: Path, result: AnalysisResult) -> None:
-    """Perform the append audit event step of the terminal guidance pipeline.
-
-    The operation works with sanitized evidence and does not execute a recommended
-    security command.
-    """
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(result.to_dict(), sort_keys=True, default=str))

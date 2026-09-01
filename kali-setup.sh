@@ -2,14 +2,13 @@
 
 set -euo pipefail
 
-# AI-Powered Penetration Testing Assist System - Kali Linux Setup Script
-# This script sets up the complete environment on Kali Linux
+# This script sets up PTAS on Kali Linux.
 
 echo "=========================================="
 echo "PTAS - Kali Linux Setup"
 echo "=========================================="
 
-# Color codes for output
+# These colours make the setup output easier to read.
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
@@ -27,8 +26,7 @@ else
     SUDO="sudo"
 fi
 
-# Update one .env key without sourcing the file as shell code. This preserves
-# every unrelated student setting when setup is rerun.
+# Update one .env value without changing the other settings.
 set_env_value() {
     local key="$1"
     local value="$2"
@@ -39,28 +37,28 @@ set_env_value() {
     fi
 }
 
-# Step 1: Update system
+# Update the installed system packages.
 echo -e "${BLUE}[1/9] Updating system packages...${NC}"
 $SUDO apt update
 
-# Step 2: Install Python, pip, and the HTTPS download tools used by setup
+# Install Python and the download tools used by setup.
 echo -e "${BLUE}[2/9] Installing Python 3, pip, and download tools...${NC}"
 $SUDO apt install -y python3 python3-pip python3-venv curl ca-certificates
 
-# Step 3: Install MySQL/MariaDB
+# Install MariaDB.
 echo -e "${BLUE}[3/9] Installing MariaDB (MySQL alternative)...${NC}"
 $SUDO apt install -y mariadb-server mariadb-client
 
-# Step 4: Install Nmap and the native split-terminal window
+# Install Nmap and Terminator.
 echo -e "${BLUE}[4/9] Installing Nmap and Terminator...${NC}"
 $SUDO apt install -y nmap terminator
 
-# Step 5: Start and enable MariaDB
+# Start MariaDB and enable it at boot.
 echo -e "${BLUE}[5/9] Starting MariaDB service...${NC}"
 $SUDO systemctl start mariadb
 $SUDO systemctl enable mariadb
 
-# Step 6: Create Python virtual environment
+# Create the Python virtual environment.
 echo -e "${BLUE}[6/9] Creating Python virtual environment...${NC}"
 cd "$PROJECT_DIR"
 if [ ! -d .venv ]; then
@@ -68,7 +66,7 @@ if [ ! -d .venv ]; then
 fi
 PYTHON="$PROJECT_DIR/.venv/bin/python"
 
-# Step 7: Install Python dependencies
+# Install the Python packages used by PTAS.
 echo -e "${BLUE}[7/9] Installing Python dependencies...${NC}"
 "$PYTHON" -m pip install --upgrade pip
 "$PYTHON" -m pip install -r Backend/requirements-kali.txt
@@ -78,9 +76,7 @@ if [ ! -f .env ]; then
     echo -e "${YELLOW}Created .env from .env.example; change SECRET_KEY before non-local use.${NC}"
 fi
 
-# Step 8: Install and prepare the local recommendation model. The installer is
-# downloaded to a temporary file so a failed download is never piped into a
-# privileged shell. Set PTAS_SKIP_OLLAMA=1 when rules-only mode is intentional.
+# Install Ollama safely unless PTAS_SKIP_OLLAMA is enabled.
 echo -e "${BLUE}[8/9] Installing the local Ollama recommendation model...${NC}"
 if [ "${PTAS_SKIP_OLLAMA:-0}" = "1" ]; then
     echo -e "${YELLOW}Skipping Ollama because PTAS_SKIP_OLLAMA=1.${NC}"
@@ -115,19 +111,18 @@ else
         exit 1
     fi
 
-    # `ollama pull` is idempotent: existing model layers are reused on reruns.
+    # Reuse model files that Ollama has already downloaded.
     ollama pull "$OLLAMA_SETUP_MODEL"
     set_env_value "PTAS_LLM_PROVIDER" "ollama"
     set_env_value "OLLAMA_BASE_URL" "http://127.0.0.1:11434"
     set_env_value "OLLAMA_MODEL" "$OLLAMA_SETUP_MODEL"
 fi
 
-# Install the short command students use from any terminal. The launcher
-# resolves this symlink back to the repository and its virtual environment.
+# Install the short ptas command for every terminal.
 echo -e "${BLUE}[9/9] Installing the global ptas command...${NC}"
 $SUDO ln -sfn "$PROJECT_DIR/ptas.sh" /usr/local/bin/ptas
 
-# Create a local development database and least-privilege application user.
+# Create the local database and application user.
 echo -e "${BLUE}Configuring PTAS database...${NC}"
 $SUDO mariadb <<'SQL'
 CREATE DATABASE IF NOT EXISTS ptas_db;
@@ -136,9 +131,7 @@ GRANT ALL PRIVILEGES ON ptas_db.* TO 'ptas_user'@'localhost';
 FLUSH PRIVILEGES;
 SQL
 
-# Optionally register Metasploitable during the main installation. Students can
-# omit this and run the same helper later when the training VM is available.
-# Rerunning with a new IP replaces the saved network registration.
+# Register Metasploitable now when its IP was supplied.
 METASPLOITABLE_SETUP_IP="${PTAS_METASPLOITABLE_IP:-}"
 METASPLOITABLE_SETUP_LAB="${PTAS_METASPLOITABLE_LAB:-msf2-local}"
 if [ -n "$METASPLOITABLE_SETUP_IP" ]; then

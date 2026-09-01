@@ -49,7 +49,7 @@ Deterministic Python code still:
 - parses tool output;
 - stores findings;
 - rejects unsuitable model output;
-- supplies an evidence-based fallback; and
+- rejects unsuitable model output without replacing it with static advice; and
 - renders the report.
 
 Therefore, do not say that the LLM performs the penetration test. It assists
@@ -70,8 +70,8 @@ Evidence in the project:
 
 - `Backend/terminal_assistant/analyzer.py` extracts structured evidence.
 - `Backend/terminal_assistant/advisor.py` calls Ollama and interprets its reply.
-- `Backend/services/ai_recommendation_engine.py` provides deterministic scoring
-  and fallback recommendations.
+- `Backend/services/ai_recommendation_engine.py` requests and scores validated
+  Ollama recommendations.
 - `Backend/terminal_assistant/scope_guard.py` checks targets against scope.
 
 ## Research question 2
@@ -126,21 +126,6 @@ The relevant implementation is in `Backend/usecases/report_usecase.py` and
 
 This distinction is important during the demonstration.
 
-## Why tests should remain
-
-The `tests/` folder is evidence that important behavior is repeatable. It checks
-scope enforcement, parsing, API workflows, recommendation handling, terminal
-behavior, and reporting without requiring a live attack during every run.
-Deleting tests would make the implementation harder to justify and regressions
-harder to detect.
-
-You do not need to explain every test. Be ready to explain one example using
-Arrange, Act, Assert:
-
-1. Arrange known input and dependencies.
-2. Act by calling the function under test.
-3. Assert that its result and side effects are correct.
-
 ## Likely questions
 
 ### Why use a local Ollama model?
@@ -149,11 +134,10 @@ It keeps assessment evidence on the local machine, avoids an external API key,
 and supports an offline lab. The trade-off is that a small local model may
 return weaker or malformed suggestions.
 
-### Why keep a rule-based fallback?
+### What happens when Ollama is unavailable?
 
-The application must still give predictable guidance if Ollama is stopped or
-its response fails validation. The fallback also provides a baseline for
-evaluating whether the LLM adds value.
+PTAS reports that no AI recommendation was generated. It does not replace the
+missing model output with static advice or present deterministic text as AI.
 
 ### Why use FastAPI when the interface is a terminal?
 
@@ -170,7 +154,7 @@ targets included in the study.
 
 ### What would you improve next?
 
-Use a recorded evaluation dataset, compare multiple models and the rules-only
+Use a recorded evaluation dataset, compare multiple local models and a manual
 baseline, add database migrations, improve recommendation deduplication, and
 measure report accuracy with independent reviewers.
 
@@ -180,8 +164,7 @@ measure report accuracy with independent reviewers.
 2. Log in and select a project.
 3. Explain scope and target authorisation.
 4. Run one scan stage and identify observed evidence.
-5. Show one recommendation and identify whether it came from Ollama or fallback
-   rules.
+5. Show one recommendation with its Ollama provider label.
 6. Explain that the command requires human approval.
 7. Generate the JSON and HTML report.
 8. Run one focused test and explain Arrange, Act, Assert.

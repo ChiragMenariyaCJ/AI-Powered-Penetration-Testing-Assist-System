@@ -1,5 +1,5 @@
-"""Service-aware, bounded checks using locally installed Kali tools."""
 
+# This file handles service scan service.
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -13,6 +13,7 @@ from Backend.services.nmap_service import NmapService
 from Backend.terminal_assistant.sanitizer import sanitize_terminal_text
 
 
+# Handle the tool check.
 @dataclass(frozen=True)
 class ToolCheck:
     tool: str
@@ -22,6 +23,7 @@ class ToolCheck:
     service: str | None = None
 
 
+# Handle the tool result.
 @dataclass(frozen=True)
 class ToolResult:
     check: ToolCheck
@@ -30,21 +32,22 @@ class ToolResult:
     output: str
 
 
+# Handle the service scan service.
 class ServiceScanService:
 
     CVE_PATTERN = re.compile(r"\bCVE-\d{4}-\d{4,7}\b", re.IGNORECASE)
 
-    # Store the per-tool timeout used by optional service-specific evidence checks.
+    # Set up this object.
     def __init__(self, timeout: int = 90, output_limit: int = 6000):
         self.timeout = timeout
         self.output_limit = output_limit
 
-    # Return the resolved executable path for an installed tool or None when unavailable.
+    # Check whether the tool is installed.
     @staticmethod
     def _available(tool: str) -> str | None:
         return shutil.which(tool)
 
-    # Distinguish hostnames from literal IP addresses before building HTTP commands.
+    # Check whether hostname.
     @staticmethod
     def _is_hostname(target: str) -> bool:
         try:
@@ -53,13 +56,13 @@ class ServiceScanService:
         except ValueError:
             return "/" not in target
 
-    # Select safe installed tools that match the services observed in current findings.
+    # Build checks.
     def build_checks(self, target: str, findings: list) -> list[ToolCheck]:
         target = NmapService._validate_target(target)
         checks: list[ToolCheck] = []
         seen: set[tuple[str, int | None]] = set()
 
-        # Add one tool check only when its executable exists and the command is not duplicated.
+        # Add add.
         def add(
             tool: str,
             purpose: str,
@@ -184,7 +187,7 @@ class ServiceScanService:
             add("dig", "DNS address resolution", ["+short", target, "A"], None, "dns")
         return checks
 
-    # Run one service check with a timeout and capture its output without invoking a shell.
+    # Run execute.
     def execute(self, checks: list[ToolCheck]) -> list[ToolResult]:
         results = []
         for check in checks:
@@ -223,7 +226,7 @@ class ServiceScanService:
                 )
         return results
 
-    # Convert successful tool observations into vulnerability records for persistence.
+    # Convert the tool results into stored findings.
     def as_findings(self, scan_id: int, target: str, results: list[ToolResult]) -> list[dict]:
         findings = []
         for result in results:

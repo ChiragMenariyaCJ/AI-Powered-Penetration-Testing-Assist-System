@@ -1,14 +1,11 @@
-"""SQLAlchemy model for PTAS user accounts."""
 
+# This file handles user model.
 from sqlalchemy import Column, Integer, String
 from sqlalchemy.orm import relationship
 from Backend.database import Base
 
+# Handle the user.
 class User(Base):
-    """Represent the user table in the application database.
-
-    SQLAlchemy maps these attributes and relationships to persisted records.
-    """
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)

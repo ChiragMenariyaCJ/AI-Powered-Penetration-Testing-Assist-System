@@ -1,5 +1,5 @@
-"""SQLAlchemy model for evidence-based assessment recommendations."""
 
+# This file handles recommendation model.
 from datetime import UTC, datetime
 
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
@@ -8,11 +8,8 @@ from sqlalchemy.orm import relationship
 from Backend.database import Base
 
 
+# Handle the recommendation.
 class Recommendation(Base):
-    """Represent the recommendation table in the application database.
-
-    SQLAlchemy maps these attributes and relationships to persisted records.
-    """
     __tablename__ = "recommendations"
 
     id = Column(Integer, primary_key=True, index=True)

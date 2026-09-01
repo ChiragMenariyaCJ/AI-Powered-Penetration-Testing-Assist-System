@@ -1,5 +1,5 @@
-"""Render PTAS JSON report data as a standalone, print-friendly HTML file."""
 
+# This file handles html report renderer.
 from __future__ import annotations
 
 from collections import Counter
@@ -7,16 +7,17 @@ from html import escape
 import re
 
 
+# Handle the HTML report renderer.
 class HtmlReportRenderer:
     CVE_PATTERN = re.compile(r"CVE-\d{4}-\d{4,7}", re.IGNORECASE)
     SEVERITIES = ("CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO")
 
-    # Escape untrusted report values before placing them into generated HTML.
+    # Escape text before adding it to the report.
     @staticmethod
     def _text(value) -> str:
         return escape(str(value)) if value not in (None, "") else "Not available"
 
-    # Render escaped CVE identifiers as compact visual badges in the HTML report.
+    # Work with CVE badges.
     @classmethod
     def _cve_badges(cls, value) -> str:
         cves = sorted({item.upper() for item in cls.CVE_PATTERN.findall(str(value or ""))})
@@ -27,7 +28,7 @@ class HtmlReportRenderer:
             for cve in cves
         )
 
-    # Build a standalone print-friendly HTML document from the structured report dictionary.
+    # Render render.
     @classmethod
     def render(cls, report: dict) -> str:
         metadata = report.get("report_metadata", {})
@@ -59,11 +60,12 @@ class HtmlReportRenderer:
             rec_html = ""
             for rec_index, rec in enumerate(finding.get("recommendations", []), start=1):
                 command = rec.get("execution_steps")
+                provider = rec.get("provider") or "UNSPECIFIED"
                 rec_html += f"""
                 <div class="recommendation">
                   <div class="recommendation-title">Recommendation {rec_index}: {cls._text(rec.get('attack_technique'))}</div>
                   <p>{cls._text(rec.get('exploitation_method'))}</p>
-                  <div class="rec-meta">Risk: {cls._text(rec.get('risk_level'))} · Priority: {cls._text(rec.get('priority'))} · Status: {cls._text(rec.get('status'))}</div>
+                  <div class="rec-meta">Provider: {cls._text(provider)} · Risk: {cls._text(rec.get('risk_level'))} · Priority: {cls._text(rec.get('priority'))} · Status: {cls._text(rec.get('status'))}</div>
                   {f'<pre><code>{cls._text(command)}</code></pre>' if command else ''}
                 </div>"""
             if not rec_html:

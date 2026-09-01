@@ -1,12 +1,5 @@
-"""Register and export every SQLAlchemy model used by PTAS.
 
-SQLAlchemy relationships in this project use string class names such as
-``relationship("Target")``. Importing this package loads every mapped class into
-the shared declarative registry before a query asks SQLAlchemy to resolve those
-relationships. Both the API process and standalone terminal process must import
-this package during startup.
-"""
-
+# This file sets up the package.
 from Backend.models.project_model import Project
 from Backend.models.recommendation_model import Recommendation
 from Backend.models.report_model import Report

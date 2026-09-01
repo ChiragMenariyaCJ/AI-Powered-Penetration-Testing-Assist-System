@@ -5,10 +5,10 @@ package assessment metadata, findings, and recommendation decisions for review.
 
 ## Recommendations
 
-The recommendation use case loads a vulnerability, creates or updates guidance,
-and supports approval or rejection. The AI engine can enrich evidence when a
-local model is configured; otherwise PTAS produces evidence-based fallback
-guidance. Recommendations are advisory and are never executed automatically.
+The recommendation use case loads a vulnerability, requests guidance from the
+configured local Ollama model, and supports approval or rejection. If Ollama is
+unavailable or its response fails validation, PTAS produces no recommendation.
+Recommendations are advisory and are never executed automatically.
 
 The right-hand terminal pane uses a separate assistant pipeline. It follows a
 sanitized transcript, detects useful evidence, checks scope and safety rules,

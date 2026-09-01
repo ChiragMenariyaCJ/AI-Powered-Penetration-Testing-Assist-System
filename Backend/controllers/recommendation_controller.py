@@ -1,5 +1,5 @@
-"""Translate recommendation routes into recommendation use-case calls."""
 
+# This file handles recommendation controller.
 from sqlalchemy.orm import Session
 
 from Backend.api_logging import trace_controller
@@ -8,14 +8,11 @@ from Backend.repositories.recommendation_repository import RecommendationReposit
 from Backend.usecases.recommendation_usecase import RecommendationUseCase
 
 
+# Handle the recommendation controller.
 @trace_controller
 class RecommendationController:
-    """Connect recommendation HTTP handlers to the business layer.
 
-    The controller constructs dependencies and delegates without performing SQL itself.
-    """
-
-    # Build the repositories and use case this controller delegates to for one API request.
+    # Set up this object.
     def __init__(self, db: Session):
         recommendation_repository = RecommendationRepository(db)
         vulnerability_repository = VulnerabilityRepository(db)
@@ -25,93 +22,48 @@ class RecommendationController:
             vulnerability_repository,
         )
 
-    # Forward generate recommendations to the recommendation use case so this controller contains no business or SQL logic.
+    # Generate recommendations.
     def generate_recommendations(self, vulnerability_id: int):
-        """Delegate the request to generate recommendations through the configured use case.
-
-        The controller keeps transport concerns separate from validation and persistence
-        rules.
-        """
         return self.recommendation_usecase.generate_recommendations_for_vulnerability(
             vulnerability_id
         )
 
-    # Forward get recommendation by id to the recommendation use case so this controller contains no business or SQL logic.
+    # Get recommendation by ID.
     def get_recommendation_by_id(self, recommendation_id: int):
-        """Delegate the request to get recommendation by id through the configured use case.
-
-        The controller keeps transport concerns separate from validation and persistence
-        rules.
-        """
         return self.recommendation_usecase.get_recommendation_by_id(
             recommendation_id
         )
 
-    # Forward get all recommendations to the recommendation use case so this controller contains no business or SQL logic.
+    # Get all recommendations.
     def get_all_recommendations(self, vulnerability_id: int | None = None):
-        """Delegate the request to get all recommendations through the configured use case.
-
-        The controller keeps transport concerns separate from validation and persistence
-        rules.
-        """
         return self.recommendation_usecase.get_all_recommendations(vulnerability_id)
 
-    # Forward update recommendation to the recommendation use case so this controller contains no business or SQL logic.
+    # Update recommendation.
     def update_recommendation(self, recommendation_id: int, request):
-        """Delegate the request to update recommendation through the configured use case.
-
-        The controller keeps transport concerns separate from validation and persistence
-        rules.
-        """
         return self.recommendation_usecase.update_recommendation(
             recommendation_id, request
         )
 
-    # Forward delete recommendation to the recommendation use case so this controller contains no business or SQL logic.
+    # Delete recommendation.
     def delete_recommendation(self, recommendation_id: int):
-        """Delegate the request to delete recommendation through the configured use case.
-
-        The controller keeps transport concerns separate from validation and persistence
-        rules.
-        """
         return self.recommendation_usecase.delete_recommendation(
             recommendation_id
         )
 
-    # Forward approve recommendation to the recommendation use case so this controller contains no business or SQL logic.
+    # Approve recommendation.
     def approve_recommendation(self, recommendation_id: int, approved_by: str):
-        """Delegate the request to approve recommendation through the configured use case.
-
-        The controller keeps transport concerns separate from validation and persistence
-        rules.
-        """
         return self.recommendation_usecase.approve_recommendation(
             recommendation_id, approved_by
         )
 
-    # Forward reject recommendation to the recommendation use case so this controller contains no business or SQL logic.
+    # Reject recommendation.
     def reject_recommendation(self, recommendation_id: int):
-        """Delegate the request to reject recommendation through the configured use case.
-
-        The controller keeps transport concerns separate from validation and persistence
-        rules.
-        """
         return self.recommendation_usecase.reject_recommendation(recommendation_id)
 
-    # Forward get recommendations by status to the recommendation use case so this controller contains no business or SQL logic.
+    # Get recommendations by status.
     def get_recommendations_by_status(self, status: str):
-        """Delegate the request to get recommendations by status through the configured use case.
-
-        The controller keeps transport concerns separate from validation and persistence
-        rules.
-        """
         return self.recommendation_usecase.get_recommendations_by_status(status)
 
-    # Forward get attack score to the recommendation use case so this controller contains no business or SQL logic.
+    # Get attack score.
     def get_attack_score(self, vulnerability_id: int):
-        """Delegate the request to get attack score through the configured use case.
-
-        The controller keeps transport concerns separate from validation and persistence
-        rules.
-        """
         return self.recommendation_usecase.get_attack_score(vulnerability_id)

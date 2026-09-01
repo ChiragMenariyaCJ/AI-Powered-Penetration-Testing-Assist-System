@@ -1,5 +1,5 @@
-"""Safely orchestrate scoped Nmap execution and finding persistence."""
 
+# This file handles scan execution usecase.
 from datetime import UTC, datetime
 from fastapi import HTTPException, status
 
@@ -16,14 +16,11 @@ from Backend.services.nmap_service import NmapService
 from Backend.services.vulnerability_parser import VulnerabilityParser
 
 
+# Handle the scan execution use case.
 @trace_usecase
 class ScanExecutionUseCase:
-    """Apply scan execution business rules between controllers and persistence.
 
-    The use case validates related state and coordinates repositories or services.
-    """
-
-    # Store the repositories and services used to enforce this feature’s business rules.
+    # Set up this object.
     def __init__(
         self,
         scan_repository: ScanRepository,
@@ -43,19 +40,9 @@ class ScanExecutionUseCase:
         self.nmap_service = NmapService()
         self.vulnerability_parser = VulnerabilityParser()
 
-    # Execute Nmap scan on target and update scan record.
+    # Run scan on target.
     def execute_scan_on_target(self, scan_id: int, project_id: int) -> dict:
-        """
-        Execute Nmap scan on target and update scan record
-        
-        Args:
-            scan_id: ID of scan record
-            project_id: ID of project for scope validation
-            
-        Returns:
-            dict with execution results
-        """
-        # Get scan details
+        # Get scan details.
         scan = self.scan_repository.get_scan_by_id(scan_id)
         if not scan:
             raise HTTPException(
@@ -69,7 +56,7 @@ class ScanExecutionUseCase:
                 detail=f"Scan is already {scan.status.lower()}",
             )
 
-        # Get target details
+        # Get target details.
         target = self.target_repository.get_target_by_id(scan.target_id)
         if not target:
             raise HTTPException(
@@ -83,7 +70,7 @@ class ScanExecutionUseCase:
                 detail="The target does not belong to the supplied project",
             )
 
-        # Verify target is in scope
+        # Verify target is in scope.
         scope_check = self.scope_validation_usecase.check_target_in_scope(
             project_id, target.target_value
         )
@@ -100,7 +87,7 @@ class ScanExecutionUseCase:
                 detail=f"Target is out of scope. Blocked by: {', '.join(scope_check['blocked_by_rules'])}",
             )
 
-        # Update scan status to RUNNING
+        # Update scan status to RUNNING.
         update_data = {
             "status": "RUNNING",
             "started_at": datetime.now(UTC),
@@ -108,7 +95,7 @@ class ScanExecutionUseCase:
         self.scan_repository.update_scan(scan, update_data)
 
         try:
-            # Execute Nmap scan
+            # Execute Nmap scan.
             nmap_result = self.nmap_service.execute_scan(
                 target.target_value,
                 scan.scan_type,
@@ -125,9 +112,7 @@ class ScanExecutionUseCase:
                     },
                 )
 
-                # A failed subprocess is a failed HTTP operation too. Returning a
-                # normal dictionary here previously made FastAPI emit 200 OK and
-                # caused terminal clients to mistake the response for success.
+                # A failed subprocess is a failed HTTP operation too.
                 failure_status = (
                     status.HTTP_504_GATEWAY_TIMEOUT
                     if "timeout" in error_message.lower()
@@ -138,7 +123,7 @@ class ScanExecutionUseCase:
                     detail=error_message,
                 )
 
-            # Parse vulnerabilities
+            # Parse vulnerabilities.
             vulnerability_data = (
                 self.vulnerability_parser.parse_scan_results(nmap_result)
             )
@@ -168,7 +153,7 @@ class ScanExecutionUseCase:
                     formatted_vulnerabilities
                 )
 
-            # Update scan with results
+            # Update scan with results.
             import json
 
             scan_result_json = json.dumps(vulnerability_data)
@@ -191,8 +176,7 @@ class ScanExecutionUseCase:
             }
 
         except HTTPException:
-            # Expected scan failures were already persisted above. Preserve their
-            # meaningful 502/504 response instead of converting them into a 500.
+            # Expected scan failures were already persisted above.
             raise
         except Exception as e:
             self.scan_repository.update_scan(
@@ -208,13 +192,8 @@ class ScanExecutionUseCase:
                 detail=f"Scan execution failed: {str(e)}",
             )
 
-    # Validate related records and coordinate repositories to get scan results.
+    # Get scan results.
     def get_scan_results(self, scan_id: int) -> dict:
-        """Apply business validation and orchestration needed to get scan results.
-
-        Invalid related records or state produce a clear HTTP error; valid work is
-        delegated to repositories or services.
-        """
         scan = self.scan_repository.get_scan_by_id(scan_id)
         if not scan:
             raise HTTPException(
@@ -239,13 +218,8 @@ class ScanExecutionUseCase:
                 "raw_result": scan.scan_result,
             }
 
-    # Validate related records and coordinate repositories to validate nmap availability.
+    # Validate nmap availability.
     def validate_nmap_availability(self) -> dict:
-        """Apply business validation and orchestration needed to validate nmap availability.
-
-        Invalid related records or state produce a clear HTTP error; valid work is
-        delegated to repositories or services.
-        """
         is_available = self.nmap_service.is_nmap_installed()
         return {
             "nmap_available": is_available,

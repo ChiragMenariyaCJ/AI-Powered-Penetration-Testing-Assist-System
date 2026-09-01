@@ -1,84 +1,28 @@
-# PTAS — AI-Powered Penetration Testing Assist System
+# AI-Powered Penetration Testing Assist System
 
-PTAS is a terminal-first teaching project for managing authorized security
-assessments. It combines a FastAPI backend, scoped Nmap scanning, evidence-based
-recommendations, vulnerability records, and report generation.
+PTAS is my MSc Cyber Security project. It uses FastAPI, SQLAlchemy, MariaDB, Nmap, Ollama and Qwen 2.5 3B Instruct to scan an authorised lab target, analyse findings, suggest safe validation steps and create JSON and HTML reports.
 
-> **Academic and authorized use only.** Run PTAS only against systems you own or
-> have explicit written permission to test. Recommendations are advisory and are
-> never executed automatically.
-
-## Quick start
-
-On Kali Linux, run the setup once. It also installs the local Ollama service and
-downloads the `qwen2.5:3b-instruct` recommendation model:
+## Start PTAS
 
 ```bash
 ./kali-setup.sh
-```
-
-Start the API in the VS Code terminal:
-
-```bash
 ./start.sh
 ```
 
-Open a separate Linux terminal and launch the student workspace:
+In another terminal, run:
 
 ```bash
 ptas
 ```
 
-The left pane is a real interactive shell and guided workflow. The right pane is
-read-only and displays live recommendations. API calls appear in the VS Code
-terminal as route, controller, use-case, and repository trace messages.
+The API documentation is available at `http://127.0.0.1:8000/docs`.
 
-Useful development addresses:
-
-- API: `http://127.0.0.1:8000`
-- Swagger UI: `http://127.0.0.1:8000/docs`
-- ReDoc: `http://127.0.0.1:8000/redoc`
-- Readiness check: `http://127.0.0.1:8000/health/ready`
-
-## Documentation
-
-Start with the [documentation index](docs/README.md). The main guides are:
-
-- [Complete setup, startup, and troubleshooting](docs/setup-and-running.md)
-- [Terminal workspace and recommendation pane](docs/terminal-workflow.md)
-- [Architecture and request flow](docs/architecture.md)
-- [Viva explanation guide](docs/viva-guide.md)
-- [Feature documentation](docs/functionalities/README.md)
-- [Restricted Metasploitable 2 lab](docs/access-testing.md)
-- [Metasploitable setup by IP from a Kali VMware guest](docs/metasploitable/README.md)
-
-## Project layout
-
-```text
-Backend/
-├── routes/             FastAPI endpoints and request validation
-├── controllers/        HTTP-to-business-layer adapters
-├── usecases/           Business rules and workflow orchestration
-├── repositories/       Database queries and transactions
-├── models/             SQLAlchemy database tables
-├── schemas/            Pydantic request and response shapes
-├── services/           Nmap, reporting, recommendations, and lab services
-├── terminal_assistant/ Transcript analysis and safe guidance
-├── main.py             FastAPI application setup
-└── terminal_workflow.py Guided terminal-first application
-docs/                   Setup, architecture, and feature guides
-tests/                  Automated unit and workflow tests
-```
-
-## Tests
-
-See the [test-suite guide](tests/README.md) for the purpose of each file,
-isolated-test design, focused commands, and troubleshooting.
+## Main commands
 
 ```bash
-./test.sh
+ptas doctor
+ptas recommend --scan-id 53
+ptas report 53
 ```
 
-This repository is an MSc Cyber Security dissertation project by Chirag
-Menariya. Its source and documentation are provided for academic assessment and
-portfolio demonstration; all rights are reserved by the author.
+PTAS must only be used against systems with clear permission. AI recommendations are checked against scope and safety rules, remain `PENDING_APPROVAL`, and are never executed automatically.

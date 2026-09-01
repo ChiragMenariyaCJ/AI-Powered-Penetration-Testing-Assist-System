@@ -1,31 +1,23 @@
-"""Data objects shared by terminal analysis and rendering."""
 
+# This file handles models.
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from hashlib import sha256
 import json
 
 
+# Handle the finding.
 @dataclass(frozen=True)
 class Finding:
-    """Represent or coordinate Finding in the terminal guidance pipeline.
-
-    The assistant analyzes evidence but never automatically executes its
-    recommendations.
-    """
     kind: str
     summary: str
     evidence: str
     severity: str = "INFO"
 
 
+# Handle the analysis result.
 @dataclass
 class AnalysisResult:
-    """Represent or coordinate AnalysisResult in the terminal guidance pipeline.
-
-    The assistant analyzes evidence but never automatically executes its
-    recommendations.
-    """
     command: str | None
     tool: str | None
     targets: list[str] = field(default_factory=list)
@@ -37,22 +29,12 @@ class AnalysisResult:
         default_factory=lambda: datetime.now(timezone.utc).isoformat()
     )
 
-    # Convert an analysis result and its nested findings into JSON-serialisable dictionaries.
+    # Convert this result to a dictionary.
     def to_dict(self) -> dict:
-        """Perform the to dict step of the terminal guidance pipeline.
-
-        The operation works with sanitized evidence and does not execute a recommended
-        security command.
-        """
         return asdict(self)
 
-    # Hash the meaningful analysis fields so the live dashboard can suppress repeated output.
+    # Create a stable result fingerprint.
     def fingerprint(self) -> str:
-        """Perform the fingerprint step of the terminal guidance pipeline.
-
-        The operation works with sanitized evidence and does not execute a recommended
-        security command.
-        """
         stable_data = {
             "command": self.command,
             "targets": self.targets,

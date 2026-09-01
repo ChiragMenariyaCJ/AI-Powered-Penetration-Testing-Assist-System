@@ -1,5 +1,5 @@
-"""SQLAlchemy model for authorized assessment targets."""
 
+# This file handles target model.
 from datetime import UTC, datetime
 
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
@@ -8,11 +8,8 @@ from sqlalchemy.orm import relationship
 from Backend.database import Base
 
 
+# Handle the target.
 class Target(Base):
-    """Represent the target table in the application database.
-
-    SQLAlchemy maps these attributes and relationships to persisted records.
-    """
     __tablename__ = "targets"
 
     id = Column(Integer, primary_key=True, index=True)

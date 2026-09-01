@@ -1,5 +1,5 @@
-"""SQLAlchemy model for student assessment projects."""
 
+# This file handles project model.
 from datetime import UTC, datetime
 
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
@@ -8,11 +8,8 @@ from sqlalchemy.orm import relationship
 from Backend.database import Base
 
 
+# Handle the project.
 class Project(Base):
-    """Represent the project table in the application database.
-
-    SQLAlchemy maps these attributes and relationships to persisted records.
-    """
     __tablename__ = "projects"
 
     id = Column(Integer, primary_key=True, index=True)

@@ -1,5 +1,5 @@
-"""SQLAlchemy model for generated assessment reports."""
 
+# This file handles report model.
 from datetime import UTC, datetime
 
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
@@ -8,11 +8,8 @@ from sqlalchemy.orm import relationship
 from Backend.database import Base
 
 
+# Handle the report.
 class Report(Base):
-    """Represent the report table in the application database.
-
-    SQLAlchemy maps these attributes and relationships to persisted records.
-    """
     __tablename__ = "reports"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -25,7 +22,7 @@ class Report(Base):
     title = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
     
-    # Summary statistics
+    # Summary statistics.
     total_vulnerabilities = Column(Integer, default=0)
     critical_count = Column(Integer, default=0)
     high_count = Column(Integer, default=0)
@@ -33,19 +30,19 @@ class Report(Base):
     low_count = Column(Integer, default=0)
     info_count = Column(Integer, default=0)
     
-    # Recommendations summary
+    # Recommendations summary.
     total_recommendations = Column(Integer, default=0)
     approved_recommendations = Column(Integer, default=0)
     pending_recommendations = Column(Integer, default=0)
     rejected_recommendations = Column(Integer, default=0)
     
-    # Scan details
+    # Scan details.
     target_count = Column(Integer, nullable=True)
     scan_duration_seconds = Column(Integer, nullable=True)
     scan_start_time = Column(DateTime, nullable=True)
     scan_end_time = Column(DateTime, nullable=True)
     
-    # Report metadata
+    # Report metadata.
     status = Column(
         String(20),
         nullable=False,
@@ -64,5 +61,5 @@ class Report(Base):
     )
     exported_at = Column(DateTime, nullable=True)
 
-    # Relationships
+    # Relationships.
     scan = relationship("Scan", back_populates="reports")

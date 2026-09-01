@@ -1,5 +1,5 @@
-"""Build, execute, and parse bounded Nmap assessment commands."""
 
+# This file handles nmap service.
 import subprocess
 import xml.etree.ElementTree as ET
 from datetime import UTC, datetime
@@ -12,14 +12,15 @@ from typing import Optional
 from Backend.config import settings
 
 
+# Handle the nmap service.
 class NmapService:
 
-    # Store the scan timeout and initialise process state used to stop an active Nmap run.
+    # Set up this object.
     def __init__(self):
         self.nmap_command = settings.nmap_path
         self.timeout = settings.nmap_timeout
 
-    # Return whether the Nmap executable is available on the current PATH.
+    # Check whether nmap installed.
     def is_nmap_installed(self) -> bool:
         try:
             result = subprocess.run(
@@ -31,24 +32,13 @@ class NmapService:
         except Exception:
             return False
 
-    # Execute Nmap scan on target and return results.
+    # Run scan.
     def execute_scan(
         self,
         target: str,
         scan_type: str = "FULL",
         custom_args: Optional[str] = None,
     ) -> dict:
-        """
-        Execute Nmap scan on target and return results
-        
-        Args:
-            target: Target IP, hostname, or network (CIDR)
-            scan_type: FULL, QUICK, CUSTOM, VULNERABILITY, PORT_SCAN
-            custom_args: Custom Nmap arguments
-            
-        Returns:
-            dict with scan results or error
-        """
         try:
             if not self.is_nmap_installed():
                 return {
@@ -112,7 +102,7 @@ class NmapService:
         except Exception as e:
             return {"status": "FAILED", "error": str(e)}
 
-    # Translate a PTAS scan type into a bounded Nmap argument list and XML output path.
+    # Build command.
     def _build_command(
         self,
         target: str,
@@ -128,12 +118,7 @@ class NmapService:
             # Keep the API service unprivileged; OS detection and SYN scans need root.
             cmd.extend(["-sV", "-sC"])
         elif scan_type == "VULNERABILITY":
-            # The old `(vuln and safe)` selector matched dozens of NSE scripts and
-            # repeatedly exceeded the five-minute project timeout. This stage is
-            # specifically offered as external CVE correlation, so run only the
-            # safe/external `vulners` script against Nmap's common-port set.
-            # A per-script deadline prevents one remote lookup from blocking the
-            # complete student workflow indefinitely.
+            # Use Vulners alone so this scan stays inside the project timeout.
             cmd.extend(
                 [
                     "-F",
@@ -153,7 +138,7 @@ class NmapService:
         cmd.append(target)
         return cmd
 
-    # Reject malformed or option-like targets before passing them to the Nmap subprocess.
+    # Validate target.
     @staticmethod
     def _validate_target(target: str) -> str:
         candidate = target.strip().rstrip(".")
@@ -181,7 +166,7 @@ class NmapService:
             raise ValueError("Target must be a valid IP address, CIDR, or hostname")
         return candidate
 
-    # Parse Nmap XML into the scan metadata and host structures consumed by the API.
+    # Read XML output.
     def _parse_xml_output(self, xml_file_path: str) -> dict:
         try:
             tree = ET.parse(xml_file_path)
@@ -219,7 +204,7 @@ class NmapService:
                 "error": f"Failed to parse Nmap output: {str(e)}",
             }
 
-    # Convert one Nmap host element into address, status, service, and OS evidence.
+    # Read host.
     def _parse_host(self, host_elem) -> Optional[dict]:
         try:
             # Store Nmap's host-state reason so reports can explain why a host was considered reachable.
@@ -274,7 +259,7 @@ class NmapService:
         except Exception as e:
             return None
 
-    # Convert one Nmap port element into a structured service observation.
+    # Read port.
     def _parse_port(self, port_elem) -> Optional[dict]:
         try:
             port_num = port_elem.get("portid")
@@ -323,7 +308,7 @@ class NmapService:
         except Exception:
             return None
 
-    # Terminate the currently running Nmap process when a cancellation is requested.
+    # Work with stop scan.
     def stop_scan(self, process_pid: int) -> bool:
         try:
             subprocess.run(

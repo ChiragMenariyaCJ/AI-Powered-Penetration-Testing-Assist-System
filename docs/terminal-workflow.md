@@ -47,21 +47,16 @@ repeat a completed command, and contains no shell chaining or credential,
 exploitation, or state-changing operation.
 
 The right pane labels model output as `Source: local Ollama`. If Ollama is not
-available, any deterministic continuation is explicitly labelled
-`NEXT RULES FALLBACK`; it is not represented as an AI recommendation. If Ollama
-responds but its JSON or command fails validation, PTAS prints the rejection
-reason and uses `NEXT SAFETY FALLBACK` to advance to the next unexecuted command
-derived from the scan findings. Command analyses and adaptive recommendations
-are appended to the session JSONL audit log.
+available, or its JSON or command fails validation, PTAS clearly reports that
+no AI recommendation was generated. It does not substitute static guidance.
+Command analyses and accepted adaptive recommendations are appended to the
+session JSONL audit log.
 
 For an exact target registered with the Metasploitable 2 lab workflow, the
 dashboard additionally rechecks the saved route/MAC identity and the completed
-scan fingerprint. It then prints `METASPLOITABLE 2 LAB MODE ENABLED`. When the
-model has no further evidence-only command, guidance transitions to the exact
-`./ptas.sh access-test --scan-id ID --lab NAME` command instead of ending at
-`NO SAFE MODEL RECOMMENDATION`. That command opens the separate confirmation
-gate; it does not automatically access the VM. Unregistered targets retain the
-ordinary recommendation policy.
+scan fingerprint. It then prints `METASPLOITABLE 2 LAB MODE ENABLED`. Restricted
+access testing remains a separate, explicitly invoked workflow and is never
+substituted for a rejected AI recommendation.
 
 Each scan stage prints its completed findings in the left terminal. The right
 terminal stays focused on recommendations and report handoff. Nmap findings become available when that stage
@@ -154,13 +149,19 @@ ptas start --plain
 At the end, PTAS prints a scan-specific command similar to:
 
 ```bash
-./ptas.sh report --scan-id 12 --output reports/ptas-scan-12.json
+ptas report 12
 ```
 
 Run that command from the repository root to generate the database report and
 save its JSON content at the displayed location.
 
 ### One recommendation at a time
+
+Generate an Ollama recommendation for every uncovered finding first:
+
+```bash
+./ptas.sh recommend --scan-id 12 --all
+```
 
 After an assessment, request the first stored validation recommendation with:
 
@@ -196,7 +197,7 @@ HTML report. For example, this command creates `ptas-scan-12.json` and
 `ptas-scan-12.html`:
 
 ```bash
-./ptas.sh report --scan-id 12 --output reports/ptas-scan-12.json
+ptas report 12
 ```
 
 Convert an existing JSON report without starting MariaDB:
@@ -252,7 +253,7 @@ The Kali setup script installs and starts Ollama with
   --model qwen2.5:3b-instruct
 ```
 
-Use `PTAS_SKIP_OLLAMA=1 ./kali-setup.sh` when rules-only advice is intentional.
+`PTAS_SKIP_OLLAMA=1 ./kali-setup.sh` disables recommendation generation.
 
 PTAS refuses to send terminal excerpts to a non-local Ollama URL unless
 `--allow-remote-llm` is explicitly supplied. Review the privacy impact before
@@ -308,7 +309,6 @@ findings, and suggestions; they do not contain the full raw transcript.
 
 ```bash
 ./ptas.sh doctor
-python3 -m unittest discover -v
 ```
 
 The initial parser recognizes Nmap port output, HTTP status lines, common web

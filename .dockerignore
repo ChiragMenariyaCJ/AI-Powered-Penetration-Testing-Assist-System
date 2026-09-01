@@ -4,9 +4,7 @@
 venv
 __pycache__
 *.py[cod]
-.pytest_cache
 .ptas
 *.log
-tests
 Supported Docs
 System Architecture Flow Charts

@@ -1,5 +1,5 @@
-"""Create and configure the PTAS FastAPI application."""
 
+# This file handles main.
 import logging
 from contextlib import asynccontextmanager
 
@@ -12,7 +12,6 @@ from Backend.config import settings
 from Backend.database import Base, engine
 
 # Load the central model package before create_all or the first ORM query.
-# This registers every string-named relationship in SQLAlchemy's mapper registry.
 import Backend.models  # noqa: F401
 
 from Backend.routes.auth_routes import router as auth_router
@@ -44,18 +43,12 @@ ROUTERS = (
 )
 
 
-# ---------------------------------------------------------------------------
-# Application startup and shutdown
-# ---------------------------------------------------------------------------
+# Application startup and shutdown.
 
 
-# Create database tables at API startup and log startup and shutdown lifecycle events.
+# Start and stop the API cleanly.
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    """Perform the lifespan operation.
-
-    The type hints describe accepted inputs and the value returned to the caller.
-    """
 
     Base.metadata.create_all(bind=engine)
     logger.info(
@@ -65,9 +58,7 @@ async def lifespan(_: FastAPI):
     yield
 
 
-# ---------------------------------------------------------------------------
-# FastAPI and middleware configuration
-# ---------------------------------------------------------------------------
+# FastAPI and middleware configuration.
 
 
 app = FastAPI(
@@ -94,40 +85,26 @@ for router, prefix, tag in ROUTERS:
     app.include_router(router, prefix=prefix, tags=[tag])
 
 
-# ---------------------------------------------------------------------------
-# Root and health endpoints
-# ---------------------------------------------------------------------------
+# Root and health endpoints.
 
 
-# Return API identity and documentation links from the root endpoint.
+# Show the API welcome message.
 @app.get("/")
 def home():
-    """Perform the home operation.
-
-    The type hints describe accepted inputs and the value returned to the caller.
-    """
 
     return {"message": "PTAS Backend API is running"}
 
 
-# Confirm that the FastAPI process is running without checking external dependencies.
+# Check that the API process is alive.
 @app.get("/health/live", include_in_schema=False)
 def liveness():
-    """Perform the liveness operation.
-
-    The type hints describe accepted inputs and the value returned to the caller.
-    """
 
     return {"status": "ok"}
 
 
-# Check database connectivity before declaring the API ready to accept work.
+# Check that the API and database are ready.
 @app.get("/health/ready", include_in_schema=False)
 def readiness():
-    """Perform the readiness operation.
-
-    The type hints describe accepted inputs and the value returned to the caller.
-    """
 
     with engine.connect() as connection:
         connection.execute(text("SELECT 1"))

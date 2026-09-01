@@ -4,8 +4,8 @@ This guide configures the only target currently accepted by PTAS
 `ACCESS_TESTING`: a locally registered Metasploitable 2 VM on an isolated
 host-only network. VirtualBox and VMware Workstation/Player are supported.
 
-For the short IP-based setup used when Kali and Metasploitable are separate
-VMware guests, see [Metasploitable setup by IP](metasploitable/README.md).
+When Kali and Metasploitable are separate VMware guests, use
+`./metasploitable-setup.sh --target TARGET_IP`.
 
 When PTAS itself runs inside a Kali VMware guest, the physical host's `.vmx`
 file is normally unavailable inside Kali. Use the `vmware-network` provider in

@@ -1,5 +1,5 @@
-"""Filter model output to non-destructive, explicitly scoped guidance."""
 
+# This file handles safety.
 from __future__ import annotations
 
 import re
@@ -37,8 +37,6 @@ SAFE_NMAP_SCRIPTS = {
     "telnet-encryption",
 }
 # Scripts in this map only make sense on their corresponding service ports.
-# ``banner`` and the TLS scripts are intentionally omitted because they can
-# provide useful metadata on many non-standard ports.
 NMAP_SCRIPT_PORTS = {
     "dns-nsid": {53},
     "ftp-syst": {21, 2121},
@@ -73,13 +71,8 @@ FORBIDDEN_PATTERNS = tuple(
 SHELL_CONTROL_SYNTAX = re.compile(r"(?:[;&|`<>]|\$\(|\r|\n)")
 
 
-# Return whether recommendation prose avoids blocked exploitation, credential, and persistence actions.
+# Check whether safe recommendation.
 def is_safe_recommendation(text: str, authorized_targets: list[str] | None = None) -> bool:
-    """Perform the is safe recommendation step of the terminal guidance pipeline.
-
-    The operation works with sanitized evidence and does not execute a recommended
-    security command.
-    """
     value = " ".join(text.split())
     if not value:
         return False
@@ -109,17 +102,12 @@ def is_safe_recommendation(text: str, authorized_targets: list[str] | None = Non
     return True
 
 
-# Remove unsafe, blank, and duplicate recommendations before display or persistence.
+# Filter safe recommendations.
 def filter_safe_recommendations(
     suggestions: list[str],
     authorized_targets: list[str] | None = None,
     limit: int = 5,
 ) -> list[str]:
-    """Perform the filter safe recommendations step of the terminal guidance pipeline.
-
-    The operation works with sanitized evidence and does not execute a recommended
-    security command.
-    """
     filtered: list[str] = []
     for suggestion in suggestions:
         cleaned = " ".join(suggestion.strip().split())
@@ -133,20 +121,11 @@ def filter_safe_recommendations(
     return filtered
 
 
-# Explain why an LLM-produced command cannot be shown as runnable.
+# Explain why a manual command was rejected.
 def manual_command_rejection_reason(
     command: str,
     authorized_targets: list[str],
 ) -> str | None:
-    """Explain why an LLM-produced command cannot be shown as runnable.
-
-    Model text is treated as untrusted input. A runnable recommendation must be
-    one simple allowlisted command, contain an explicit in-scope target, and
-    pass the existing destructive-content checks. Shell composition is rejected
-    so a safe first command cannot hide a second operation after a pipe or
-    separator. Returning a short reason also lets the terminal explain a model
-    fallback without printing the rejected command itself.
-    """
 
     value = command.strip()
     if not value:
@@ -222,6 +201,38 @@ def manual_command_rejection_reason(
                             f"the Nmap script '{script}' does not match the selected "
                             f"service port{f' {chosen}' if chosen else ''}"
                         )
+    if tool == "sslscan":
+        allowed_options = {
+            "-4",
+            "-6",
+            "--ipv4",
+            "--ipv6",
+            "--no-colour",
+            "--show-certificate",
+            "--show-certificates",
+            "--show-ciphers",
+            "--show-client-cas",
+            "--show-sigs",
+            "--show-times",
+            "--tls10",
+            "--tls11",
+            "--tls12",
+            "--tls13",
+            "--tlsall",
+        }
+        for part in arguments:
+            option = part.split("=", 1)[0]
+            if part.startswith("-") and option not in allowed_options:
+                return f"the sslscan option '{part}' is not supported by PTAS"
+        endpoint_ports = {
+            int(match.group(1))
+            for part in arguments
+            if not part.startswith("-")
+            for match in [re.search(r":(\d+)$", part)]
+            if match
+        }
+        if endpoint_ports.intersection({80, 8000, 8080}):
+            return "sslscan was suggested for a clear HTTP service port"
     observed_targets = ScopeGuard.extract_targets(value)
     if not observed_targets:
         return "the command did not explicitly contain the authorized target"
@@ -236,8 +247,7 @@ def manual_command_rejection_reason(
     return None
 
 
-# Return whether a model command passes every manual-command guard.
+# Check whether safe manual command.
 def is_safe_manual_command(command: str, authorized_targets: list[str]) -> bool:
-    """Return whether a model command passes every manual-command guard."""
 
     return manual_command_rejection_reason(command, authorized_targets) is None

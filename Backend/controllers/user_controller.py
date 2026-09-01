@@ -1,5 +1,5 @@
-"""Translate user route requests into user use-case calls."""
 
+# This file handles user controller.
 from sqlalchemy.orm import Session
 
 from Backend.api_logging import trace_controller
@@ -7,41 +7,23 @@ from Backend.repositories.user_repository import UserRepository
 from Backend.usecases.user_usecase import UserUseCase
 
 
+# Handle the user controller.
 @trace_controller
 class UserController:
-    """Connect user HTTP handlers to the business layer.
 
-    The controller constructs dependencies and delegates without performing SQL itself.
-    """
-
-    # Build the repositories and use case this controller delegates to for one API request.
+    # Set up this object.
     def __init__(self, db: Session):
         repository = UserRepository(db)
         self.user_usecase = UserUseCase(repository)
 
-    # Forward get all users to the user use case so this controller contains no business or SQL logic.
+    # Get all users.
     def get_all_users(self):
-        """Delegate the request to get all users through the configured use case.
-
-        The controller keeps transport concerns separate from validation and persistence
-        rules.
-        """
         return self.user_usecase.get_all_users()
 
-    # Forward get user by id to the user use case so this controller contains no business or SQL logic.
+    # Get user by ID.
     def get_user_by_id(self, user_id: int):
-        """Delegate the request to get user by id through the configured use case.
-
-        The controller keeps transport concerns separate from validation and persistence
-        rules.
-        """
         return self.user_usecase.get_user_by_id(user_id)
 
-    # Forward delete user to the user use case so this controller contains no business or SQL logic.
+    # Delete user.
     def delete_user(self, user_id: int):
-        """Delegate the request to delete user through the configured use case.
-
-        The controller keeps transport concerns separate from validation and persistence
-        rules.
-        """
         return self.user_usecase.delete_user(user_id)

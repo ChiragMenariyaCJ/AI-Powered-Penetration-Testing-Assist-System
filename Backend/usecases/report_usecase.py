@@ -1,5 +1,5 @@
-"""Business rules for building, retrieving, and exporting reports."""
 
+# This file handles report usecase.
 import json
 from datetime import UTC, datetime
 from sqlalchemy.orm import Session
@@ -14,57 +14,47 @@ from Backend.repositories.scan_repository import ScanRepository
 from Backend.repositories.vulnerability_repository import VulnerabilityRepository
 
 
+# Handle the report use case.
 @trace_usecase
 class ReportUseCase:
-    """Apply report business rules between controllers and persistence.
-
-    The use case validates related state and coordinates repositories or services.
-    """
-    # Generate a comprehensive penetration test report for a scan.
+    # Generate report.
     @staticmethod
     def generate_report(
         db: Session, scan_id: int, title: str, description: str = None, generated_by: str = None
     ) -> dict:
-        """
-        Generate a comprehensive penetration test report for a scan
-
-        Args:
-            db: Database session
-            scan_id: ID of the scan to generate report for
-            title: Report title
-            description: Optional report description
-            generated_by: User who generated the report
-
-        Returns:
-            dict with report ID and status
-        """
-        # Validate scan exists
+        # Validate scan exists.
         scan = ScanRepository(db).get_scan_by_id(scan_id)
         if not scan:
             return {"error": f"Scan {scan_id} not found"}
 
-        # Get all vulnerabilities for this scan
+        # Get all vulnerabilities for this scan.
         vulnerabilities = db.query(Vulnerability).filter(
             Vulnerability.scan_id == scan_id
         ).all()
 
-        # Calculate vulnerability summary
+        # Calculate vulnerability summary.
         vuln_summary = ReportUseCase._calculate_vulnerability_summary(vulnerabilities)
 
-        # Get all recommendations for vulnerabilities in this scan
-        recommendation_summary = ReportUseCase._calculate_recommendation_summary(
+        report_recommendations = ReportUseCase._recommendations_for_report(
             db, vulnerabilities
         )
-
-        # Gather scan metadata
-        scan_metadata = ReportUseCase._gather_scan_metadata(db, scan)
-
-        # Generate report content
-        report_content = ReportUseCase._generate_report_content(
-            scan, vulnerabilities, db, title, description
+        recommendation_summary = ReportUseCase._calculate_recommendation_summary(
+            report_recommendations
         )
 
-        # Create report in database
+        # Gather scan metadata.
+        scan_metadata = ReportUseCase._gather_scan_metadata(db, scan)
+
+        # Generate report content.
+        report_content = ReportUseCase._generate_report_content(
+            scan,
+            vulnerabilities,
+            report_recommendations,
+            title,
+            description,
+        )
+
+        # Create report in database.
         report_data = {
             "scan_id": scan_id,
             "title": title,
@@ -104,14 +94,9 @@ class ReportUseCase:
             },
         }
 
-    # Validate related records and coordinate repositories to calculate vulnerability summary.
+    # Calculate vulnerability summary.
     @staticmethod
     def _calculate_vulnerability_summary(vulnerabilities: list[Vulnerability]) -> dict:
-        """Apply business validation and orchestration needed to calculate vulnerability summary.
-
-        Invalid related records or state produce a clear HTTP error; valid work is
-        delegated to repositories or services.
-        """
         severity_map = {
             "CRITICAL": 0,
             "HIGH": 0,
@@ -134,29 +119,18 @@ class ReportUseCase:
             "info": severity_map["INFO"],
         }
 
-    # Validate related records and coordinate repositories to calculate recommendation summary.
+    # Calculate recommendation summary.
     @staticmethod
     def _calculate_recommendation_summary(
-        db: Session, vulnerabilities: list[Vulnerability]
+        recommendations: list[Recommendation],
     ) -> dict:
-        """Apply business validation and orchestration needed to calculate recommendation summary.
-
-        Invalid related records or state produce a clear HTTP error; valid work is
-        delegated to repositories or services.
-        """
-        vuln_ids = [v.id for v in vulnerabilities]
-
-        if not vuln_ids:
+        if not recommendations:
             return {
                 "total": 0,
                 "approved": 0,
                 "pending": 0,
                 "rejected": 0,
             }
-
-        recommendations = db.query(Recommendation).filter(
-            Recommendation.vulnerability_id.in_(vuln_ids)
-        ).all()
 
         status_count = {
             "total": len(recommendations),
@@ -175,15 +149,40 @@ class ReportUseCase:
 
         return status_count
 
-    # Validate related records and coordinate repositories to gather scan metadata.
+    # Work with recommendation provider.
+    @staticmethod
+    def _recommendation_provider(recommendation: Recommendation) -> str:
+        source = str(recommendation.tools_required or "").lower()
+        if source == "realtime-ollama":
+            return "OLLAMA"
+        return "UNSPECIFIED"
+
+    # Work with recommendations for report.
+    @staticmethod
+    def _recommendations_for_report(
+        db: Session,
+        vulnerabilities: list[Vulnerability],
+    ) -> list[Recommendation]:
+        vulnerability_ids = [vulnerability.id for vulnerability in vulnerabilities]
+        if not vulnerability_ids:
+            return []
+        recommendations = (
+            db.query(Recommendation)
+            .filter(Recommendation.vulnerability_id.in_(vulnerability_ids))
+            .order_by(Recommendation.priority.desc(), Recommendation.id.asc())
+            .all()
+        )
+        return [
+            recommendation
+            for recommendation in recommendations
+            if ReportUseCase._recommendation_provider(recommendation) == "OLLAMA"
+            and recommendation.status != "REJECTED"
+        ]
+
+    # Work with gather scan metadata.
     @staticmethod
     def _gather_scan_metadata(db: Session, scan: Scan) -> dict:
-        """Apply business validation and orchestration needed to gather scan metadata.
-
-        Invalid related records or state produce a clear HTTP error; valid work is
-        delegated to repositories or services.
-        """
-        # Count unique targets in scan
+        # Count unique targets in scan.
         targets = db.query(Vulnerability.host).filter(
             Vulnerability.scan_id == scan.id
         ).distinct().count()
@@ -200,30 +199,25 @@ class ReportUseCase:
             "end_time": scan.completed_at,
         }
 
-    # Validate related records and coordinate repositories to generate report content.
+    # Generate report content.
     @staticmethod
     def _generate_report_content(
         scan: Scan,
         vulnerabilities: list[Vulnerability],
-        db: Session,
+        recommendations: list[Recommendation],
         title: str,
         description: str = None,
     ) -> str:
-        """Apply business validation and orchestration needed to generate report content.
-
-        Invalid related records or state produce a clear HTTP error; valid work is
-        delegated to repositories or services.
-        """
         vuln_list = []
+        recommendations_by_vulnerability: dict[int, list[Recommendation]] = {}
+        for recommendation in recommendations:
+            recommendations_by_vulnerability.setdefault(
+                recommendation.vulnerability_id, []
+            ).append(recommendation)
 
         for vuln in vulnerabilities:
-            # Get recommendations for this vulnerability
-            recommendations = db.query(Recommendation).filter(
-                Recommendation.vulnerability_id == vuln.id
-            ).all()
-
             rec_list = []
-            for rec in recommendations:
+            for rec in recommendations_by_vulnerability.get(vuln.id, []):
                 rec_list.append(
                     {
                         "id": rec.id,
@@ -233,6 +227,7 @@ class ReportUseCase:
                         "risk_level": rec.risk_level,
                         "priority": rec.priority,
                         "status": rec.status,
+                        "provider": ReportUseCase._recommendation_provider(rec),
                         "tools_required": rec.tools_required,
                         "execution_steps": rec.execution_steps,
                     }
@@ -267,20 +262,20 @@ class ReportUseCase:
             "summary": {
                 "total_vulnerabilities": len(vulnerabilities),
                 "total_recommendations": sum(len(v["recommendations"]) for v in vuln_list),
+                "recommendation_provider": (
+                    "OLLAMA"
+                    if recommendations
+                    else "NONE"
+                ),
             },
             "vulnerabilities": vuln_list,
         }
 
         return json.dumps(report_data, indent=2)
 
-    # Validate related records and coordinate repositories to get report.
+    # Get report.
     @staticmethod
     def get_report(db: Session, report_id: int) -> dict:
-        """Apply business validation and orchestration needed to get report.
-
-        Invalid related records or state produce a clear HTTP error; valid work is
-        delegated to repositories or services.
-        """
         report = ReportRepository.get_report_by_id(db, report_id)
         if not report:
             return {"error": f"Report {report_id} not found"}
@@ -319,14 +314,9 @@ class ReportUseCase:
             },
         }
 
-    # Validate related records and coordinate repositories to get reports by scan.
+    # Get reports by scan.
     @staticmethod
     def get_reports_by_scan(db: Session, scan_id: int) -> dict:
-        """Apply business validation and orchestration needed to get reports by scan.
-
-        Invalid related records or state produce a clear HTTP error; valid work is
-        delegated to repositories or services.
-        """
         reports = ReportRepository.get_reports_by_scan_id(db, scan_id)
         return {
             "scan_id": scan_id,
@@ -342,14 +332,9 @@ class ReportUseCase:
             "total": len(reports),
         }
 
-    # Validate related records and coordinate repositories to export report.
+    # Export report.
     @staticmethod
     def export_report(db: Session, report_id: int, format_type: str, exported_by: str = None) -> dict:
-        """Apply business validation and orchestration needed to export report.
-
-        Invalid related records or state produce a clear HTTP error; valid work is
-        delegated to repositories or services.
-        """
         report = ReportRepository.get_report_by_id(db, report_id)
         if not report:
             return {"error": f"Report {report_id} not found"}
@@ -357,7 +342,7 @@ class ReportUseCase:
         if format_type not in ["JSON", "PDF", "HTML"]:
             return {"error": f"Invalid format type: {format_type}. Supported: JSON, PDF, HTML"}
 
-        # Update report with export info
+        # Update report with export info.
         update_data = {
             "format_type": format_type,
             "exported_at": datetime.now(UTC),
@@ -372,14 +357,9 @@ class ReportUseCase:
             "exported_at": datetime.now(UTC),
         }
 
-    # Validate related records and coordinate repositories to list all reports.
+    # List all reports.
     @staticmethod
     def list_all_reports(db: Session, skip: int = 0, limit: int = 10) -> dict:
-        """Apply business validation and orchestration needed to list all reports.
-
-        Invalid related records or state produce a clear HTTP error; valid work is
-        delegated to repositories or services.
-        """
         reports = ReportRepository.get_all_reports(db, skip, limit)
         total = ReportRepository.count_reports(db)
 

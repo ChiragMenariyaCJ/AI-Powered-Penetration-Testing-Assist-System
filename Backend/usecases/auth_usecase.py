@@ -1,5 +1,5 @@
-"""Authentication business rules for registration, login, and token creation."""
 
+# This file handles auth usecase.
 from fastapi import HTTPException
 
 from Backend.api_logging import trace_usecase
@@ -11,25 +11,17 @@ from Backend.utils.password_utils import (
 from Backend.utils.jwt_utils import create_access_token
 
 
+# Handle the auth use case.
 @trace_usecase
 class AuthUseCase:
 
-    """Apply auth business rules between controllers and persistence.
-
-    The use case validates related state and coordinates repositories or services.
-    """
-    # Store the repositories and services used to enforce this feature’s business rules.
+    # Set up this object.
     def __init__(self, user_repository):
         self.user_repository = user_repository
 
-    # Validate related records and coordinate repositories to register.
+    # Register register.
     def register(self, request):
 
-        """Apply business validation and orchestration needed to register.
-
-        Invalid related records or state produce a clear HTTP error; valid work is
-        delegated to repositories or services.
-        """
         existing_user = self.user_repository.get_user_by_email(
             request.email
         )
@@ -59,14 +51,9 @@ class AuthUseCase:
             "user_id": user.id,
         }
 
-    # Validate related records and coordinate repositories to login.
+    # Work with login.
     def login(self, request):
 
-        """Apply business validation and orchestration needed to login.
-
-        Invalid related records or state produce a clear HTTP error; valid work is
-        delegated to repositories or services.
-        """
         user = self.user_repository.get_user_by_email(
             request.email
         )

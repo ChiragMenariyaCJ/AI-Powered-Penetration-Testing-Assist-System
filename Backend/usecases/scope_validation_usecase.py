@@ -1,5 +1,5 @@
-"""Business rules for defining and enforcing authorized target scope."""
 
+# This file handles scope validation usecase.
 import ipaddress
 import re
 from fastapi import HTTPException, status
@@ -11,14 +11,11 @@ from Backend.repositories.scope_validation_repository import (
 )
 
 
+# Handle the scope validation use case.
 @trace_usecase
 class ScopeValidationUseCase:
 
-    """Apply scope validation business rules between controllers and persistence.
-
-    The use case validates related state and coordinates repositories or services.
-    """
-    # Store the repositories and services used to enforce this feature’s business rules.
+    # Set up this object.
     def __init__(
         self,
         scope_validation_repository: ScopeValidationRepository,
@@ -27,13 +24,8 @@ class ScopeValidationUseCase:
         self.scope_validation_repository = scope_validation_repository
         self.project_repository = project_repository
 
-    # Validate related records and coordinate repositories to create scope validation.
+    # Create scope validation.
     def create_scope_validation(self, request):
-        """Apply business validation and orchestration needed to create scope validation.
-
-        Invalid related records or state produce a clear HTTP error; valid work is
-        delegated to repositories or services.
-        """
         project = self.project_repository.get_project_by_id(request.project_id)
 
         if not project:
@@ -52,13 +44,8 @@ class ScopeValidationUseCase:
             status=request.status,
         )
 
-    # Validate related records and coordinate repositories to get all scope validations.
+    # Get all scope validations.
     def get_all_scope_validations(self, project_id: int | None = None):
-        """Apply business validation and orchestration needed to get all scope validations.
-
-        Invalid related records or state produce a clear HTTP error; valid work is
-        delegated to repositories or services.
-        """
         if project_id is not None:
             project = self.project_repository.get_project_by_id(project_id)
 
@@ -83,13 +70,8 @@ class ScopeValidationUseCase:
             "scope_validations": scope_validations,
         }
 
-    # Validate related records and coordinate repositories to get scope validation by id.
+    # Get scope validation by ID.
     def get_scope_validation_by_id(self, scope_validation_id: int):
-        """Apply business validation and orchestration needed to get scope validation by id.
-
-        Invalid related records or state produce a clear HTTP error; valid work is
-        delegated to repositories or services.
-        """
         scope_validation = (
             self.scope_validation_repository.get_scope_validation_by_id(
                 scope_validation_id
@@ -104,13 +86,8 @@ class ScopeValidationUseCase:
 
         return scope_validation
 
-    # Validate related records and coordinate repositories to update scope validation.
+    # Update scope validation.
     def update_scope_validation(self, scope_validation_id: int, request):
-        """Apply business validation and orchestration needed to update scope validation.
-
-        Invalid related records or state produce a clear HTTP error; valid work is
-        delegated to repositories or services.
-        """
         scope_validation = (
             self.scope_validation_repository.get_scope_validation_by_id(
                 scope_validation_id
@@ -136,13 +113,8 @@ class ScopeValidationUseCase:
             update_data,
         )
 
-    # Validate related records and coordinate repositories to delete scope validation.
+    # Delete scope validation.
     def delete_scope_validation(self, scope_validation_id: int):
-        """Apply business validation and orchestration needed to delete scope validation.
-
-        Invalid related records or state produce a clear HTTP error; valid work is
-        delegated to repositories or services.
-        """
         scope_validation = (
             self.scope_validation_repository.get_scope_validation_by_id(
                 scope_validation_id
@@ -168,13 +140,8 @@ class ScopeValidationUseCase:
             "rule": deleted_rule,
         }
 
-    # Evaluate every active rule, giving explicit exclusions priority over inclusive matches.
+    # Check target in scope.
     def check_target_in_scope(self, project_id: int, target_value: str):
-        """Apply business validation and orchestration needed to check target in scope.
-
-        Invalid related records or state produce a clear HTTP error; valid work is
-        delegated to repositories or services.
-        """
         project = self.project_repository.get_project_by_id(project_id)
 
         if not project:
@@ -224,13 +191,8 @@ class ScopeValidationUseCase:
             "blocked_by_rules": blocking_exclusive_rules,
         }
 
-    # Dispatch one target to the matcher selected by the stored scope-rule type.
+    # Work with matches scope rule.
     def _matches_scope_rule(self, target_value: str, rule) -> bool:
-        """Apply business validation and orchestration needed to matches scope rule.
-
-        Invalid related records or state produce a clear HTTP error; valid work is
-        delegated to repositories or services.
-        """
         try:
             if rule.scope_type == "CIDR":
                 return self._check_cidr(target_value, rule.scope_value)
@@ -248,13 +210,8 @@ class ScopeValidationUseCase:
 
         return False
 
-    # Parse the rule as a network and check whether the target IP belongs to it.
+    # Check cidr.
     def _check_cidr(self, target: str, cidr: str) -> bool:
-        """Apply business validation and orchestration needed to check cidr.
-
-        Invalid related records or state produce a clear HTTP error; valid work is
-        delegated to repositories or services.
-        """
         try:
             network = ipaddress.ip_network(cidr, strict=False)
             ip = ipaddress.ip_address(target)
@@ -262,13 +219,8 @@ class ScopeValidationUseCase:
         except Exception:
             return False
 
-    # Compare numeric IP values to determine whether the target is inside an inclusive range.
+    # Check ip range.
     def _check_ip_range(self, target: str, ip_range: str) -> bool:
-        """Apply business validation and orchestration needed to check ip range.
-
-        Invalid related records or state produce a clear HTTP error; valid work is
-        delegated to repositories or services.
-        """
         try:
             parts = ip_range.split("-")
             if len(parts) != 2:
@@ -280,33 +232,18 @@ class ScopeValidationUseCase:
         except Exception:
             return False
 
-    # Match the exact authorised domain or one of its subdomains, but not a similar suffix.
+    # Check domain.
     def _check_domain(self, target: str, domain: str) -> bool:
-        """Apply business validation and orchestration needed to check domain.
-
-        Invalid related records or state produce a clear HTTP error; valid work is
-        delegated to repositories or services.
-        """
         domain = domain.lower()
         target = target.lower()
         return target == domain or target.endswith("." + domain)
 
-    # Compare an exact hostname case-insensitively without performing DNS resolution.
+    # Check hostname.
     def _check_hostname(self, target: str, hostname: str) -> bool:
-        """Apply business validation and orchestration needed to check hostname.
-
-        Invalid related records or state produce a clear HTTP error; valid work is
-        delegated to repositories or services.
-        """
         return target.lower() == hostname.lower()
 
-    # Convert the stored wildcard into an anchored regular expression for full-target matching.
+    # Check wildcard.
     def _check_wildcard(self, target: str, pattern: str) -> bool:
-        """Apply business validation and orchestration needed to check wildcard.
-
-        Invalid related records or state produce a clear HTTP error; valid work is
-        delegated to repositories or services.
-        """
         pattern = pattern.replace(".", r"\.")
         pattern = pattern.replace("*", ".*")
         regex = f"^{pattern}$"

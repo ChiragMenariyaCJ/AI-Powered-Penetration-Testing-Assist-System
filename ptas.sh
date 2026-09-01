@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-# Resolve the real script path so a global /usr/local/bin/ptas symlink works.
+# Find the project folder when ptas is started from a symlink.
 SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}")"
 PROJECT_DIR="$(cd "$(dirname "$SCRIPT_PATH")"; pwd)"
 

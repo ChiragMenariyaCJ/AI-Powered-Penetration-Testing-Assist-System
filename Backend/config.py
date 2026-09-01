@@ -1,5 +1,5 @@
-"""Load and validate PTAS settings from environment variables and .env."""
 
+# This file handles config.
 import json
 import os
 import secrets
@@ -8,12 +8,8 @@ from dataclasses import dataclass
 try:
     from dotenv import load_dotenv
 except ImportError:  # Environment variables still work without optional .env loading.
-    # Load key/value settings from a .env file without replacing variables already set by the shell.
+    # Load dotenv.
     def load_dotenv() -> bool:
-        """Perform the load dotenv operation.
-
-        The type hints describe accepted inputs and the value returned to the caller.
-        """
         return False
 
 
@@ -21,14 +17,14 @@ except ImportError:  # Environment variables still work without optional .env lo
 load_dotenv()
 
 
-# Convert an environment variable into a predictable Boolean configuration value.
+# Convert a setting to a Boolean value.
 def _as_bool(value: str | None, default: bool = False) -> bool:
     if value is None:
         return default
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
-# Split the configured CORS origin list while removing blank entries and whitespace.
+# Work with cors origins.
 def _cors_origins(value: str | None) -> tuple[str, ...]:
     if not value:
         return ("http://localhost:3000", "http://localhost:8000")
@@ -43,12 +39,9 @@ def _cors_origins(value: str | None) -> tuple[str, ...]:
     return tuple(str(item).strip() for item in parsed if str(item).strip())
 
 
+# Handle the settings.
 @dataclass(frozen=True)
 class Settings:
-    """Coordinate the responsibilities of Settings.
-
-    Its public methods provide the supported interface used by the rest of PTAS.
-    """
 
     app_env: str
     database_url: str
@@ -62,22 +55,14 @@ class Settings:
     cors_origins: tuple[str, ...]
     debug: bool
 
-    # Return whether the configured environment name represents a production deployment.
+    # Check whether production.
     @property
     def is_production(self) -> bool:
-        """Perform the is production operation for Settings.
-
-        The type hints describe accepted inputs and the value returned to the caller.
-        """
         return self.app_env == "production"
 
 
-# Read environment variables once and return the cached, typed PTAS settings object.
+# Get settings.
 def get_settings() -> Settings:
-    """Perform the get settings operation.
-
-    The type hints describe accepted inputs and the value returned to the caller.
-    """
 
     app_env = os.getenv("APP_ENV", "development").strip().lower()
     if app_env not in {"development", "test", "production"}:
@@ -89,7 +74,6 @@ def get_settings() -> Settings:
             raise ValueError("SECRET_KEY must contain at least 32 characters in production")
     elif not secret_key:
         # An unpredictable per-process key is safer than a shared source-code default.
-        # Set SECRET_KEY to keep sessions valid across development restarts.
         secret_key = secrets.token_urlsafe(32)
 
     return Settings(

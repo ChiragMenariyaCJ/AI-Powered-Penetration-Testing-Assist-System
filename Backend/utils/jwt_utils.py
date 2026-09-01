@@ -1,17 +1,13 @@
-"""Create and verify signed authentication tokens."""
 
+# This file handles jwt utils.
 from datetime import UTC, datetime, timedelta
 from jose import JWTError, jwt
 
 from Backend.config import settings
 
 
-# Create a signed JWT containing the user identity and an expiry timestamp.
+# Create access token.
 def create_access_token(data: dict) -> str:
-    """Perform the token operation needed to create access token.
-
-    Signing configuration comes from application settings rather than from the request.
-    """
     payload = data.copy()
 
     payload["exp"] = datetime.now(UTC) + timedelta(
@@ -25,12 +21,8 @@ def create_access_token(data: dict) -> str:
     )
 
 
-# Verify a JWT signature and expiry before returning its decoded claims.
+# Decode access token.
 def decode_access_token(token: str) -> dict | None:
-    """Perform the token operation needed to decode access token.
-
-    Signing configuration comes from application settings rather than from the request.
-    """
     try:
         return jwt.decode(
             token,

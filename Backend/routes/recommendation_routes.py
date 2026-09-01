@@ -1,5 +1,5 @@
-"""Recommendation generation and review endpoints."""
 
+# This file handles recommendation routes.
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
@@ -14,11 +14,10 @@ from Backend.schemas.recommendation_schema import (
     RecommendationScore,
 )
 
-# Every route uses the shared terminal request logger.
 router = APIRouter(route_class=LoggedRoute)
 
 
-# Validate HTTP inputs and delegate the generate recommendations request to the recommendation controller.
+# Generate recommendations.
 @router.post(
     "/generate/{vulnerability_id}",
     response_model=RecommendationListResponse,
@@ -28,11 +27,6 @@ def generate_recommendations(
     vulnerability_id: int,
     db: Session = Depends(get_db),
 ):
-    """Handle the HTTP request that asks PTAS to generate recommendations.
-
-    FastAPI validates inputs and supplies a database session before this endpoint
-    delegates to its controller.
-    """
     controller = RecommendationController(db)
     result = controller.generate_recommendations(vulnerability_id)
     return {
@@ -41,123 +35,83 @@ def generate_recommendations(
     }
 
 
-# Validate HTTP inputs and delegate the get all recommendations request to the recommendation controller.
+# Get all recommendations.
 @router.get("/", response_model=RecommendationListResponse)
 def get_all_recommendations(
     vulnerability_id: int | None = Query(default=None, gt=0),
     db: Session = Depends(get_db),
 ):
-    """Handle the HTTP request that asks PTAS to get all recommendations.
-
-    FastAPI validates inputs and supplies a database session before this endpoint
-    delegates to its controller.
-    """
     controller = RecommendationController(db)
     return controller.get_all_recommendations(vulnerability_id)
 
 
-# Validate HTTP inputs and delegate the get recommendation by id request to the recommendation controller.
+# Get recommendation by ID.
 @router.get("/{recommendation_id}", response_model=RecommendationResponse)
 def get_recommendation_by_id(
     recommendation_id: int,
     db: Session = Depends(get_db),
 ):
-    """Handle the HTTP request that asks PTAS to get recommendation by id.
-
-    FastAPI validates inputs and supplies a database session before this endpoint
-    delegates to its controller.
-    """
     controller = RecommendationController(db)
     return controller.get_recommendation_by_id(recommendation_id)
 
 
-# Validate HTTP inputs and delegate the update recommendation request to the recommendation controller.
+# Update recommendation.
 @router.put("/{recommendation_id}", response_model=RecommendationResponse)
 def update_recommendation(
     recommendation_id: int,
     request: RecommendationUpdateRequest,
     db: Session = Depends(get_db),
 ):
-    """Handle the HTTP request that asks PTAS to update recommendation.
-
-    FastAPI validates inputs and supplies a database session before this endpoint
-    delegates to its controller.
-    """
     controller = RecommendationController(db)
     return controller.update_recommendation(recommendation_id, request)
 
 
-# Validate HTTP inputs and delegate the delete recommendation request to the recommendation controller.
+# Delete recommendation.
 @router.delete("/{recommendation_id}")
 def delete_recommendation(
     recommendation_id: int,
     db: Session = Depends(get_db),
 ):
-    """Handle the HTTP request that asks PTAS to delete recommendation.
-
-    FastAPI validates inputs and supplies a database session before this endpoint
-    delegates to its controller.
-    """
     controller = RecommendationController(db)
     return controller.delete_recommendation(recommendation_id)
 
 
-# Validate HTTP inputs and delegate the approve recommendation request to the recommendation controller.
+# Approve recommendation.
 @router.post("/{recommendation_id}/approve")
 def approve_recommendation(
     recommendation_id: int,
     approved_by: str = Query(min_length=1, max_length=100),
     db: Session = Depends(get_db),
 ):
-    """Handle the HTTP request that asks PTAS to approve recommendation.
-
-    FastAPI validates inputs and supplies a database session before this endpoint
-    delegates to its controller.
-    """
     controller = RecommendationController(db)
     return controller.approve_recommendation(recommendation_id, approved_by)
 
 
-# Validate HTTP inputs and delegate the reject recommendation request to the recommendation controller.
+# Reject recommendation.
 @router.post("/{recommendation_id}/reject")
 def reject_recommendation(
     recommendation_id: int,
     db: Session = Depends(get_db),
 ):
-    """Handle the HTTP request that asks PTAS to reject recommendation.
-
-    FastAPI validates inputs and supplies a database session before this endpoint
-    delegates to its controller.
-    """
     controller = RecommendationController(db)
     return controller.reject_recommendation(recommendation_id)
 
 
-# Validate HTTP inputs and delegate the get recommendations by status request to the recommendation controller.
+# Get recommendations by status.
 @router.get("/status/{status_filter}", response_model=RecommendationListResponse)
 def get_recommendations_by_status(
     status_filter: str,
     db: Session = Depends(get_db),
 ):
-    """Handle the HTTP request that asks PTAS to get recommendations by status.
-
-    FastAPI validates inputs and supplies a database session before this endpoint
-    delegates to its controller.
-    """
     controller = RecommendationController(db)
     return controller.get_recommendations_by_status(status_filter)
 
 
-# Validate HTTP inputs and delegate the get attack score request to the recommendation controller.
+# Get attack score.
 @router.get("/attack-score/{vulnerability_id}", response_model=RecommendationScore)
 def get_attack_score(
     vulnerability_id: int,
     db: Session = Depends(get_db),
 ):
-    """Handle the HTTP request that asks PTAS to get attack score.
-
-    FastAPI validates inputs and supplies a database session before this endpoint
-    delegates to its controller.
-    """
     controller = RecommendationController(db)
     return controller.get_attack_score(vulnerability_id)

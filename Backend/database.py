@@ -1,5 +1,5 @@
-"""Configure SQLAlchemy's engine, sessions, and declarative model base."""
 
+# This file handles database.
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 
@@ -20,12 +20,8 @@ SessionLocal = sessionmaker(
 Base = declarative_base()
 
 
-# Yield one SQLAlchemy session to a FastAPI request and always close it afterward.
+# Get db.
 def get_db():
-    """Perform the get db operation.
-
-    The type hints describe accepted inputs and the value returned to the caller.
-    """
 
     db = SessionLocal()
 

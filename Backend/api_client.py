@@ -1,5 +1,5 @@
-"""Small HTTP client used by the terminal workflow to call the PTAS API."""
 
+# This file handles api client.
 from __future__ import annotations
 
 import json
@@ -11,17 +11,13 @@ from urllib.request import Request, urlopen
 from Backend.config import settings
 
 
+# Handle the ptas API error.
 class PTASApiError(RuntimeError):
-    """Signal that PTASApi could not complete safely.
-
-    Callers catch this specific error to present a controlled failure instead of
-    continuing with invalid state.
-    """
+    pass
 
 
-# Return a client-safe URL for the host and port used by start.sh.
+# Work with default API URL.
 def default_api_url() -> str:
-    """Return a client-safe URL for the host and port used by start.sh."""
 
     configured = os.getenv("PTAS_API_URL", "").strip().rstrip("/")
     if configured:
@@ -32,18 +28,15 @@ def default_api_url() -> str:
     return f"http://{host}:{settings.api_port}"
 
 
+# Handle the ptas API client.
 class PTASApiClient:
-    """Coordinate the responsibilities of PTASApiClient.
 
-    Its public methods provide the supported interface used by the rest of PTAS.
-    """
-
-    # Store the API base URL and timeout used by every terminal-to-backend request.
+    # Set up this object.
     def __init__(self, base_url: str | None = None):
         self.base_url = (base_url or default_api_url()).rstrip("/")
         self.access_token: str | None = None
 
-    # Send a GET request to the backend with optional URL query parameters.
+    # Get get.
     def get(
         self,
         path: str,
@@ -51,14 +44,10 @@ class PTASApiClient:
         query: dict | None = None,
         timeout: float = 15,
     ):
-        """Perform the get operation for PTASApiClient.
-
-        The type hints describe accepted inputs and the value returned to the caller.
-        """
 
         return self._request("GET", path, query=query, timeout=timeout)
 
-    # Send a JSON POST request to the backend and return the decoded response.
+    # Send a POST request to the API.
     def post(
         self,
         path: str,
@@ -67,10 +56,6 @@ class PTASApiClient:
         query: dict | None = None,
         timeout: float = 15,
     ):
-        """Perform the post operation for PTASApiClient.
-
-        The type hints describe accepted inputs and the value returned to the caller.
-        """
 
         return self._request(
             "POST",
@@ -80,7 +65,7 @@ class PTASApiClient:
             timeout=timeout,
         )
 
-    # Send one JSON HTTP request and convert transport or API failures into PTASApiError.
+    # Request request.
     def _request(
         self,
         method: str,
@@ -122,7 +107,7 @@ class PTASApiClient:
         except json.JSONDecodeError as exc:
             raise PTASApiError("PTAS API returned an invalid JSON response") from exc
 
-    # Extract the most useful error message from a failed API response body.
+    # Work with error detail.
     @staticmethod
     def _error_detail(error: HTTPError) -> str:
 

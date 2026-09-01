@@ -1,65 +1,37 @@
-"""Translate report routes into report-generation use-case calls."""
 
+# This file handles report controller.
 from sqlalchemy.orm import Session
 
 from Backend.api_logging import trace_controller
 from Backend.usecases.report_usecase import ReportUseCase
 
 
+# Handle the report controller.
 @trace_controller
 class ReportController:
-    """Connect report HTTP handlers to the business layer.
-
-    The controller constructs dependencies and delegates without performing SQL itself.
-    """
-    # Forward generate report to the report use case so this controller contains no business or SQL logic.
+    # Generate report.
     @staticmethod
     def generate_report(
         db: Session, scan_id: int, title: str, description: str = None, generated_by: str = None
     ):
-        """Delegate the request to generate report through the configured use case.
-
-        The controller keeps transport concerns separate from validation and persistence
-        rules.
-        """
         return ReportUseCase.generate_report(db, scan_id, title, description, generated_by)
 
-    # Forward get report to the report use case so this controller contains no business or SQL logic.
+    # Get report.
     @staticmethod
     def get_report(db: Session, report_id: int):
-        """Delegate the request to get report through the configured use case.
-
-        The controller keeps transport concerns separate from validation and persistence
-        rules.
-        """
         return ReportUseCase.get_report(db, report_id)
 
-    # Forward get reports by scan to the report use case so this controller contains no business or SQL logic.
+    # Get reports by scan.
     @staticmethod
     def get_reports_by_scan(db: Session, scan_id: int):
-        """Delegate the request to get reports by scan through the configured use case.
-
-        The controller keeps transport concerns separate from validation and persistence
-        rules.
-        """
         return ReportUseCase.get_reports_by_scan(db, scan_id)
 
-    # Forward export report to the report use case so this controller contains no business or SQL logic.
+    # Export report.
     @staticmethod
     def export_report(db: Session, report_id: int, format_type: str, exported_by: str = None):
-        """Delegate the request to export report through the configured use case.
-
-        The controller keeps transport concerns separate from validation and persistence
-        rules.
-        """
         return ReportUseCase.export_report(db, report_id, format_type, exported_by)
 
-    # Forward list all reports to the report use case so this controller contains no business or SQL logic.
+    # List all reports.
     @staticmethod
     def list_all_reports(db: Session, skip: int = 0, limit: int = 10):
-        """Delegate the request to list all reports through the configured use case.
-
-        The controller keeps transport concerns separate from validation and persistence
-        rules.
-        """
         return ReportUseCase.list_all_reports(db, skip, limit)

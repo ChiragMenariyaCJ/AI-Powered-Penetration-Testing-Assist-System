@@ -6,7 +6,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# Install system dependencies including Nmap
+# Install Nmap and the required system packages.
 RUN apt-get update && apt-get install -y \
     nmap \
     gcc \
@@ -14,14 +14,14 @@ RUN apt-get update && apt-get install -y \
     python3-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements
+# Copy the Python package list.
 COPY Backend/requirements.txt .
 
-# Install Python dependencies
+# Install the Python packages.
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
-# Copy application code
+# Copy the application code.
 COPY . .
 
 RUN addgroup --system ptas && adduser --system --ingroup ptas ptas \
@@ -29,12 +29,12 @@ RUN addgroup --system ptas && adduser --system --ingroup ptas ptas \
 
 USER ptas
 
-# Expose port
+# Expose the API port.
 EXPOSE 8000
 
-# Health check
+# Check that the API is alive.
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/live', timeout=5)"
 
-# Run application
+# Start the API.
 CMD ["gunicorn", "Backend.main:app", "--bind", "0.0.0.0:8000", "--workers", "2", "--worker-class", "uvicorn.workers.UvicornWorker", "--access-logfile", "-"]

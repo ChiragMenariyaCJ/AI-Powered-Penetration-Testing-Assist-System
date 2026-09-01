@@ -1,5 +1,5 @@
-"""Generate deterministic recommendations from vulnerability evidence."""
 
+# This file handles ai recommendation engine.
 from __future__ import annotations
 
 import os
@@ -8,6 +8,7 @@ from Backend.terminal_assistant.advisor import AdvisorError, OllamaAdvisor
 from Backend.terminal_assistant.safety import filter_safe_recommendations
 
 
+# Handle the AI recommendation engine.
 class AIRecommendationEngine:
 
     MITRE_TECHNIQUES = {
@@ -25,11 +26,11 @@ class AIRecommendationEngine:
         "HTTPS": "MEDIUM",
     }
 
-    # Store the vulnerability repository and optional advisor used to build recommendations.
+    # Set up this object.
     def __init__(self, advisor: OllamaAdvisor | None = None):
         self.advisor = advisor or self._advisor_from_environment()
 
-    # Combine vulnerability evidence, model suggestions, and fallback scoring into stored advice.
+    # Generate recommendations.
     def generate_recommendations(self, vulnerability: dict) -> list[dict]:
         host = vulnerability.get("host") or "the authorized target"
         port = vulnerability.get("port")
@@ -37,14 +38,22 @@ class AIRecommendationEngine:
         severity = (vulnerability.get("severity") or "MEDIUM").upper()
         suggestions = self._model_suggestions(vulnerability)
         if not suggestions:
-            suggestions = [self._fallback_suggestion(vulnerability)]
+            return []
 
-        return [
-            self._format_recommendation(suggestion, host, port, service, severity)
-            for suggestion in suggestions
-        ]
+        recommendations = []
+        for suggestion in suggestions:
+            recommendation = self._format_recommendation(
+                suggestion,
+                host,
+                port,
+                service,
+                severity,
+            )
+            if recommendation:
+                recommendations.append(recommendation)
+        return recommendations
 
-    # Ask the configured advisor for suggestions and return an empty list when no model is enabled.
+    # Work with model suggestions.
     def _model_suggestions(self, vulnerability: dict) -> list[str]:
         if not self.advisor:
             return []
@@ -59,7 +68,7 @@ class AIRecommendationEngine:
         except AdvisorError:
             return []
 
-    # Build the bounded evidence prompt supplied to the recommendation model.
+    # Build the prompt sent to Ollama.
     @staticmethod
     def _prompt(vulnerability: dict) -> str:
         return f"""You are a real-time classroom penetration-testing coach.
@@ -75,20 +84,7 @@ Current evidence:
 - Description: {vulnerability.get("description") or "unknown"}
 """
 
-    # Create deterministic evidence-based guidance when the model returns no usable suggestion.
-    @staticmethod
-    def _fallback_suggestion(vulnerability: dict) -> str:
-        host = vulnerability.get("host") or "the authorized target"
-        port = vulnerability.get("port")
-        service = vulnerability.get("service") or "unknown service"
-        endpoint = f"{host}:{port}" if port else host
-        return (
-            f"Review the current evidence for {service} on {endpoint}, collect "
-            "non-destructive configuration details, document the result, and stop "
-            "before any access activity."
-        )
-
-    # Normalise one suggestion into the database fields required by the recommendation model.
+    # Format recommendation.
     def _format_recommendation(
         self,
         suggestion: str,
@@ -98,9 +94,9 @@ Current evidence:
         severity: str,
     ) -> dict:
         safe = filter_safe_recommendations([suggestion], [host] if host else None, 1)
-        step = safe[0] if safe else self._fallback_suggestion(
-            {"host": host, "port": port, "service": service}
-        )
+        if not safe:
+            return {}
+        step = safe[0]
         return {
             "attack_technique": "Realtime guided validation",
             "mitre_technique_id": "T1046",
@@ -113,7 +109,7 @@ Current evidence:
                 "Explicit authorization, in-scope target, and operator approval "
                 "before any suggested step is run manually"
             ),
-            "tools_required": "realtime-advisor",
+            "tools_required": "realtime-ollama",
             "execution_steps": step,
             "post_exploitation": (
                 "Not applicable. Stop after validation and keep the activity inside "
@@ -122,10 +118,10 @@ Current evidence:
             "confidence_score": self._calculate_confidence(severity),
         }
 
-    # Create the optional local Ollama advisor from environment configuration.
+    # Load the Ollama advisor from the environment settings.
     @staticmethod
     def _advisor_from_environment() -> OllamaAdvisor | None:
-        provider = os.getenv("PTAS_LLM_PROVIDER", "rules").lower()
+        provider = os.getenv("PTAS_LLM_PROVIDER", "ollama").lower()
         if provider != "ollama":
             return None
         model = os.getenv("PTAS_LLM_MODEL") or os.getenv("OLLAMA_MODEL")
@@ -138,7 +134,7 @@ Current evidence:
             allow_remote=allow_remote,
         )
 
-    # Map severity and exploitability evidence to the displayed recommendation risk level.
+    # Calculate risk level.
     def _calculate_risk_level(self, severity: str) -> str:
         return {
             "CRITICAL": "MEDIUM",
@@ -148,7 +144,7 @@ Current evidence:
             "INFO": "LOW",
         }.get(severity, "LOW")
 
-    # Convert risk and confidence evidence into a sortable recommendation priority.
+    # Calculate priority.
     def _calculate_priority(self, severity: str, port: int) -> int:
         priority = {
             "CRITICAL": 6,
@@ -161,7 +157,7 @@ Current evidence:
             priority += 1
         return min(priority, 7)
 
-    # Estimate how likely the candidate issue is from its severity and evidence quality.
+    # Calculate likelihood.
     def _calculate_likelihood(self, severity: str) -> int:
         return {
             "CRITICAL": 70,
@@ -171,7 +167,7 @@ Current evidence:
             "INFO": 30,
         }.get(severity, 40)
 
-    # Estimate potential impact from the stored vulnerability severity.
+    # Calculate impact.
     def _calculate_impact(self, severity: str) -> int:
         return {
             "CRITICAL": 60,
@@ -181,7 +177,7 @@ Current evidence:
             "INFO": 10,
         }.get(severity, 20)
 
-    # Calculate confidence from the amount and quality of observed scan evidence.
+    # Calculate confidence.
     def _calculate_confidence(self, severity: str) -> int:
         return {
             "CRITICAL": 90,
@@ -191,7 +187,7 @@ Current evidence:
             "INFO": 55,
         }.get(severity, 70)
 
-    # Return the combined likelihood, impact, confidence, and priority score for one finding.
+    # Calculate attack score.
     def calculate_attack_score(self, vulnerability: dict) -> dict:
         severity = (vulnerability.get("severity") or "MEDIUM").upper()
         service = (vulnerability.get("service") or "UNKNOWN").upper()
